@@ -17,7 +17,6 @@ import type * as auth from "../auth.js";
 import type * as http from "../http.js";
 import type * as lib_constants from "../lib/constants.js";
 import type * as lib_utils from "../lib/utils.js";
-import type * as myFunctions from "../myFunctions.js";
 import type * as overlays from "../overlays.js";
 import type * as tournaments from "../tournaments.js";
 import type * as types from "../types.js";
@@ -36,7 +35,6 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "lib/constants": typeof lib_constants;
   "lib/utils": typeof lib_utils;
-  myFunctions: typeof myFunctions;
   overlays: typeof overlays;
   tournaments: typeof tournaments;
   types: typeof types;

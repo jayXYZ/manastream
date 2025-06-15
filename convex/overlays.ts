@@ -7,6 +7,7 @@ import {
   getOverlayByUuidValidator,
   getUserOverlaysValidator,
 } from "./validators";
+import { Player } from "./types";
 
 // Create a match overlay
 export const createMatchOverlay = mutation({
@@ -284,17 +285,20 @@ export const getOverlayById = query({
     }
 
     // For match overlays, fetch player data
-    if (overlay.overlayType === "match" && overlay.player1 && overlay.player2) {
-      const [player1, player2] = await Promise.all([
-        ctx.db.get(overlay.player1),
-        ctx.db.get(overlay.player2),
-      ]);
-
-      return {
+    if (overlay.overlayType === "match") {
+      let player1Data, player2Data;
+      if (overlay.player1) {
+        player1Data = await ctx.db.get(overlay.player1);
+      }
+      if (overlay.player2) {
+        player2Data = await ctx.db.get(overlay.player2);
+      }
+      const result = {
         ...overlay,
-        player1Data: player1 ?? undefined,
-        player2Data: player2 ?? undefined,
+        player1Data: player1Data ?? undefined,
+        player2Data: player2Data ?? undefined,
       };
+      return result;
     }
 
     // For deck overlays, fetch the feature match data if needed

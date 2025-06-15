@@ -18,7 +18,14 @@ export default function ControllersPage() {
   ): overlay is OverlayListItem {
     return overlay.type === "match";
   }
-  const match = overlays?.find(isMatchOverlay);
+
+  if (overlays === undefined) {
+    return <p>Loading...</p>;
+  }
+  const match = overlays.find(isMatchOverlay);
+  if (!match) {
+    return <p>No match overlay found.</p>;
+  }
 
   return (
     <div className="space-y-6">
@@ -30,7 +37,7 @@ export default function ControllersPage() {
           Control your live overlays in real-time
         </p>
       </div>
-      {match && <MatchController matchId={match._id} />}
+      <MatchController matchId={match._id} />
     </div>
   );
 }

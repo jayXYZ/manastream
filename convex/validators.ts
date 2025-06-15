@@ -47,6 +47,7 @@ export const overlayTypeValidator = v.union(
 // Different overlay validators
 export const matchOverlayValidator = v.object({
   _id: v.id("overlays"),
+  _creationTime: v.number(),
   name: v.string(),
   overlayType: v.literal("match"),
   tournamentId: v.id("tournaments"),

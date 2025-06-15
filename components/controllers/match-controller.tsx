@@ -1,70 +1,74 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Id } from "@/convex/_generated/dataModel";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "../ui/button";
 import { api } from "@/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import { MatchOverlayWithPlayers } from "@/convex/types";
 import { Label } from "../ui/label";
+import { AccordionCard } from "../accordion-card";
 
 interface MatchControllerProps {
   matchId: Id<"overlays">;
 }
 
 export function MatchController({ matchId }: MatchControllerProps) {
-  const match = useQuery(api.overlays.getOverlayById, {
-    overlayId: matchId,
+  const [inputs, setInputs] = useState({
+    player1Name: "",
+    player2Name: "",
+    player1DeckName: "",
+    player2DeckName: "",
+    player1TournamentRecord: "",
+    player2TournamentRecord: "",
   });
 
-  if (!match || match.overlayType !== "match") {
-    throw new Error("Match overlay not found");
-  }
-
-  const matchWithPlayers = match as MatchOverlayWithPlayers;
-
-  const [inputs, setInputs] = useState<{
-    player1Name: string;
-    player2Name: string;
-    player1DeckName: string;
-    player2DeckName: string;
-    player1TournamentRecord: string;
-    player2TournamentRecord: string;
-  }>({
-    player1Name:
-      matchWithPlayers.player1DisplayName ||
-      matchWithPlayers.player1Data?.name ||
-      "",
-    player2Name:
-      matchWithPlayers.player2DisplayName ||
-      matchWithPlayers.player2Data?.name ||
-      "",
-    player1DeckName:
-      matchWithPlayers.player1Data?.deckName ||
-      matchWithPlayers.player1DisplayDeck ||
-      "",
-    player2DeckName:
-      matchWithPlayers.player2Data?.deckName ||
-      matchWithPlayers.player2DisplayDeck ||
-      "",
-    player1TournamentRecord:
-      matchWithPlayers.player1Data?.record ||
-      matchWithPlayers.player1TournamentRecord ||
-      "",
-    player2TournamentRecord:
-      matchWithPlayers.player2Data?.record ||
-      matchWithPlayers.player2TournamentRecord ||
-      "",
-  });
-
+  const match = useQuery(api.overlays.getOverlayById, { overlayId: matchId });
   const updateMatch = useMutation(api.overlays.updateMatchOverlay);
 
+  useEffect(() => {
+    if (match && match.overlayType === "match") {
+      const matchWithPlayers = match as MatchOverlayWithPlayers;
+      setInputs({
+        player1Name:
+          matchWithPlayers.player1DisplayName ||
+          matchWithPlayers.player1Data?.name ||
+          "",
+        player2Name:
+          matchWithPlayers.player2DisplayName ||
+          matchWithPlayers.player2Data?.name ||
+          "",
+        player1DeckName:
+          matchWithPlayers.player1Data?.deckName ||
+          matchWithPlayers.player1DisplayDeck ||
+          "",
+        player2DeckName:
+          matchWithPlayers.player2Data?.deckName ||
+          matchWithPlayers.player2DisplayDeck ||
+          "",
+        player1TournamentRecord:
+          matchWithPlayers.player1Data?.record ||
+          matchWithPlayers.player1TournamentRecord ||
+          "",
+        player2TournamentRecord:
+          matchWithPlayers.player2Data?.record ||
+          matchWithPlayers.player2TournamentRecord ||
+          "",
+      });
+    }
+  }, [match]);
+
+  if (!match) {
+    return <p>Loading...</p>;
+  }
+
+  if (match?.overlayType !== "match") {
+    throw new Error("Overlay type mismatch");
+  }
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{match.name}</CardTitle>
-      </CardHeader>
-      <CardContent>
+    <AccordionCard title="Match Controller">
+      <div className="flex flex-col gap-2">
         <div className="flex flex-row gap-2">
           <div className="flex flex-col gap-2">
             <Label>Player 1</Label>
@@ -127,7 +131,7 @@ export function MatchController({ matchId }: MatchControllerProps) {
         >
           Update
         </Button>
-      </CardContent>
-    </Card>
+      </div>
+    </AccordionCard>
   );
 }

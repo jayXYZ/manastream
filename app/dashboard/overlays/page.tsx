@@ -33,6 +33,7 @@ export default function OverlaysPage() {
               onClick={() => {
                 createMatchOverlay({
                   tournamentId: tournament._id,
+                  name: "Match 1",
                 });
               }}
             >
