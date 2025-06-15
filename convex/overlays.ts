@@ -1,0 +1,328 @@
+import { mutation, query } from "./_generated/server";
+import { v } from "convex/values";
+import { getAuthUserId } from "@convex-dev/auth/server";
+import { filterUndefined, generatePublicUuid } from "./lib/utils";
+import {
+  getOverlayByIdValidator,
+  getOverlayByUuidValidator,
+  getUserOverlaysValidator,
+} from "./validators";
+
+// Create a match overlay
+export const createMatchOverlay = mutation({
+  args: {
+    tournamentId: v.id("tournaments"),
+    name: v.string(),
+  },
+  returns: v.object({
+    overlayId: v.id("overlays"),
+    publicUuid: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User not authenticated");
+    }
+
+    // Verify tournament ownership
+    const tournament = await ctx.db.get(args.tournamentId);
+    if (!tournament || tournament.userId !== userId) {
+      throw new Error("Tournament not found or access denied");
+    }
+
+    const publicUuid = generatePublicUuid();
+
+    const overlayId = await ctx.db.insert("overlays", {
+      name: args.name,
+      overlayType: "match",
+      tournamentId: args.tournamentId,
+      publicUuid,
+      player1: undefined,
+      player2: undefined,
+      player1Life: 20,
+      player2Life: 20,
+      player1GamesWon: 0,
+      player2GamesWon: 0,
+      createdAt: Date.now(),
+    });
+
+    return { overlayId, publicUuid };
+  },
+});
+
+// Create a card overlay
+export const createCardOverlay = mutation({
+  args: {
+    tournamentId: v.id("tournaments"),
+    name: v.string(),
+  },
+  returns: v.object({
+    overlayId: v.id("overlays"),
+    publicUuid: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User not authenticated");
+    }
+
+    // Verify tournament ownership
+    const tournament = await ctx.db.get(args.tournamentId);
+    if (!tournament || tournament.userId !== userId) {
+      throw new Error("Tournament not found or access denied");
+    }
+
+    const publicUuid = generatePublicUuid();
+
+    const overlayId = await ctx.db.insert("overlays", {
+      name: args.name,
+      overlayType: "card",
+      tournamentId: args.tournamentId,
+      publicUuid,
+      cardUrl:
+        "https://cards.scryfall.io/png/front/c/a/ca367f49-0f4a-4b7f-8104-851893fbcd8a.png?1562937711",
+      createdAt: Date.now(),
+    });
+
+    return { overlayId, publicUuid };
+  },
+});
+
+// Get overlay by public UUID (no authentication required)
+export const getOverlayByUuid = query({
+  args: {
+    publicUuid: v.string(),
+  },
+  returns: getOverlayByUuidValidator,
+  handler: async (ctx, args) => {
+    const overlay = await ctx.db
+      .query("overlays")
+      .withIndex("by_public_uuid", (q) => q.eq("publicUuid", args.publicUuid))
+      .unique();
+
+    if (!overlay) {
+      return null;
+    }
+
+    // For match overlays, fetch player data
+    if (overlay.overlayType === "match" && overlay.player1 && overlay.player2) {
+      const [player1, player2] = await Promise.all([
+        ctx.db.get(overlay.player1),
+        ctx.db.get(overlay.player2),
+      ]);
+
+      return {
+        ...overlay,
+        player1Data: player1 ?? undefined,
+        player2Data: player2 ?? undefined,
+      };
+    }
+
+    // For deck overlays, fetch the feature match data if needed
+    if (overlay.overlayType === "deck") {
+      if (!overlay.matchId) {
+        throw new Error("Match ID not found for deck overlay");
+      }
+      const featureMatch = await ctx.db.get(overlay.matchId);
+      if (!featureMatch) {
+        throw new Error("Feature match not found for deck overlay");
+      }
+      const [player1, player2] = await Promise.all([
+        ctx.db.get(featureMatch.player1),
+        ctx.db.get(featureMatch.player2),
+      ]);
+
+      if (!player1 || !player2) {
+        throw new Error("Player not found for feature match in deck overlay");
+      }
+      return {
+        ...overlay,
+        matchData: {
+          ...featureMatch,
+          player1Data: player1,
+          player2Data: player2,
+        },
+      };
+    }
+
+    return overlay;
+  },
+});
+
+// Update match overlay data (authenticated)
+export const updateMatchOverlay = mutation({
+  args: {
+    overlayId: v.id("overlays"),
+    player1Life: v.optional(v.number()),
+    player2Life: v.optional(v.number()),
+    player1GamesWon: v.optional(v.number()),
+    player2GamesWon: v.optional(v.number()),
+    player1DisplayName: v.optional(v.string()),
+    player2DisplayName: v.optional(v.string()),
+    player1DisplayDeck: v.optional(v.string()),
+    player2DisplayDeck: v.optional(v.string()),
+    player1TournamentRecord: v.optional(v.string()),
+    player2TournamentRecord: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User not authenticated");
+    }
+
+    const overlay = await ctx.db.get(args.overlayId);
+    if (!overlay || overlay.overlayType !== "match") {
+      throw new Error("Match overlay not found");
+    }
+
+    // Verify tournament ownership
+    const tournament = await ctx.db.get(overlay.tournamentId);
+    if (!tournament || tournament.userId !== userId) {
+      throw new Error("Access denied");
+    }
+
+    // Extract only the update fields (excluding overlayId) and filter out undefined values
+    const { overlayId, ...updateFields } = args;
+    const updates = filterUndefined(updateFields);
+
+    await ctx.db.patch(args.overlayId, updates);
+    return null;
+  },
+});
+
+// Reset match overlay data (authenticated)
+export const resetMatchOverlay = mutation({
+  args: {
+    overlayId: v.id("overlays"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User not authenticated");
+    }
+
+    const overlay = await ctx.db.get(args.overlayId);
+    if (!overlay || overlay.overlayType !== "match") {
+      throw new Error("Match overlay not found");
+    }
+
+    await ctx.db.patch(args.overlayId, {
+      player1: undefined,
+      player2: undefined,
+      player1Life: 20,
+      player2Life: 20,
+      player1GamesWon: 0,
+      player2GamesWon: 0,
+      player1DisplayName: undefined,
+      player2DisplayName: undefined,
+      player1DisplayDeck: undefined,
+      player2DisplayDeck: undefined,
+      player1TournamentRecord: undefined,
+      player2TournamentRecord: undefined,
+    });
+
+    return null;
+  },
+});
+
+// Get all overlays for a user (authenticated), return overlay ID, type, name, and public UUID
+export const getUserOverlays = query({
+  args: {},
+  returns: getUserOverlaysValidator,
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User not authenticated");
+    }
+    // Find the user's tournament (assuming 1 tournament per user)
+    const tournament = await ctx.db
+      .query("tournaments")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .unique();
+
+    if (!tournament) {
+      return [];
+    }
+    // Fetch overlays for that tournament
+    const overlays = await ctx.db
+      .query("overlays")
+      .withIndex("by_tournament", (q) => q.eq("tournamentId", tournament._id))
+      .collect();
+
+    return overlays.map((overlay) => ({
+      _id: overlay._id,
+      type: overlay.overlayType,
+      name: overlay.name,
+      publicUuid: overlay.publicUuid,
+    }));
+  },
+});
+
+// Get overlay by id (authenticated)
+export const getOverlayById = query({
+  args: {
+    overlayId: v.id("overlays"),
+  },
+  returns: getOverlayByIdValidator,
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User not authenticated");
+    }
+
+    const overlay = await ctx.db.get(args.overlayId);
+    if (!overlay) {
+      throw new Error("Overlay not found");
+    }
+
+    // Verify tournament ownership
+    const tournament = await ctx.db.get(overlay.tournamentId);
+    if (!tournament || tournament.userId !== userId) {
+      throw new Error("Access denied");
+    }
+
+    // For match overlays, fetch player data
+    if (overlay.overlayType === "match" && overlay.player1 && overlay.player2) {
+      const [player1, player2] = await Promise.all([
+        ctx.db.get(overlay.player1),
+        ctx.db.get(overlay.player2),
+      ]);
+
+      return {
+        ...overlay,
+        player1Data: player1 ?? undefined,
+        player2Data: player2 ?? undefined,
+      };
+    }
+
+    // For deck overlays, fetch the feature match data if needed
+    if (overlay.overlayType === "deck") {
+      if (!overlay.matchId) {
+        throw new Error("Match ID not found for deck overlay");
+      }
+      const featureMatch = await ctx.db.get(overlay.matchId);
+      if (!featureMatch) {
+        throw new Error("Feature match not found for deck overlay");
+      }
+      const [player1, player2] = await Promise.all([
+        ctx.db.get(featureMatch.player1),
+        ctx.db.get(featureMatch.player2),
+      ]);
+      if (!player1 || !player2) {
+        throw new Error("Player not found for feature match in deck overlay");
+      }
+      return {
+        ...overlay,
+        matchData: {
+          ...featureMatch,
+          player1Data: player1,
+          player2Data: player2,
+        },
+      };
+    }
+
+    return overlay;
+  },
+});
