@@ -6,6 +6,7 @@ import {
   playerValidator,
   tournamentValidator,
   settingsValidator,
+  featureMatchValidator,
 } from "./validators";
 
 // The schema is normally optional, but Convex Auth
@@ -41,18 +42,7 @@ export default defineSchema({
     .index("by_session", ["sessionId"]),
 
   // Feature Matches table - enhanced for better API/manual integration
-  featureMatches: defineTable({
-    externalId: v.string(), // Spicerack Tournament ID + Round Number + Player 1 Name + Player 2 Name
-    tournamentId: v.id("tournaments"),
-    roundNumber: v.number(),
-    player1: v.id("players"),
-    player2: v.id("players"),
-    tableNumber: v.optional(v.number()),
-    timerExpiry: v.optional(v.number()), // Unix timestamp
-    timerRunning: v.boolean(),
-    createdAt: v.number(),
-  })
-    .index("by_tournament", ["tournamentId"])
+  featureMatches: defineTable(featureMatchValidator)
     .index("by_tournament_and_round", ["tournamentId", "roundNumber"])
     .index("by_external_id", ["externalId"]),
 

@@ -14,6 +14,7 @@ import type {
   FunctionReference,
 } from "convex/server";
 import type * as auth from "../auth.js";
+import type * as featurematches from "../featurematches.js";
 import type * as http from "../http.js";
 import type * as lib_constants from "../lib/constants.js";
 import type * as lib_utils from "../lib/utils.js";
@@ -32,6 +33,7 @@ import type * as validators from "../validators.js";
  */
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  featurematches: typeof featurematches;
   http: typeof http;
   "lib/constants": typeof lib_constants;
   "lib/utils": typeof lib_utils;

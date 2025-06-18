@@ -192,6 +192,154 @@ export const updateMatchOverlay = mutation({
   },
 });
 
+export const setOverlayFeatureMatch = mutation({
+  args: {
+    overlayId: v.id("overlays"),
+    featureMatchId: v.id("featureMatches"),
+    playersSwapped: v.boolean(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User not authenticated");
+    }
+
+    const overlay = await ctx.db.get(args.overlayId);
+    if (!overlay || overlay.overlayType !== "match") {
+      throw new Error("Match overlay not found");
+    }
+
+    // Verify tournament ownership
+    const tournament = await ctx.db.get(overlay.tournamentId);
+    if (!tournament || tournament.userId !== userId) {
+      throw new Error("Access denied");
+    }
+
+    const featureMatch = await ctx.db.get(args.featureMatchId);
+    if (!featureMatch) {
+      throw new Error("Feature match not found");
+    }
+
+    const player1 = args.playersSwapped
+      ? featureMatch.player2
+      : featureMatch.player1;
+    const player2 = args.playersSwapped
+      ? featureMatch.player1
+      : featureMatch.player2;
+
+    await ctx.db.patch(args.overlayId, {
+      player1,
+      player2,
+    });
+    return null;
+  },
+});
+
+// Specialized mutation: Update player life total
+export const updatePlayerLife = mutation({
+  args: {
+    overlayId: v.id("overlays"),
+    playerIndex: v.union(v.literal("1"), v.literal("2")),
+    newLifeTotal: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User not authenticated");
+    }
+
+    const overlay = await ctx.db.get(args.overlayId);
+    if (!overlay || overlay.overlayType !== "match") {
+      throw new Error("Match overlay not found");
+    }
+
+    // Verify tournament ownership
+    const tournament = await ctx.db.get(overlay.tournamentId);
+    if (!tournament || tournament.userId !== userId) {
+      throw new Error("Access denied");
+    }
+
+    const updateField = `player${args.playerIndex}Life` as const;
+
+    await ctx.db.patch(args.overlayId, {
+      [updateField]: args.newLifeTotal,
+    });
+    return null;
+  },
+});
+
+// Specialized mutation: Increment games won for a player and reset both
+// players' life totals to 20
+export const incrementGamesWon = mutation({
+  args: {
+    overlayId: v.id("overlays"),
+    playerIndex: v.union(v.literal("1"), v.literal("2")),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User not authenticated");
+    }
+
+    const overlay = await ctx.db.get(args.overlayId);
+    if (!overlay || overlay.overlayType !== "match") {
+      throw new Error("Match overlay not found");
+    }
+
+    // Verify tournament ownership
+    const tournament = await ctx.db.get(overlay.tournamentId);
+    if (!tournament || tournament.userId !== userId) {
+      throw new Error("Access denied");
+    }
+
+    const currentGamesWon = overlay[`player${args.playerIndex}GamesWon`] || 0;
+    const updateField = `player${args.playerIndex}GamesWon` as const;
+
+    await ctx.db.patch(args.overlayId, {
+      [updateField]: currentGamesWon + 1,
+      player1Life: 20,
+      player2Life: 20,
+    });
+    return null;
+  },
+});
+
+// Specialized mutation: Reset match (set both players to starting life and games won to 0)
+export const resetMatch = mutation({
+  args: {
+    overlayId: v.id("overlays"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User not authenticated");
+    }
+
+    const overlay = await ctx.db.get(args.overlayId);
+    if (!overlay || overlay.overlayType !== "match") {
+      throw new Error("Match overlay not found");
+    }
+
+    // Verify tournament ownership
+    const tournament = await ctx.db.get(overlay.tournamentId);
+    if (!tournament || tournament.userId !== userId) {
+      throw new Error("Access denied");
+    }
+
+    await ctx.db.patch(args.overlayId, {
+      player1Life: 20, // or make this configurable
+      player2Life: 20, // or make this configurable
+      player1GamesWon: 0,
+      player2GamesWon: 0,
+    });
+    return null;
+  },
+});
+
 // Reset match overlay data (authenticated)
 export const resetMatchOverlay = mutation({
   args: {

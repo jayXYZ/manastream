@@ -2,6 +2,7 @@ import { Infer } from "convex/values";
 import {
   cardOverlayValidator,
   deckOverlayValidator,
+  featureMatchWithPlayersValidator,
   matchOverlayValidator,
   matchOverlayWithPlayersValidator,
   standingsOverlayValidator,
@@ -20,4 +21,7 @@ export type StandingsOverlay = Infer<typeof standingsOverlayValidator>;
 
 export type MatchOverlayWithPlayers = Infer<
   typeof matchOverlayWithPlayersValidator
+>;
+export type FeatureMatchWithPlayers = Infer<
+  typeof featureMatchWithPlayersValidator
 >;

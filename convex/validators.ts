@@ -4,6 +4,7 @@ import { v } from "convex/values";
 
 export const settingsValidator = v.object({
   _id: v.id("settings"),
+  _creationTime: v.number(),
   userId: v.id("users"),
   spicerackApiKey: v.optional(v.string()),
   createdAt: v.number(),
@@ -12,6 +13,7 @@ export const settingsValidator = v.object({
 
 export const tournamentValidator = v.object({
   _id: v.id("tournaments"),
+  _creationTime: v.number(),
   userId: v.id("users"), // Direct user ownership
   mode: v.union(v.literal("manual"), v.literal("auto")),
   spicerackId: v.optional(v.number()),
@@ -25,6 +27,7 @@ export const tournamentValidator = v.object({
 
 export const featureMatchValidator = v.object({
   _id: v.id("featureMatches"),
+  _creationTime: v.number(),
   externalId: v.string(), // Spicerack Tournament ID + Round Number + Player 1 Name + Player 2 Name
   tournamentId: v.id("tournaments"),
   roundNumber: v.number(),
@@ -70,6 +73,7 @@ export const matchOverlayValidator = v.object({
 
 export const cardOverlayValidator = v.object({
   _id: v.id("overlays"),
+  _creationTime: v.number(),
   name: v.string(),
   overlayType: v.literal("card"),
   tournamentId: v.id("tournaments"),
@@ -80,6 +84,7 @@ export const cardOverlayValidator = v.object({
 
 export const deckOverlayValidator = v.object({
   _id: v.id("overlays"),
+  _creationTime: v.number(),
   name: v.string(),
   overlayType: v.literal("deck"),
   tournamentId: v.id("tournaments"),
@@ -90,6 +95,7 @@ export const deckOverlayValidator = v.object({
 
 export const standingsOverlayValidator = v.object({
   _id: v.id("overlays"),
+  _creationTime: v.number(),
   name: v.string(),
   overlayType: v.literal("standings"),
   tournamentId: v.id("tournaments"),
@@ -115,6 +121,7 @@ export const overlayValidator = v.union(
 
 export const playerValidator = v.object({
   _id: v.id("players"),
+  _creationTime: v.number(),
   name: v.string(),
   tournamentId: v.id("tournaments"),
   deckName: v.string(), // Archetype name
