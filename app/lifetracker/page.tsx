@@ -7,6 +7,7 @@ import MatchSelect from "./match-select";
 import { useLifeTrackerStore } from "./store";
 import { Separator } from "@/components/ui/separator";
 import { useQuery } from "convex/react";
+import { usePresence } from "@/hooks/use-presence";
 
 export default function LifeTracker() {
   const connectedOverlayId = useLifeTrackerStore(
@@ -16,11 +17,11 @@ export default function LifeTracker() {
   const tournament = useQuery(api.tournaments.getUserTournament);
   const tournamentMode = tournament?.mode;
   const tournamentCurrentRound = tournament?.currentRound;
+  usePresence(connectedOverlayId);
 
   if (!connectedOverlayId) {
     return <AdminSettings />;
   }
-
   if (
     tournamentMode === "auto" &&
     tournamentCurrentRound &&

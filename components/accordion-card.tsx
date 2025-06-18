@@ -12,6 +12,7 @@ interface AccordionCardProps {
   children: React.ReactNode;
   value?: string;
   defaultOpen?: boolean;
+  connectedLifeTrackers?: number;
 }
 
 export function AccordionCard({
@@ -19,6 +20,7 @@ export function AccordionCard({
   children,
   value = "item-1",
   defaultOpen = false,
+  connectedLifeTrackers,
 }: AccordionCardProps) {
   return (
     <Accordion
@@ -30,7 +32,22 @@ export function AccordionCard({
         <Card>
           <CardHeader>
             <AccordionTrigger>
-              <CardTitle>{title}</CardTitle>
+              <CardTitle>
+                <div className="flex flex-row items-center gap-2">
+                  {connectedLifeTrackers !== undefined && (
+                    <span
+                      className={`size-3 rounded-full border-2 ${
+                        connectedLifeTrackers === 1
+                          ? "bg-green-500"
+                          : connectedLifeTrackers > 1
+                            ? "bg-yellow-500"
+                            : "bg-red-500"
+                      }`}
+                    />
+                  )}
+                  {title} - {connectedLifeTrackers}
+                </div>
+              </CardTitle>
             </AccordionTrigger>
           </CardHeader>
           <AccordionContent>

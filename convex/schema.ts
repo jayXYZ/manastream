@@ -37,9 +37,8 @@ export default defineSchema({
     lastSeen: v.number(),
     createdAt: v.number(),
   })
-    .index("by_user", ["userId"])
-    .index("by_overlay", ["overlayId"])
-    .index("by_session", ["sessionId"]),
+    .index("by_user_and_session", ["userId", "sessionId"])
+    .index("by_overlay", ["overlayId"]),
 
   // Feature Matches table - enhanced for better API/manual integration
   featureMatches: defineTable(featureMatchValidator)

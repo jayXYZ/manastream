@@ -22,8 +22,8 @@ export default function ControllersPage() {
   if (overlays === undefined) {
     return <p>Loading...</p>;
   }
-  const match = overlays.find(isMatchOverlay);
-  if (!match) {
+  const matchOverlay = overlays.find(isMatchOverlay);
+  if (!matchOverlay) {
     return <p>No match overlay found.</p>;
   }
 
@@ -37,7 +37,7 @@ export default function ControllersPage() {
           Control your live overlays in real-time
         </p>
       </div>
-      <MatchController matchId={match._id} />
+      <MatchController matchOverlayId={matchOverlay._id} />
     </div>
   );
 }

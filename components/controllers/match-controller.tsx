@@ -10,10 +10,10 @@ import { Label } from "../ui/label";
 import { AccordionCard } from "../accordion-card";
 
 interface MatchControllerProps {
-  matchId: Id<"overlays">;
+  matchOverlayId: Id<"overlays">;
 }
 
-export function MatchController({ matchId }: MatchControllerProps) {
+export function MatchController({ matchOverlayId }: MatchControllerProps) {
   const [inputs, setInputs] = useState({
     player1Name: "",
     player2Name: "",
@@ -23,51 +23,62 @@ export function MatchController({ matchId }: MatchControllerProps) {
     player2TournamentRecord: "",
   });
 
-  const match = useQuery(api.overlays.getOverlayById, { overlayId: matchId });
+  const matchOverlay = useQuery(api.overlays.getOverlayById, {
+    overlayId: matchOverlayId,
+  });
   const updateMatch = useMutation(api.overlays.updateMatchOverlay);
+  const connectedLifeTrackers = useQuery(
+    api.presence.getConnectedLifeTrackers,
+    {
+      overlayId: matchOverlayId,
+    },
+  );
 
   useEffect(() => {
-    if (match && match.overlayType === "match") {
-      const matchWithPlayers = match as MatchOverlayWithPlayers;
+    if (matchOverlay && matchOverlay.overlayType === "match") {
+      const matchOverlayWithPlayers = matchOverlay as MatchOverlayWithPlayers;
       setInputs({
         player1Name:
-          matchWithPlayers.player1DisplayName ||
-          matchWithPlayers.player1Data?.name ||
+          matchOverlayWithPlayers.player1DisplayName ||
+          matchOverlayWithPlayers.player1Data?.name ||
           "",
         player2Name:
-          matchWithPlayers.player2DisplayName ||
-          matchWithPlayers.player2Data?.name ||
+          matchOverlayWithPlayers.player2DisplayName ||
+          matchOverlayWithPlayers.player2Data?.name ||
           "",
         player1DeckName:
-          matchWithPlayers.player1Data?.deckName ||
-          matchWithPlayers.player1DisplayDeck ||
+          matchOverlayWithPlayers.player1Data?.deckName ||
+          matchOverlayWithPlayers.player1DisplayDeck ||
           "",
         player2DeckName:
-          matchWithPlayers.player2Data?.deckName ||
-          matchWithPlayers.player2DisplayDeck ||
+          matchOverlayWithPlayers.player2Data?.deckName ||
+          matchOverlayWithPlayers.player2DisplayDeck ||
           "",
         player1TournamentRecord:
-          matchWithPlayers.player1Data?.record ||
-          matchWithPlayers.player1TournamentRecord ||
+          matchOverlayWithPlayers.player1Data?.record ||
+          matchOverlayWithPlayers.player1TournamentRecord ||
           "",
         player2TournamentRecord:
-          matchWithPlayers.player2Data?.record ||
-          matchWithPlayers.player2TournamentRecord ||
+          matchOverlayWithPlayers.player2Data?.record ||
+          matchOverlayWithPlayers.player2TournamentRecord ||
           "",
       });
     }
-  }, [match]);
+  }, [matchOverlay]);
 
-  if (!match) {
+  if (!matchOverlay) {
     return <p>Loading...</p>;
   }
 
-  if (match?.overlayType !== "match") {
+  if (matchOverlay?.overlayType !== "match") {
     throw new Error("Overlay type mismatch");
   }
 
   return (
-    <AccordionCard title="Match Controller">
+    <AccordionCard
+      title="Match Controller"
+      connectedLifeTrackers={connectedLifeTrackers}
+    >
       <div className="flex flex-col gap-8">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Player 1 */}
@@ -162,7 +173,7 @@ export function MatchController({ matchId }: MatchControllerProps) {
             className="px-6 py-2 text-base font-semibold rounded-md shadow bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
             onClick={() => {
               updateMatch({
-                overlayId: match._id,
+                overlayId: matchOverlay._id,
                 player1DisplayName: inputs.player1Name,
                 player2DisplayName: inputs.player2Name,
               });
