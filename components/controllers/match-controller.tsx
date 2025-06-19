@@ -78,8 +78,9 @@ export function MatchController({ matchOverlayId }: MatchControllerProps) {
     <AccordionCard
       title="Match Controller"
       connectedLifeTrackers={connectedLifeTrackers}
+      className="h-full min-h-[24rem]"
     >
-      <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-8 flex-grow">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Player 1 */}
           <div className="flex flex-col gap-4 p-4 border rounded-lg bg-muted/50">

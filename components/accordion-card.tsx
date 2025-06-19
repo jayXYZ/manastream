@@ -13,6 +13,7 @@ interface AccordionCardProps {
   value?: string;
   defaultOpen?: boolean;
   connectedLifeTrackers?: number;
+  className?: string;
 }
 
 export function AccordionCard({
@@ -21,12 +22,14 @@ export function AccordionCard({
   value = "item-1",
   defaultOpen = false,
   connectedLifeTrackers,
+  className = "",
 }: AccordionCardProps) {
   return (
     <Accordion
       type="single"
       collapsible
       defaultValue={defaultOpen ? value : undefined}
+      className={className}
     >
       <AccordionItem value={value}>
         <Card>

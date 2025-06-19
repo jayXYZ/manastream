@@ -376,6 +376,31 @@ export const resetMatchOverlay = mutation({
   },
 });
 
+// Set card overlay data (authenticated)
+export const setCardInCardOverlay = mutation({
+  args: {
+    overlayId: v.id("overlays"),
+    cardUrl: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User not authenticated");
+    }
+
+    const overlay = await ctx.db.get(args.overlayId);
+    if (!overlay || overlay.overlayType !== "card") {
+      throw new Error("Card overlay not found");
+    }
+
+    await ctx.db.patch(args.overlayId, {
+      cardUrl: args.cardUrl,
+    });
+    return null;
+  },
+});
+
 // Get all overlays for a user (authenticated), return overlay ID, type, name, and public UUID
 export const getUserOverlays = query({
   args: {},
