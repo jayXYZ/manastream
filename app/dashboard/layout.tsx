@@ -95,9 +95,13 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 justify-between">
           <SidebarTrigger className="-ml-1" />
-          <span className="text-xl font-semibold">
+          <Link
+            href="/dashboard/timer"
+            className="flex items-center gap-1 cursor-pointer text-black hover:text-blue-500 transition-colors bg-blue-300 p-2 rounded-full font-semibold text-lg px-4"
+          >
+            <TimerIcon className="size-5" />
             <Timer />
-          </span>
+          </Link>
         </header>
         <main className="p-6">{children}</main>
       </SidebarInset>

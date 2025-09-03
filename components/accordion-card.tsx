@@ -48,7 +48,8 @@ export function AccordionCard({
                       }`}
                     />
                   )}
-                  {title} - {connectedLifeTrackers}
+                  {title}
+                  {/* - {connectedLifeTrackers} */}
                 </div>
               </CardTitle>
             </AccordionTrigger>

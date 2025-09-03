@@ -24,12 +24,13 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { useMutation, useQuery } from "convex/react";
 import { useState } from "react";
 import { MoreHorizontal } from "lucide-react";
 import { Overlay, TemplateType } from "@/convex/types";
+import { Switch } from "@/components/ui/switch";
+import { useDashboardStore } from "../store";
 
 export default function OverlaysPage() {
   const tournament = useQuery(api.tournaments.getUserTournament);
@@ -40,6 +41,12 @@ export default function OverlaysPage() {
     api.overlays.createCommentaryOverlay,
   );
   const setOverlayTemplate = useMutation(api.overlays.setOverlayTemplate);
+  const showCardOverlayStore = useDashboardStore(
+    (state) => state.showCardOverlay,
+  );
+  const setShowCardOverlayStore = useDashboardStore(
+    (state) => state.setShowCardOverlay,
+  );
   // const createDeckOverlay = useMutation(api.overlays.createDeckOverlay);
   // const createStandingsOverlay = useMutation(api.overlays.createStandingsOverlay);
   const [selectedOverlayType, setSelectedOverlayType] =
@@ -49,6 +56,7 @@ export default function OverlaysPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] =
     useState<TemplateType>("Default");
+  const [showCardOverlay, setShowCardOverlay] = useState(showCardOverlayStore);
 
   const capitalizeFirstLetter = (str: string) => {
     return str.charAt(0).toUpperCase() + str.slice(1);
@@ -111,6 +119,9 @@ export default function OverlaysPage() {
         overlayId: selectedOverlay._id,
         template: selectedTemplate,
       });
+    }
+    if (selectedOverlay?.overlayType === "card") {
+      setShowCardOverlayStore(showCardOverlay);
     }
     setIsDialogOpen(false);
   };
@@ -203,7 +214,7 @@ export default function OverlaysPage() {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleOpenDialog(overlay)}
-                        className="h-8 w-8 p-0"
+                        className="h-8 w-8 p-0 cursor-pointer"
                       >
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
@@ -246,6 +257,20 @@ export default function OverlaysPage() {
                     <SelectItem value="Custom">Custom</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+            ) : selectedOverlay?.overlayType === "card" ? (
+              <div className="space-y-2 items-center flex flex-row">
+                <label className="text-sm font-medium flex-1 w-full">
+                  Show Card Overlay?
+                </label>
+                <div className="flex-1">
+                  <Switch
+                    checked={showCardOverlay}
+                    onCheckedChange={(checked) =>
+                      setShowCardOverlay(checked as boolean)
+                    }
+                  />
+                </div>
               </div>
             ) : (
               <div className="text-gray-500 dark:text-gray-400">

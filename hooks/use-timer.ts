@@ -34,13 +34,15 @@ export function useTimer({
   expiryTimestamp: expiry = new Date(),
   autoStart = true,
 }: UseTimerOptions = {}): Timer {
+  // All hooks must be called at the top level, before any conditional logic
+  const tournament = useQuery(api.tournaments.getUserTournament);
+  const setTimer = useMutation(api.tournaments.setTournamentTimer);
+
   const [expiryTimestamp, setExpiryTimestamp] = useState<Date>(() => expiry);
   const [seconds, setSeconds] = useState<number>(0);
   const [isRunning, setIsRunning] = useState<boolean>(autoStart);
   const [didStart, setDidStart] = useState<boolean>(autoStart);
   const [delay, setDelay] = useState<number>(DEFAULT_DELAY);
-  const tournament = useQuery(api.tournaments.getUserTournament);
-  const setTimer = useMutation(api.tournaments.setTournamentTimer);
 
   // Initialize timer state from tournament data
   useEffect(() => {
@@ -50,11 +52,11 @@ export function useTimer({
         setExpiryTimestamp(expiry);
 
         // Calculate seconds remaining, ensuring it's not negative
-        const secondsRemaining = Math.max(
-          0,
-          Time.getSecondsFromExpiry(expiry.getTime(), false),
-        );
-        setSeconds(secondsRemaining);
+        // const secondsRemaining = Math.max(
+        //   0,
+        //   Time.getSecondsFromExpiry(expiry.getTime(), false),
+        // );
+        setSeconds(Time.getSecondsFromExpiry(expiry.getTime(), false));
 
         // Set delay based on expiry
         setDelay(getDelayFromExpiryTimestamp(expiry));
@@ -85,11 +87,13 @@ export function useTimer({
       setExpiryTimestamp(newExpiryTimestamp);
 
       // Calculate seconds remaining, ensuring it's not negative
-      const secondsRemaining = Math.max(
-        0,
+      // const secondsRemaining = Math.max(
+      //   0,
+      //   Time.getSecondsFromExpiry(newExpiryTimestamp.getTime(), false),
+      // );
+      setSeconds(
         Time.getSecondsFromExpiry(newExpiryTimestamp.getTime(), false),
       );
-      setSeconds(secondsRemaining);
 
       if (tournament?._id) {
         setTimer({
@@ -136,8 +140,7 @@ export function useTimer({
         expiryTimestamp.getTime(),
         false,
       );
-      // Ensure seconds is never negative
-      setSeconds(Math.max(0, secondsValue));
+      setSeconds(secondsValue);
     },
     isRunning ? delay : null,
   );

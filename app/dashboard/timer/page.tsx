@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { TimerController } from "@/components/controllers/timer-controller";
 
 export default function TimerPage() {
   return (
@@ -14,16 +14,7 @@ export default function TimerPage() {
         </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Tournament Timer</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-gray-600 dark:text-gray-300">
-            Timer controls coming soon...
-          </p>
-        </CardContent>
-      </Card>
+      <TimerController />
     </div>
   );
 }

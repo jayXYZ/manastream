@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useTimer } from "@/hooks/use-timer";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Play, Pause, Square, Edit3 } from "lucide-react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -26,9 +26,6 @@ export function TimerController({
     initialSeconds.toString().padStart(2, "0"),
   );
   const tournament = useQuery(api.tournaments.getUserTournament);
-  if (!tournament) {
-    return <p>Loading...</p>;
-  }
 
   // Create initial expiry timestamp
   const getInitialExpiry = useCallback(() => {
@@ -38,52 +35,67 @@ export function TimerController({
     return now;
   }, [initialMinutes, initialSeconds]);
 
+  // Create timer hook - always call with consistent parameters
   const timer = useTimer({
-    expiryTimestamp: tournament.manualTimerExpiry
-      ? new Date(tournament.manualTimerExpiry)
-      : getInitialExpiry(),
-    autoStart: tournament.manualTimerRunning,
+    expiryTimestamp: getInitialExpiry(),
+    autoStart: false,
   });
 
-  // Sync timer state with backend when component mounts
+  // Store timer functions in ref to avoid circular dependencies
+  const timerRef = useRef(timer);
+  timerRef.current = timer;
+
+  if (!tournament) {
+    return <p>Loading...</p>;
+  }
+
+  // Sync timer state with backend when component mounts or tournament changes
   useEffect(() => {
-    if (tournament && !tournament.manualTimerExpiry) {
-      // Initialize timer in backend if it doesn't exist
-      const initialExpiry = getInitialExpiry();
-      timer.restart(initialExpiry, false);
+    if (tournament) {
+      if (tournament.manualTimerExpiry) {
+        // Use existing timer from backend
+        const expiry = new Date(tournament.manualTimerExpiry);
+        timerRef.current.restart(
+          expiry,
+          tournament.manualTimerRunning ?? false,
+        );
+      } else {
+        // Initialize timer in backend if it doesn't exist
+        const initialExpiry = getInitialExpiry();
+        timerRef.current.restart(initialExpiry, false);
+      }
     }
-  }, [tournament, getInitialExpiry, timer]);
+  }, [tournament, getInitialExpiry]);
 
   // Debug info - you can remove this later
   useEffect(() => {
-    console.log("Timer Controller Debug:", {
-      tournamentId: tournament._id,
-      manualTimerExpiry: tournament.manualTimerExpiry,
-      manualTimerRunning: tournament.manualTimerRunning,
-      timerTotalSeconds: timer.totalSeconds,
-      timerIsRunning: timer.isRunning,
-      isEditing,
-    });
+    if (tournament) {
+      console.log("Timer Controller Debug:", {
+        tournamentId: tournament._id,
+        manualTimerExpiry: tournament.manualTimerExpiry,
+        manualTimerRunning: tournament.manualTimerRunning,
+        timerTotalSeconds: timerRef.current.totalSeconds,
+        timerIsRunning: timerRef.current.isRunning,
+        isEditing,
+      });
+    }
   }, [
-    tournament._id,
-    tournament.manualTimerExpiry,
-    tournament.manualTimerRunning,
-    timer.totalSeconds,
-    timer.isRunning,
+    tournament?._id,
+    tournament?.manualTimerExpiry,
+    tournament?.manualTimerRunning,
+    timerRef.current.totalSeconds,
+    timerRef.current.isRunning,
     isEditing,
   ]);
 
   // Handle timer restart with new values
-  const handleRestart = useCallback(
-    (minutes: number, seconds: number) => {
-      const now = new Date();
-      now.setMinutes(now.getMinutes() + minutes);
-      now.setSeconds(now.getSeconds() + seconds);
-      timer.restart(now, false);
-      setIsEditing(false);
-    },
-    [timer],
-  );
+  const handleRestart = useCallback((minutes: number, seconds: number) => {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() + minutes);
+    now.setSeconds(now.getSeconds() + seconds);
+    timerRef.current.restart(now, false);
+    setIsEditing(false);
+  }, []);
 
   // Handle edit submission
   const handleEditSubmit = useCallback(() => {
@@ -97,14 +109,14 @@ export function TimerController({
 
   // Handle stop button
   const handleStop = useCallback(() => {
-    timer.pause();
-    const totalSeconds = timer.totalSeconds;
+    timerRef.current.pause();
+    const totalSeconds = timerRef.current.totalSeconds;
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
     setEditMinutes(minutes.toString());
     setEditSeconds(seconds.toString().padStart(2, "0"));
     setIsEditing(true);
-  }, [timer]);
+  }, []);
 
   // Handle reset button
   const handleReset = useCallback(() => {
@@ -113,10 +125,10 @@ export function TimerController({
 
   // Handle timer click when stopped
   const handleTimerClick = useCallback(() => {
-    if (!timer.isRunning) {
+    if (!timerRef.current.isRunning) {
       setIsEditing(true);
     }
-  }, [timer.isRunning]);
+  }, []);
 
   // Handle key press in edit mode
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -125,7 +137,7 @@ export function TimerController({
     } else if (e.key === "Escape") {
       setIsEditing(false);
       // Reset edit values to current timer values
-      const totalSeconds = timer.totalSeconds;
+      const totalSeconds = timerRef.current.totalSeconds;
       const minutes = Math.floor(totalSeconds / 60);
       const seconds = totalSeconds % 60;
       setEditMinutes(minutes.toString());
@@ -135,9 +147,6 @@ export function TimerController({
 
   return (
     <Card className="flex flex-col">
-      <CardHeader className="flex-none">
-        <CardTitle>Timer Controller</CardTitle>
-      </CardHeader>
       <CardContent className="flex-1 flex flex-col items-center justify-center gap-6">
         {/* Timer Display/Edit */}
         <div className="text-center">
@@ -190,12 +199,12 @@ export function TimerController({
             <div
               className="cursor-pointer group"
               onClick={handleTimerClick}
-              title={!timer.isRunning ? "Click to edit timer" : ""}
+              title={!timerRef.current.isRunning ? "Click to edit timer" : ""}
             >
               <div className="text-6xl font-mono font-bold text-center group-hover:text-muted-foreground transition-colors">
-                {formatTime(timer.totalSeconds)}
+                {formatTime(timerRef.current.totalSeconds)}
               </div>
-              {!timer.isRunning && (
+              {!timerRef.current.isRunning && (
                 <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground mt-2">
                   <Edit3 size={14} />
                   <span>Click to edit</span>
@@ -207,24 +216,28 @@ export function TimerController({
 
         {/* Timer Controls */}
         <div className="flex gap-3">
-          {timer.isRunning ? (
-            <Button onClick={timer.pause} size="lg" className="px-6">
+          {timerRef.current.isRunning ? (
+            <Button
+              onClick={() => timerRef.current.pause()}
+              size="lg"
+              className="px-6"
+            >
               <Pause className="w-5 h-5 mr-2" />
               Pause
             </Button>
           ) : (
             <Button
-              onClick={timer.resume}
+              onClick={() => timerRef.current.resume()}
               size="lg"
               className="px-6"
-              disabled={timer.totalSeconds === 0}
+              disabled={timerRef.current.totalSeconds === 0}
             >
               <Play className="w-5 h-5 mr-2" />
               Start
             </Button>
           )}
 
-          {timer.isRunning ? (
+          {timerRef.current.isRunning ? (
             <Button
               onClick={handleStop}
               variant="outline"
@@ -241,7 +254,8 @@ export function TimerController({
               size="lg"
               className="px-6"
               disabled={
-                timer.totalSeconds === initialMinutes * 60 + initialSeconds
+                timerRef.current.totalSeconds ===
+                initialMinutes * 60 + initialSeconds
               }
             >
               <Square className="w-5 h-5 mr-2" />
@@ -252,9 +266,9 @@ export function TimerController({
 
         {/* Timer Status */}
         <div className="text-center text-sm text-muted-foreground">
-          {timer.isRunning ? (
+          {timerRef.current.isRunning ? (
             <span className="text-green-600">Running</span>
-          ) : timer.totalSeconds === 0 ? (
+          ) : timerRef.current.totalSeconds === 0 ? (
             <span className="text-red-600">Finished</span>
           ) : (
             <span className="text-yellow-600">Paused</span>

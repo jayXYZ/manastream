@@ -76,7 +76,7 @@ export function MatchController({ matchOverlayId }: MatchControllerProps) {
 
   return (
     <AccordionCard
-      title="Match Controller"
+      title={matchOverlay.name}
       connectedLifeTrackers={connectedLifeTrackers}
       className="h-full min-h-[24rem]"
     >

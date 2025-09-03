@@ -5,10 +5,12 @@ import { api } from "@/convex/_generated/api";
 import { useQuery } from "convex/react";
 import { CardController } from "@/components/controllers/card-controller";
 import type { Overlay } from "@/convex/types";
-import { TimerController } from "@/components/controllers/timer-controller";
+import { useDashboardStore } from "../store";
 
 export default function ControllersPage() {
   const overlays = useQuery(api.overlays.getUserOverlays);
+  const showCardOverlay = useDashboardStore((state) => state.showCardOverlay);
+
   function isMatchOverlay(overlay: Overlay): overlay is Overlay {
     return overlay.overlayType === "match";
   }
@@ -39,7 +41,6 @@ export default function ControllersPage() {
       </div>
       <div className="flex flex-row gap-4 h-[calc(100vh-16rem)]">
         <div className="flex-grow">
-          <TimerController />
           {matchOverlays.map((matchOverlay) => (
             <MatchController
               key={matchOverlay._id}
@@ -47,7 +48,7 @@ export default function ControllersPage() {
             />
           ))}
         </div>
-        {cardOverlay && (
+        {cardOverlay && showCardOverlay && (
           <div className="h-full">
             <CardController cardOverlayId={cardOverlay._id} />
           </div>

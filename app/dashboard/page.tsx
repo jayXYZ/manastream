@@ -108,7 +108,8 @@ export default function Dashboard() {
                     Match Overlays
                   </p>
                   <p className="text-2xl font-bold">
-                    {overlays?.filter((o) => o.type === "match").length || 0}
+                    {overlays?.filter((o) => o.overlayType === "match")
+                      .length || 0}
                   </p>
                 </div>
               </div>
