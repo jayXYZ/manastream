@@ -1,46 +1,26 @@
-# Welcome to your Convex + Next.js + Convex Auth app
+## Todo
 
-This is a [Convex](https://convex.dev/) project created with [`npm create convex`](https://www.npmjs.com/package/create-convex).
+- [x] Make accordion group of match overlays?
+- [ ] Redo dashboard page (and make it not AI slop)
+- [ ] Add overlay components (what does this mean)
+- [ ] Add second slug to overlay route for player 1 and player 2 in deck overlay
+- [?] Add spicerack integration
+- [ ] Create landing page, protect dashboard routes
+- [ ] Add menu button to get to lifetracker
+- [x] Add menus to lifetracker (admin settings, exit, reset, etc.)
+- [ ] Remove unused files/folders/components
+- [ ] Add creation limits for overlays (1 card, 1 deck, 3 match, etc)
 
-After the initial setup (<2 minutes) you'll have a working full-stack app using:
+### Overlay Editor todos
 
-- Convex as your backend (database, server logic)
-- [React](https://react.dev/) as your frontend (web page interactivity)
-- [Next.js](https://nextjs.org/) for optimized web hosting and page routing
-- [Tailwind](https://tailwindcss.com/) for building great looking accessible UI
-- [Convex Auth](https://labs.convex.dev/auth) for authentication
+**putting overlay editor on backburner for now**
 
-## Get started
-
-If you just cloned this codebase and didn't use `npm create convex`, run:
-
-```
-npm install
-npm run dev
-```
-
-If you're reading this README on GitHub and want to use this template, run:
-
-```
-npm create convex@latest -- -t nextjs-convexauth
-```
-
-## Learn more
-
-To learn more about developing your project with Convex, check out:
-
-- The [Tour of Convex](https://docs.convex.dev/get-started) for a thorough introduction to Convex principles.
-- The rest of [Convex docs](https://docs.convex.dev/) to learn about all Convex features.
-- [Stack](https://stack.convex.dev/) for in-depth articles on advanced topics.
-- [Convex Auth docs](https://labs.convex.dev/auth) for documentation on the Convex Auth library.
-
-## Configuring other authentication methods
-
-To configure different authentication methods, see [Configuration](https://labs.convex.dev/auth/config) in the Convex Auth docs.
-
-## Join the community
-
-Join thousands of developers building full-stack apps with Convex:
-
-- Join the [Convex Discord community](https://convex.dev/community) to get help in real-time.
-- Follow [Convex on GitHub](https://github.com/get-convex/), star and contribute to the open-source implementation of Convex.
+- [ ] Add checkerboard background
+- [ ] Remove background in renderer
+- [ ] Add preview button to editor
+- [ ] Add rich text controls to toolbar
+- [ ] Add snapping
+- [ ] Add properties panel
+- [ ] Add anchor options
+- [ ] Add rulers
+- [ ] Make all changes pixel perfect

@@ -3,26 +3,18 @@
 import { MatchController } from "@/components/controllers/match-controller";
 import { api } from "@/convex/_generated/api";
 import { useQuery } from "convex/react";
-import { Doc } from "@/convex/_generated/dataModel";
 import { CardController } from "@/components/controllers/card-controller";
-
-type OverlayListItem = {
-  _id: string;
-  type: string;
-  name: string;
-  publicUuid: string;
-};
+import type { Overlay } from "@/convex/types";
+import { TimerController } from "@/components/controllers/timer-controller";
 
 export default function ControllersPage() {
   const overlays = useQuery(api.overlays.getUserOverlays);
-  function isMatchOverlay(
-    overlay: OverlayListItem,
-  ): overlay is OverlayListItem {
-    return overlay.type === "match";
+  function isMatchOverlay(overlay: Overlay): overlay is Overlay {
+    return overlay.overlayType === "match";
   }
 
-  function isCardOverlay(overlay: OverlayListItem): overlay is OverlayListItem {
-    return overlay.type === "card";
+  function isCardOverlay(overlay: Overlay): overlay is Overlay {
+    return overlay.overlayType === "card";
   }
 
   if (overlays === undefined) {
@@ -47,8 +39,12 @@ export default function ControllersPage() {
       </div>
       <div className="flex flex-row gap-4 h-[calc(100vh-16rem)]">
         <div className="flex-grow">
+          <TimerController />
           {matchOverlays.map((matchOverlay) => (
-            <MatchController matchOverlayId={matchOverlay._id} />
+            <MatchController
+              key={matchOverlay._id}
+              matchOverlayId={matchOverlay._id}
+            />
           ))}
         </div>
         {cardOverlay && (

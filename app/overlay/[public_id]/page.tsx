@@ -1,9 +1,66 @@
 "use client";
 
 import { api } from "@/convex/_generated/api";
-import { MatchOverlayWithPlayers } from "@/convex/types";
+import {
+  CardOverlay as CardOverlayType,
+  MatchOverlayWithPlayers,
+  DeckOverlay,
+  StandingsOverlay,
+  CommentaryOverlay as CommentaryOverlayType,
+} from "@/convex/types";
 import { useQuery } from "convex/react";
 import { use } from "react";
+import CardOverlay from "../components/card-overlay";
+import MatchOverlay from "../components/match/match-overlay";
+import CommentaryOverlay from "../components/commentary/commentary-overlay";
+
+// Type guard functions for better type safety
+const isMatchOverlay = (overlay: any): overlay is MatchOverlayWithPlayers => {
+  return overlay.overlayType === "match";
+};
+
+const isCardOverlay = (overlay: any): overlay is CardOverlayType => {
+  return overlay.overlayType === "card";
+};
+
+const isDeckOverlay = (overlay: any): overlay is DeckOverlay => {
+  return overlay.overlayType === "deck";
+};
+
+const isStandingsOverlay = (overlay: any): overlay is StandingsOverlay => {
+  return overlay.overlayType === "standings";
+};
+
+const isCommentaryOverlay = (
+  overlay: any,
+): overlay is CommentaryOverlayType => {
+  return overlay.overlayType === "commentary";
+};
+
+// Overlay renderer function
+const renderOverlay = (overlay: any) => {
+  if (isMatchOverlay(overlay)) {
+    return <MatchOverlay data={overlay} />;
+  }
+
+  if (isCardOverlay(overlay)) {
+    return <CardOverlay data={overlay} />;
+  }
+
+  if (isDeckOverlay(overlay)) {
+    return <div>Deck overlay not yet implemented</div>;
+  }
+
+  if (isStandingsOverlay(overlay)) {
+    return <div>Standings overlay not yet implemented</div>;
+  }
+
+  if (isCommentaryOverlay(overlay)) {
+    return <CommentaryOverlay data={overlay} />;
+  }
+
+  return <div>Overlay type "{overlay.overlayType}" not supported</div>;
+};
 
 export default function OverlayPage({
   params,
@@ -14,43 +71,10 @@ export default function OverlayPage({
   const overlay = useQuery(api.overlays.getOverlayByUuid, {
     publicUuid: public_id,
   });
+
   if (!overlay) {
     return <div>Overlay not found</div>;
   }
-  if (overlay.overlayType === "match") {
-    return <MatchOverlay data={overlay as MatchOverlayWithPlayers} />;
-  }
-  // if (overlay.overlayType === "card") {
-  //   return <CardOverlay data={overlay} />;
-  // }
-  // if (overlay.overlayType === "deck") {
-  //   return <DeckOverlay data={overlay} />;
-  // }
-  return <div>Overlay type not supported</div>;
-}
 
-function MatchOverlay({ data }: { data: MatchOverlayWithPlayers }) {
-  return (
-    <div>
-      <h1>Match Overlay</h1>
-      <div>
-        <p>{data.player1Data?.name || data.player1DisplayName || "Player 1"}</p>
-        <p>
-          {data.player1Data?.deckName || data.player1DisplayDeck || "Deck 1"}
-        </p>
-        <p>{data.player1Data?.record || data.player1TournamentRecord || ""}</p>
-        <p>{data.player1Life || 20}</p>
-        <p>{data.player1GamesWon || 0}</p>
-      </div>
-      <div>
-        <p>{data.player2Data?.name || data.player2DisplayName || "Player 2"}</p>
-        <p>
-          {data.player2Data?.deckName || data.player2DisplayDeck || "Deck 2"}
-        </p>
-        <p>{data.player2Data?.record || data.player2TournamentRecord || ""}</p>
-        <p>{data.player2Life || 20}</p>
-        <p>{data.player2GamesWon || 0}</p>
-      </div>
-    </div>
-  );
+  return renderOverlay(overlay);
 }

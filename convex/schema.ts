@@ -7,6 +7,7 @@ import {
   tournamentValidator,
   settingsValidator,
   featureMatchValidator,
+  templateValidator,
 } from "./validators";
 
 // The schema is normally optional, but Convex Auth
@@ -28,6 +29,9 @@ export default defineSchema({
     .index("by_tournament", ["tournamentId"])
     .index("by_public_uuid", ["publicUuid"])
     .index("by_overlay_type", ["overlayType"]),
+
+  // Templates table
+  templates: defineTable(templateValidator).index("by_user", ["userId"]),
 
   // Connected Lifetrackers table
   connectedLifeTrackers: defineTable({

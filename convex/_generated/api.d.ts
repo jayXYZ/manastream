@@ -20,6 +20,8 @@ import type * as lib_constants from "../lib/constants.js";
 import type * as lib_utils from "../lib/utils.js";
 import type * as overlays from "../overlays.js";
 import type * as presence from "../presence.js";
+import type * as spicerack from "../spicerack.js";
+import type * as templates from "../templates.js";
 import type * as tournaments from "../tournaments.js";
 import type * as types from "../types.js";
 import type * as validators from "../validators.js";
@@ -40,6 +42,8 @@ declare const fullApi: ApiFromModules<{
   "lib/utils": typeof lib_utils;
   overlays: typeof overlays;
   presence: typeof presence;
+  spicerack: typeof spicerack;
+  templates: typeof templates;
   tournaments: typeof tournaments;
   types: typeof types;
   validators: typeof validators;

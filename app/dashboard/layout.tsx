@@ -6,7 +6,7 @@ import {
   Monitor,
   Settings,
   Trophy,
-  Timer,
+  Timer as TimerIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -23,6 +23,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
+import Timer from "@/components/timer";
 
 const navigationItems = [
   {
@@ -43,7 +44,7 @@ const navigationItems = [
   {
     name: "Timer",
     href: "/dashboard/timer",
-    icon: Timer,
+    icon: TimerIcon,
   },
   {
     name: "Settings",
@@ -92,8 +93,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     <SidebarProvider>
       <DashboardSidebar />
       <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 justify-between">
           <SidebarTrigger className="-ml-1" />
+          <span className="text-xl font-semibold">
+            <Timer />
+          </span>
         </header>
         <main className="p-6">{children}</main>
       </SidebarInset>

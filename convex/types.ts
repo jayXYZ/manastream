@@ -1,6 +1,7 @@
 import { Infer } from "convex/values";
 import {
   cardOverlayValidator,
+  commentaryOverlayValidator,
   deckOverlayValidator,
   featureMatchWithPlayersValidator,
   matchOverlayValidator,
@@ -18,6 +19,7 @@ export type MatchOverlay = Infer<typeof matchOverlayValidator>;
 export type CardOverlay = Infer<typeof cardOverlayValidator>;
 export type DeckOverlay = Infer<typeof deckOverlayValidator>;
 export type StandingsOverlay = Infer<typeof standingsOverlayValidator>;
+export type CommentaryOverlay = Infer<typeof commentaryOverlayValidator>;
 
 export type MatchOverlayWithPlayers = Infer<
   typeof matchOverlayWithPlayersValidator
@@ -25,3 +27,6 @@ export type MatchOverlayWithPlayers = Infer<
 export type FeatureMatchWithPlayers = Infer<
   typeof featureMatchWithPlayersValidator
 >;
+
+// Template types from the validators
+export type TemplateType = "Default" | "Duress Crew" | "Lobstercon" | "Custom";

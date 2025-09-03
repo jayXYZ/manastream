@@ -1,3 +1,4 @@
+"use client";
 import { ExampleForm } from "@/components/example-form";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,8 +10,20 @@ import {
 } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/theme-toggle";
 import Link from "next/link";
+import { useState } from "react";
+import { Mic, Camera, Monitor } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { NeumorphicCard } from "./test-components/neu-card";
+import { StreamSlider } from "./test-components/stream-slider";
+import { StreamDeckToggle } from "./test-components/gaming-toggle";
 
 export default function ShadcnDemo() {
+  const [isRecording, setIsRecording] = useState(false);
+  const [volume, setVolume] = useState([75]);
+  const [webcamEnabled, setWebcamEnabled] = useState(false);
+  const [micEnabled, setMicEnabled] = useState(false);
+  const [screenShare, setScreenShare] = useState(false);
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-10 bg-background p-4 border-b border-border">
@@ -173,6 +186,89 @@ export default function ShadcnDemo() {
             </div>
           </CardContent>
         </Card>
+        <NeumorphicCard className="p-6 space-y-6">
+          <div className="text-center">
+            <h3 className="text-lg font-semibold text-slate-200 mb-2">
+              Stream Controls
+            </h3>
+            <div className="w-full h-px bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+          </div>
+
+          {/* Recording Button */}
+          <NeumorphicCard
+            variant="flat"
+            pressed={isRecording}
+            className="p-4 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+            onClick={() => setIsRecording(!isRecording)}
+          >
+            <div className="flex items-center justify-center space-x-3">
+              <div
+                className={cn(
+                  "w-3 h-3 rounded-full transition-colors",
+                  isRecording ? "bg-red-500 animate-pulse" : "bg-slate-600",
+                )}
+              />
+              <span
+                className={cn(
+                  "font-medium transition-colors",
+                  isRecording ? "text-red-400" : "text-slate-400",
+                )}
+              >
+                {isRecording ? "Recording" : "Start Recording"}
+              </span>
+            </div>
+          </NeumorphicCard>
+
+          {/* Volume Control */}
+          <div className="space-y-3">
+            <StreamSlider
+              label="Master Volume"
+              value={volume}
+              onValueChange={setVolume}
+              max={100}
+              step={1}
+            />
+          </div>
+          {/* Quick Actions */}
+          <div className="grid grid-cols-2 gap-3">
+            <NeumorphicCard
+              variant="flat"
+              className="p-3 text-center cursor-pointer hover:scale-105 active:scale-95"
+            >
+              <Mic className="h-5 w-5 mx-auto mb-1 text-slate-400" />
+              <span className="text-xs text-slate-400">Mute</span>
+            </NeumorphicCard>
+            <NeumorphicCard
+              variant="flat"
+              className="p-3 text-center cursor-pointer hover:scale-105 active:scale-95"
+            >
+              <Camera className="h-5 w-5 mx-auto mb-1 text-slate-400" />
+              <span className="text-xs text-slate-400">Camera</span>
+            </NeumorphicCard>
+          </div>
+          <div className="grid grid-cols-4 gap-4">
+            <StreamDeckToggle
+              label="Webcam"
+              icon={<Camera className="h-6 w-6" />}
+              checked={webcamEnabled}
+              onCheckedChange={setWebcamEnabled}
+            />
+            <StreamDeckToggle
+              label="Mic"
+              icon={<Mic className="h-6 w-6" />}
+              variant="danger"
+              checked={micEnabled}
+              onCheckedChange={setMicEnabled}
+            />
+            <StreamDeckToggle
+              label="Screen"
+              icon={<Monitor className="h-6 w-6" />}
+              variant="success"
+              checked={screenShare}
+              onCheckedChange={setScreenShare}
+            />
+          </div>
+        </NeumorphicCard>
       </main>
     </div>
   );

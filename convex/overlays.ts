@@ -5,7 +5,8 @@ import { filterUndefined, generatePublicUuid } from "./lib/utils";
 import {
   getOverlayByIdValidator,
   getOverlayByUuidValidator,
-  getUserOverlaysValidator,
+  overlayValidator,
+  availableTemplatesValidator,
 } from "./validators";
 import { Player } from "./types";
 
@@ -36,6 +37,8 @@ export const createMatchOverlay = mutation({
     const overlayId = await ctx.db.insert("overlays", {
       name: args.name,
       overlayType: "match",
+      template: "Default",
+      templateId: undefined,
       tournamentId: args.tournamentId,
       publicUuid,
       player1: undefined,
@@ -89,6 +92,42 @@ export const createCardOverlay = mutation({
   },
 });
 
+// Create a commentary overlay
+export const createCommentaryOverlay = mutation({
+  args: {
+    tournamentId: v.id("tournaments"),
+    name: v.string(),
+  },
+  returns: v.object({
+    overlayId: v.id("overlays"),
+    publicUuid: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User not authenticated");
+    }
+
+    const publicUuid = generatePublicUuid();
+
+    const overlayId = await ctx.db.insert("overlays", {
+      name: args.name,
+      overlayType: "commentary",
+      tournamentId: args.tournamentId,
+      publicUuid,
+      template: "Default",
+      templateId: undefined,
+      commentatorLeft: "Commentator Left",
+      commentatorLeftSubText: undefined,
+      commentatorRight: "Commentator Right",
+      commentatorRightSubText: undefined,
+      createdAt: Date.now(),
+    });
+
+    return { overlayId, publicUuid };
+  },
+});
+
 // Get overlay by public UUID (no authentication required)
 export const getOverlayByUuid = query({
   args: {
@@ -106,17 +145,23 @@ export const getOverlayByUuid = query({
     }
 
     // For match overlays, fetch player data
-    if (overlay.overlayType === "match" && overlay.player1 && overlay.player2) {
-      const [player1, player2] = await Promise.all([
-        ctx.db.get(overlay.player1),
-        ctx.db.get(overlay.player2),
-      ]);
+    if (overlay.overlayType === "match") {
+      if (overlay.player1 && overlay.player2) {
+        const [player1, player2] = await Promise.all([
+          ctx.db.get(overlay.player1),
+          ctx.db.get(overlay.player2),
+        ]);
 
-      return {
-        ...overlay,
-        player1Data: player1 ?? undefined,
-        player2Data: player2 ?? undefined,
-      };
+        return {
+          ...overlay,
+          player1Data: player1 ?? undefined,
+          player2Data: player2 ?? undefined,
+        };
+      } else {
+        return {
+          ...overlay,
+        };
+      }
     }
 
     // For deck overlays, fetch the feature match data if needed
@@ -404,7 +449,7 @@ export const setCardInCardOverlay = mutation({
 // Get all overlays for a user (authenticated), return overlay ID, type, name, and public UUID
 export const getUserOverlays = query({
   args: {},
-  returns: getUserOverlaysValidator,
+  returns: v.array(overlayValidator),
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
@@ -425,12 +470,7 @@ export const getUserOverlays = query({
       .withIndex("by_tournament", (q) => q.eq("tournamentId", tournament._id))
       .collect();
 
-    return overlays.map((overlay) => ({
-      _id: overlay._id,
-      type: overlay.overlayType,
-      name: overlay.name,
-      publicUuid: overlay.publicUuid,
-    }));
+    return overlays;
   },
 });
 
@@ -501,5 +541,29 @@ export const getOverlayById = query({
     }
 
     return overlay;
+  },
+});
+
+export const setOverlayTemplate = mutation({
+  args: {
+    overlayId: v.id("overlays"),
+    template: availableTemplatesValidator,
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User not authenticated");
+    }
+
+    const overlay = await ctx.db.get(args.overlayId);
+    if (!overlay) {
+      throw new Error("Overlay not found");
+    }
+
+    await ctx.db.patch(args.overlayId, {
+      template: args.template,
+    });
+    return null;
   },
 });

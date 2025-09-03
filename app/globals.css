@@ -112,6 +112,31 @@
   --sidebar-ring: oklch(0.551 0.027 264.364);
 }
 
+/* Neumorphism shadows for globals.css */
+.shadow-neumorphic-raised {
+  box-shadow:
+    8px 8px 16px rgba(0, 0, 0, 0.4),
+    -8px -8px 16px rgba(255, 255, 255, 0.02);
+}
+
+.shadow-neumorphic-raised-hover {
+  box-shadow:
+    12px 12px 24px rgba(0, 0, 0, 0.5),
+    -12px -12px 24px rgba(255, 255, 255, 0.03);
+}
+
+.shadow-neumorphic-inset {
+  box-shadow:
+    inset 8px 8px 16px rgba(0, 0, 0, 0.4),
+    inset -8px -8px 16px rgba(255, 255, 255, 0.02);
+}
+
+.shadow-neumorphic-flat {
+  box-shadow:
+    4px 4px 8px rgba(0, 0, 0, 0.3),
+    -4px -4px 8px rgba(255, 255, 255, 0.015);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

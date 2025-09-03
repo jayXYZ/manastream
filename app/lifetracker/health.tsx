@@ -6,9 +6,9 @@ import { useLifeTrackerStore } from "./store";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
+import { SettingsIcon, RotateCcwIcon, XIcon } from "lucide-react";
 
 export default function Health(props: { index: "1" | "2" }) {
-  const [playerLife, setPlayerLife] = useState<number | undefined>(undefined);
   const [showSettings, setShowSettings] = useState(false);
   const [showGameReset, setShowGameReset] = useState(false);
   const [pendingOpacity, setPendingOpacity] = useState(0);
@@ -18,6 +18,16 @@ export default function Health(props: { index: "1" | "2" }) {
 
   const connectedOverlayId = useLifeTrackerStore(
     (state) => state.connectedOverlayId,
+  );
+  const playerLife = useLifeTrackerStore(
+    (state) => state[`player${props.index}Life`],
+  );
+  const setPlayerLife = useLifeTrackerStore((state) => state.setPlayerLife);
+  const resetBothPlayers = useLifeTrackerStore(
+    (state) => state.resetBothPlayers,
+  );
+  const setShowAdminSettings = useLifeTrackerStore(
+    (state) => state.setShowAdminSettings,
   );
   if (!connectedOverlayId) {
     // App should be displaying Admin Settings if no connected overlay is set
@@ -30,14 +40,13 @@ export default function Health(props: { index: "1" | "2" }) {
   // Specialized mutations for specific operations
   const updatePlayerLife = useMutation(api.overlays.updatePlayerLife);
   const incrementGamesWon = useMutation(api.overlays.incrementGamesWon);
-  const resetMatch = useMutation(api.overlays.resetMatch);
 
   // Initialize local state when server data loads
   useEffect(() => {
-    if (data?.overlayType === "match" && playerLife === undefined) {
-      setPlayerLife(data[`player${props.index}Life`]);
+    if (data?.overlayType === "match" && playerLife === null) {
+      setPlayerLife(props.index, data[`player${props.index}Life`]);
     }
-  }, [data, props.index, playerLife]);
+  }, [data, props.index, playerLife, setPlayerLife]);
 
   // Start the opacity fade animation
   const startOpacityFade = useCallback(() => {
@@ -108,7 +117,6 @@ export default function Health(props: { index: "1" | "2" }) {
         overlayId: connectedOverlayId as Id<"overlays">,
         playerIndex: props.index,
       });
-      setPlayerLife(20);
     } else {
       // Increment the other player's games won
       const otherPlayerIndex = props.index === "1" ? "2" : "1";
@@ -116,8 +124,10 @@ export default function Health(props: { index: "1" | "2" }) {
         overlayId: connectedOverlayId as Id<"overlays">,
         playerIndex: otherPlayerIndex,
       });
-      setPlayerLife(20);
     }
+
+    // Reset both players' life totals immediately in local state
+    resetBothPlayers();
 
     setShowGameReset(false);
     setShowSettings(false);
@@ -125,18 +135,9 @@ export default function Health(props: { index: "1" | "2" }) {
 
   const handleLifeChange = (newLifeTotal: number) => {
     // Update local state immediately for responsive UI
-    setPlayerLife(newLifeTotal);
+    setPlayerLife(props.index, newLifeTotal);
     // Debounce the server update
     debouncedUpdateLife(newLifeTotal);
-  };
-
-  const handleMatchReset = () => {
-    if (!connectedOverlayId) return;
-
-    resetMatch({
-      overlayId: connectedOverlayId as Id<"overlays">,
-    });
-    setPlayerLife(20);
   };
 
   if (!data) {
@@ -150,7 +151,7 @@ export default function Health(props: { index: "1" | "2" }) {
   }
 
   // Show loading if we don't have local state yet
-  if (playerLife === undefined) {
+  if (playerLife === null) {
     return <div>Loading...</div>;
   }
 
@@ -158,10 +159,97 @@ export default function Health(props: { index: "1" | "2" }) {
 
   return (
     <div
-      className={`relative h-screen w-full flex flex-col items-center justify-center font-mono ${
+      className={`relative h-full w-full flex flex-col items-center justify-center font-mono ${
         props.index === "1" ? "bg-[#D08182]" : "bg-[#78B2D3] rotate-180"
       }`}
     >
+      {/* Settings button */}
+      {!showSettings && (
+        <div className="absolute top-4 right-4 z-10">
+          <Button
+            variant="ghost"
+            className="size-20"
+            onClick={() => setShowSettings(true)}
+          >
+            <SettingsIcon className="size-16" />
+          </Button>
+        </div>
+      )}
+
+      {/* Settings */}
+      {showSettings && (
+        <div className="absolute top-0 left-0 w-full h-full bg-black/70 z-50">
+          <div className="absolute top-4 right-4 z-100">
+            <Button
+              variant="ghost"
+              className="size-20"
+              onClick={() => setShowSettings(false)}
+            >
+              <XIcon className="size-16" />
+            </Button>
+          </div>
+          <div className="w-full h-full flex flex-col items-center justify-center gap-8">
+            <Button
+              variant="ghost"
+              className="w-24 h-32 flex flex-col items-center justify-center"
+              onClick={() => setShowGameReset(true)}
+            >
+              <RotateCcwIcon className="size-16" />
+              <span className="text-sm">Reset Game</span>
+            </Button>
+
+            {/* Admin buttons - positioned at bottom and styled to be less prominent */}
+            <div className="absolute bottom-4 left-4 flex flex-col gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs opacity-60 hover:opacity-100 bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300"
+                onClick={() => setShowAdminSettings(true)}
+              >
+                Admin Settings
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Game Reset */}
+      {showGameReset && (
+        <div className="absolute inset-0 bg-black/70 z-50 flex items-center justify-center">
+          <div className="relative bg-background rounded-lg border p-6 shadow-lg max-w-sm w-full mx-4">
+            <div className="absolute top-2 right-2">
+              <Button
+                variant="ghost"
+                className="size-10"
+                onClick={() => setShowGameReset(false)}
+              >
+                <XIcon className="size-8" />
+              </Button>
+            </div>
+            <div className="flex flex-col gap-2 text-center">
+              <h2 className="text-lg leading-none font-semibold">Reset Game</h2>
+              <p className="text-muted-foreground text-sm">
+                Did you win or lose this game?
+              </p>
+            </div>
+            <div className="flex flex-row gap-2 justify-center mt-4">
+              <Button
+                className="bg-green-500"
+                onClick={() => handleGameReset(true)}
+              >
+                I won!
+              </Button>
+              <Button
+                className="bg-red-500"
+                onClick={() => handleGameReset(false)}
+              >
+                I lost!
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Buttons */}
       <Button
         variant="ghost"

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useLifeTrackerStore } from "./store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,19 +14,60 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Check } from "lucide-react";
+import { Check, RotateCcw, X, ArrowLeft } from "lucide-react";
+import { Id } from "@/convex/_generated/dataModel";
+
+// Utility function to clear localStorage if there are persistence issues
+function clearPersistedSettings() {
+  try {
+    localStorage.removeItem("lifetracker-settings");
+    console.log("Cleared persisted settings due to storage issues");
+  } catch (e) {
+    console.warn("Failed to clear localStorage:", e);
+  }
+}
+
+// Custom hook to safely validate and update connected overlay
+function useOverlayValidation() {
+  const { connectedOverlayId, setConnectedOverlayId } = useLifeTrackerStore();
+  const allOverlays = useQuery(api.overlays.getUserOverlays);
+
+  useEffect(() => {
+    if (allOverlays && connectedOverlayId) {
+      const overlayExists = allOverlays.find(
+        (overlay) => overlay._id === connectedOverlayId,
+      );
+      if (!overlayExists) {
+        console.log("Connected overlay no longer exists, clearing connection");
+        setConnectedOverlayId(null);
+      }
+    }
+  }, [allOverlays, connectedOverlayId, setConnectedOverlayId]);
+
+  return { allOverlays, connectedOverlayId, setConnectedOverlayId };
+}
 
 export default function AdminSettings() {
-  const { connectedOverlayId, setConnectedOverlayId } = useLifeTrackerStore();
+  const { allOverlays, connectedOverlayId, setConnectedOverlayId } =
+    useOverlayValidation();
   const [selectedOverlay, setSelectedOverlay] = useState<string>(
     connectedOverlayId || "none",
   );
   const [showSuccess, setShowSuccess] = useState(false);
 
+  const setShowAdminSettings = useLifeTrackerStore(
+    (state) => state.setShowAdminSettings,
+  );
+  const resetBothPlayers = useLifeTrackerStore(
+    (state) => state.resetBothPlayers,
+  );
+
+  // Mutation for resetting match
+  const resetMatch = useMutation(api.overlays.resetMatch);
+
   // Fetch all overlays and filter for type "match"
-  const allOverlays = useQuery(api.overlays.getUserOverlays);
   const matchOverlays =
-    allOverlays?.filter((overlay) => overlay.type === "match") || [];
+    allOverlays?.filter((overlay) => overlay.overlayType === "match") || [];
 
   // Update selected value when store changes
   useEffect(() => {
@@ -48,9 +89,36 @@ export default function AdminSettings() {
     setShowSuccess(true);
   };
 
+  const handleMatchReset = () => {
+    if (!connectedOverlayId) return;
+
+    resetMatch({
+      overlayId: connectedOverlayId as Id<"overlays">,
+    });
+    resetBothPlayers();
+  };
+
+  const handleClose = () => {
+    setShowAdminSettings(false);
+  };
+
+  const handleGoToDashboard = () => {
+    window.location.href = "/dashboard";
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-background">
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md relative">
+        {/* Close button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute top-2 right-2 z-10"
+          onClick={handleClose}
+        >
+          <X className="h-4 w-4" />
+        </Button>
+
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold">Admin Settings</CardTitle>
         </CardHeader>
@@ -97,6 +165,42 @@ export default function AdminSettings() {
           >
             Save Settings
           </Button>
+
+          <Button
+            onClick={clearPersistedSettings}
+            variant="outline"
+            className="w-full h-10 text-sm"
+            size="sm"
+          >
+            Clear Stored Settings
+          </Button>
+
+          {/* Admin Actions Section */}
+          <div className="pt-4 border-t">
+            <h3 className="text-sm font-medium text-muted-foreground mb-3">
+              Admin Actions
+            </h3>
+            <div className="space-y-2">
+              <Button
+                onClick={handleMatchReset}
+                variant="destructive"
+                className="w-full h-10"
+                disabled={!connectedOverlayId}
+              >
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Reset Match
+              </Button>
+
+              <Button
+                onClick={handleGoToDashboard}
+                variant="outline"
+                className="w-full h-10"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Go to Dashboard
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>

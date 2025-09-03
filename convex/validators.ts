@@ -21,6 +21,9 @@ export const tournamentValidator = v.object({
     v.union(v.literal("active"), v.literal("completed")),
   ),
   currentRound: v.number(),
+  currentRoundDisplayName: v.optional(v.string()),
+  manualTimerExpiry: v.optional(v.number()),
+  manualTimerRunning: v.boolean(),
   createdAt: v.number(),
   updatedAt: v.number(),
 });
@@ -34,8 +37,8 @@ export const featureMatchValidator = v.object({
   player1: v.id("players"),
   player2: v.id("players"),
   tableNumber: v.optional(v.number()),
-  timerExpiry: v.optional(v.number()), // Unix timestamp
-  timerRunning: v.boolean(),
+  spicerackTimerExpiry: v.optional(v.number()), // Unix timestamp
+  spicerackTimerRunning: v.boolean(),
   createdAt: v.number(),
 });
 
@@ -45,6 +48,7 @@ export const overlayTypeValidator = v.union(
   v.literal("card"),
   v.literal("deck"),
   v.literal("standings"),
+  v.literal("commentary"),
 );
 
 // Different overlay validators
@@ -53,6 +57,13 @@ export const matchOverlayValidator = v.object({
   _creationTime: v.number(),
   name: v.string(),
   overlayType: v.literal("match"),
+  template: v.union(
+    v.literal("Duress Crew"),
+    v.literal("Lobstercon"),
+    v.literal("Default"),
+    v.literal("Custom"),
+  ),
+  templateId: v.optional(v.id("templates")),
   tournamentId: v.id("tournaments"),
   publicUuid: v.string(), // Direct UUID string for public access
   player1: v.optional(v.id("players")),
@@ -112,12 +123,52 @@ export const standingsOverlayValidator = v.object({
   createdAt: v.number(),
 });
 
+export const commentaryOverlayValidator = v.object({
+  _id: v.id("overlays"),
+  _creationTime: v.number(),
+  name: v.string(),
+  overlayType: v.literal("commentary"),
+  tournamentId: v.id("tournaments"),
+  publicUuid: v.string(), // Direct UUID string for public access
+  template: v.union(
+    v.literal("Duress Crew"),
+    v.literal("Lobstercon"),
+    v.literal("Default"),
+    v.literal("Custom"),
+  ),
+  templateId: v.optional(v.id("templates")),
+  commentatorLeft: v.string(),
+  commentatorLeftSubText: v.optional(v.string()),
+  commentatorRight: v.string(),
+  commentatorRightSubText: v.optional(v.string()),
+  createdAt: v.number(),
+});
+
 export const overlayValidator = v.union(
   matchOverlayValidator,
   cardOverlayValidator,
   deckOverlayValidator,
   standingsOverlayValidator,
+  commentaryOverlayValidator,
 );
+
+export const templateValidator = v.object({
+  _id: v.id("templates"),
+  _creationTime: v.number(),
+  userId: v.id("users"),
+  name: v.string(),
+  template: v.any(),
+  createdAt: v.number(),
+});
+
+export const matchTemplatesValidator = v.union(
+  v.literal("Duress Crew"),
+  v.literal("Lobstercon"),
+  v.literal("Default"),
+  v.literal("Custom"),
+);
+
+export const availableTemplatesValidator = v.union(matchTemplatesValidator);
 
 export const playerValidator = v.object({
   _id: v.id("players"),
@@ -149,20 +200,12 @@ export const deckOverlayWithMatchAndPlayersValidator = v.object({
 });
 
 // Getters
-export const getUserOverlaysValidator = v.array(
-  v.object({
-    _id: v.id("overlays"),
-    type: overlayTypeValidator,
-    name: v.string(),
-    publicUuid: v.string(),
-  }),
-);
-
 export const getOverlayByIdValidator = v.union(
   matchOverlayWithPlayersValidator,
   cardOverlayValidator,
   deckOverlayWithMatchAndPlayersValidator,
   standingsOverlayValidator,
+  commentaryOverlayValidator,
 );
 
 export const getOverlayByUuidValidator = v.union(
@@ -170,5 +213,6 @@ export const getOverlayByUuidValidator = v.union(
   cardOverlayValidator,
   deckOverlayWithMatchAndPlayersValidator,
   standingsOverlayValidator,
+  commentaryOverlayValidator,
   v.null(),
 );
