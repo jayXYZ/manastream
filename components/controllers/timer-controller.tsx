@@ -45,10 +45,6 @@ export function TimerController({
   const timerRef = useRef(timer);
   timerRef.current = timer;
 
-  if (!tournament) {
-    return <p>Loading...</p>;
-  }
-
   // Sync timer state with backend when component mounts or tournament changes
   useEffect(() => {
     if (tournament) {
@@ -144,6 +140,10 @@ export function TimerController({
       setEditSeconds(seconds.toString().padStart(2, "0"));
     }
   };
+
+  if (!tournament) {
+    return <p>Loading...</p>;
+  }
 
   return (
     <Card className="flex flex-col">
