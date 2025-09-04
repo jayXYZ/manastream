@@ -1,5 +1,33 @@
-import { redirect } from "next/navigation";
+import { useConvexAuth, useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { useMutation } from "convex/react";
+import { Button } from "@/components/ui/button";
 
 export default function Dashboard() {
-  redirect("/dashboard/controllers");
+  const { isAuthenticated } = useConvexAuth();
+  const tournament = useQuery(api.tournaments.getUserTournament);
+  const createTournament = useMutation(api.tournaments.createTournament);
+  const overlays = useQuery(api.overlays.getUserOverlays);
+  return (
+    <div>
+      <h1>Dashboard</h1>
+      <p>Welcome to the dashboard</p>
+      <p>You are {isAuthenticated ? "authenticated" : "not authenticated"}</p>
+      {tournament ? (
+        <p>You have a tournament! Great job!</p>
+      ) : (
+        <p>You do not have a tournament, please create one to get started</p>
+      )}
+      {!tournament && (
+        <Button onClick={() => createTournament({})}>Create Tournament</Button>
+      )}
+      {overlays ? (
+        <p>
+          You have created {overlays.length} overlays! I&apos;m so proud of you!
+        </p>
+      ) : (
+        <p>You do not have any overlays. Honestly, I&apos;m disappointed.</p>
+      )}
+    </div>
+  );
 }
