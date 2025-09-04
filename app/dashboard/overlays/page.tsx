@@ -251,10 +251,14 @@ export default function OverlaysPage() {
                     <SelectValue placeholder="Select template" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Default">Default</SelectItem>
+                    <SelectItem disabled value="Default">
+                      Default
+                    </SelectItem>
                     <SelectItem value="Duress Crew">Duress Crew</SelectItem>
                     <SelectItem value="Lobstercon">Lobstercon</SelectItem>
-                    <SelectItem value="Custom">Custom</SelectItem>
+                    <SelectItem disabled value="Custom">
+                      Custom
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
