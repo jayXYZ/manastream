@@ -12,7 +12,6 @@ export default function Dashboard() {
   const overlays = useQuery(api.overlays.getUserOverlays);
   return (
     <div>
-      <h1>Dashboard</h1>
       <p>Welcome to the dashboard</p>
       <p>You are {isAuthenticated ? "authenticated" : "not authenticated"}</p>
       {tournament ? (
@@ -23,7 +22,7 @@ export default function Dashboard() {
       {!tournament && (
         <Button onClick={() => createTournament({})}>Create Tournament</Button>
       )}
-      {overlays ? (
+      {overlays && overlays.length > 0 ? (
         <p>
           You have created {overlays.length} overlays! I&apos;m so proud of you!
         </p>

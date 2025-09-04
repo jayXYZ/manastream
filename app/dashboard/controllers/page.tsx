@@ -41,12 +41,14 @@ export default function ControllersPage() {
       </div>
       <div className="flex flex-row gap-4 h-[calc(100vh-16rem)]">
         <div className="flex-grow">
-          {matchOverlays.map((matchOverlay) => (
-            <MatchController
-              key={matchOverlay._id}
-              matchOverlayId={matchOverlay._id}
-            />
-          ))}
+          <div className="flex flex-col gap-4">
+            {matchOverlays.map((matchOverlay) => (
+              <MatchController
+                key={matchOverlay._id}
+                matchOverlayId={matchOverlay._id}
+              />
+            ))}
+          </div>
         </div>
         {cardOverlay && showCardOverlay && (
           <div className="h-full">
