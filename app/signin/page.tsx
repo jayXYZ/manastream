@@ -11,7 +11,7 @@ export default function SignIn() {
   const router = useRouter();
   return (
     <div className="flex flex-col gap-8 w-96 mx-auto h-screen justify-center items-center">
-      <p>Log in to see the numbers</p>
+      <p>Are you sure you should be here?</p>
       <form
         className="flex flex-col gap-2"
         onSubmit={(e) => {
@@ -23,7 +23,7 @@ export default function SignIn() {
               setError(error.message);
             })
             .then(() => {
-              router.push("/");
+              router.push("/dashboard");
             });
         }}
       >

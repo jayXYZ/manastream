@@ -52,9 +52,27 @@ function SignInOutButton() {
 }
 
 function Content() {
+  const { isAuthenticated } = useConvexAuth();
+  const router = useRouter();
   return (
     <div className="flex flex-col gap-8 max-w-lg mx-auto">
       sign in above to get started :)
+      {isAuthenticated && (
+        <div className="flex flex-col gap-2">
+          <button
+            className="bg-slate-200 dark:bg-slate-800 text-foreground rounded-md px-2 py-1"
+            onClick={() => router.push("/dashboard")}
+          >
+            Go to dashboard
+          </button>
+          <button
+            className="bg-slate-200 dark:bg-slate-800 text-foreground rounded-md px-2 py-1"
+            onClick={() => router.push("/lifetracker")}
+          >
+            Go to lifetracker
+          </button>
+        </div>
+      )}
     </div>
   );
 }
