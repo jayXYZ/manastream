@@ -18,7 +18,7 @@ export default function CommentaryOverlay({
   const TemplateComponent = TEMPLATE_COMPONENTS[data.template as TemplateName];
 
   if (!TemplateComponent) {
-    return <div>Template "{data.template}" not supported</div>;
+    return <div>Template &quot;{data.template}&quot; not supported</div>;
   }
 
   return <TemplateComponent data={data} />;

@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { api } from "@/convex/_generated/api";
 import AdminSettings from "./admin-settings";
 import Health from "./health";
@@ -13,7 +12,6 @@ import { Cog } from "lucide-react";
 import LifeTrackerErrorBoundary from "./error-boundary";
 
 function LifeTrackerContent() {
-  const userOverlays = useQuery(api.overlays.getUserOverlays);
   const connectedOverlayId = useLifeTrackerStore(
     (state) => state.connectedOverlayId,
   );

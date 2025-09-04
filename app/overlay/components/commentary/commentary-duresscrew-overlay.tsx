@@ -5,5 +5,10 @@ export default function CommentaryDuressCrewOverlay({
 }: {
   data: CommentaryOverlayType;
 }) {
-  return <div>Commentary Duress Crew Overlay</div>;
+  return (
+    <div>
+      Commentary Duress Crew Overlay by {data.commentatorLeft} and{" "}
+      {data.commentatorRight}
+    </div>
+  );
 }

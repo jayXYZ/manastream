@@ -59,7 +59,7 @@ function DashboardSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="border-b px-6 py-4">
-        <h1 className="text-xl font-semibold">DXC Overlay</h1>
+        <h1 className="text-xl font-semibold">DxC Overlay</h1>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>

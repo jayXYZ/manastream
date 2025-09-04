@@ -7,6 +7,7 @@ import {
   DeckOverlay,
   StandingsOverlay,
   CommentaryOverlay as CommentaryOverlayType,
+  Overlay as OverlayType,
 } from "@/convex/types";
 import { useQuery } from "convex/react";
 import { use } from "react";
@@ -15,30 +16,34 @@ import MatchOverlay from "../components/match/match-overlay";
 import CommentaryOverlay from "../components/commentary/commentary-overlay";
 
 // Type guard functions for better type safety
-const isMatchOverlay = (overlay: any): overlay is MatchOverlayWithPlayers => {
+const isMatchOverlay = (
+  overlay: OverlayType,
+): overlay is MatchOverlayWithPlayers => {
   return overlay.overlayType === "match";
 };
 
-const isCardOverlay = (overlay: any): overlay is CardOverlayType => {
+const isCardOverlay = (overlay: OverlayType): overlay is CardOverlayType => {
   return overlay.overlayType === "card";
 };
 
-const isDeckOverlay = (overlay: any): overlay is DeckOverlay => {
+const isDeckOverlay = (overlay: OverlayType): overlay is DeckOverlay => {
   return overlay.overlayType === "deck";
 };
 
-const isStandingsOverlay = (overlay: any): overlay is StandingsOverlay => {
+const isStandingsOverlay = (
+  overlay: OverlayType,
+): overlay is StandingsOverlay => {
   return overlay.overlayType === "standings";
 };
 
 const isCommentaryOverlay = (
-  overlay: any,
+  overlay: OverlayType,
 ): overlay is CommentaryOverlayType => {
   return overlay.overlayType === "commentary";
 };
 
 // Overlay renderer function
-const renderOverlay = (overlay: any) => {
+const renderOverlay = (overlay: OverlayType) => {
   if (isMatchOverlay(overlay)) {
     return <MatchOverlay data={overlay} />;
   }
@@ -59,7 +64,9 @@ const renderOverlay = (overlay: any) => {
     return <CommentaryOverlay data={overlay} />;
   }
 
-  return <div>Overlay type "{overlay.overlayType}" not supported</div>;
+  return (
+    <div>Overlay type &quot;{overlay.overlayType}&quot; not supported</div>
+  );
 };
 
 export default function OverlayPage({
