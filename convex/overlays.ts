@@ -567,3 +567,57 @@ export const setOverlayTemplate = mutation({
     return null;
   },
 });
+
+export const setMatchOverlaySettings = mutation({
+  args: {
+    overlayId: v.id("overlays"),
+    name: v.string(),
+    template: availableTemplatesValidator,
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User not authenticated");
+    }
+
+    const overlay = await ctx.db.get(args.overlayId);
+    if (!overlay || overlay.overlayType !== "match") {
+      throw new Error("Match overlay not found");
+    }
+
+    await ctx.db.patch(args.overlayId, {
+      name: args.name,
+      template: args.template,
+    });
+    return null;
+  },
+});
+
+export const deleteOverlay = mutation({
+  args: {
+    overlayId: v.id("overlays"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User not authenticated");
+    }
+
+    const overlay = await ctx.db.get(args.overlayId);
+
+    if (!overlay) {
+      throw new Error("Overlay not found");
+    }
+
+    // Verify tournament ownership
+    const tournament = await ctx.db.get(overlay.tournamentId);
+    if (!tournament || tournament.userId !== userId) {
+      throw new Error("Access denied");
+    }
+
+    await ctx.db.delete(args.overlayId);
+    return null;
+  },
+});

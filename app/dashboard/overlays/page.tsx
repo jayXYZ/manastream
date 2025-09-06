@@ -19,18 +19,11 @@ import {
   TableBody,
   TableCell,
 } from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { useMutation, useQuery } from "convex/react";
 import { useState } from "react";
 import { MoreHorizontal } from "lucide-react";
-import { Overlay, TemplateType } from "@/convex/types";
-import { Switch } from "@/components/ui/switch";
-import { useDashboardStore } from "../store";
+import { Overlay } from "@/convex/types";
+import OverlaySettings from "./components/overlay-settings";
 
 export default function OverlaysPage() {
   const tournament = useQuery(api.tournaments.getUserTournament);
@@ -40,13 +33,6 @@ export default function OverlaysPage() {
   const createCommentaryOverlay = useMutation(
     api.overlays.createCommentaryOverlay,
   );
-  const setOverlayTemplate = useMutation(api.overlays.setOverlayTemplate);
-  const showCardOverlayStore = useDashboardStore(
-    (state) => state.showCardOverlay,
-  );
-  const setShowCardOverlayStore = useDashboardStore(
-    (state) => state.setShowCardOverlay,
-  );
   // const createDeckOverlay = useMutation(api.overlays.createDeckOverlay);
   // const createStandingsOverlay = useMutation(api.overlays.createStandingsOverlay);
   const [selectedOverlayType, setSelectedOverlayType] =
@@ -54,9 +40,6 @@ export default function OverlaysPage() {
   const [overlayName, setOverlayName] = useState("");
   const [selectedOverlay, setSelectedOverlay] = useState<Overlay | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] =
-    useState<TemplateType>("Default");
-  const [showCardOverlay, setShowCardOverlay] = useState(showCardOverlayStore);
 
   const capitalizeFirstLetter = (str: string) => {
     return str.charAt(0).toUpperCase() + str.slice(1);
@@ -100,30 +83,7 @@ export default function OverlaysPage() {
 
   const handleOpenDialog = (overlay: Overlay) => {
     setSelectedOverlay(overlay);
-    if (
-      overlay.overlayType === "match" ||
-      overlay.overlayType === "commentary"
-    ) {
-      setSelectedTemplate(overlay.template as TemplateType);
-    }
     setIsDialogOpen(true);
-  };
-
-  const handleSave = () => {
-    if (
-      (selectedOverlay?.overlayType === "match" ||
-        selectedOverlay?.overlayType === "commentary") &&
-      selectedTemplate
-    ) {
-      setOverlayTemplate({
-        overlayId: selectedOverlay._id,
-        template: selectedTemplate,
-      });
-    }
-    if (selectedOverlay?.overlayType === "card") {
-      setShowCardOverlayStore(showCardOverlay);
-    }
-    setIsDialogOpen(false);
   };
 
   if (!tournament) {
@@ -227,75 +187,13 @@ export default function OverlaysPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>
-              {selectedOverlay
-                ? `${selectedOverlay.name} Settings`
-                : "Overlay Settings"}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            {selectedOverlay?.overlayType === "match" ||
-            selectedOverlay?.overlayType === "commentary" ? (
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Template</label>
-                <Select
-                  value={selectedTemplate}
-                  onValueChange={(value: TemplateType) =>
-                    setSelectedTemplate(value)
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select template" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem disabled value="Default">
-                      Default
-                    </SelectItem>
-                    <SelectItem value="Duress Crew">Duress Crew</SelectItem>
-                    <SelectItem value="Lobstercon">Lobstercon</SelectItem>
-                    <SelectItem disabled value="Custom">
-                      Custom
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            ) : selectedOverlay?.overlayType === "card" ? (
-              <div className="space-y-2 items-center flex flex-row">
-                <label className="text-sm font-medium flex-1 w-full">
-                  Show Card Overlay?
-                </label>
-                <div className="flex-1">
-                  <Switch
-                    checked={showCardOverlay}
-                    onCheckedChange={(checked) =>
-                      setShowCardOverlay(checked as boolean)
-                    }
-                  />
-                </div>
-              </div>
-            ) : (
-              <div className="text-gray-500 dark:text-gray-400">
-                <p>
-                  Settings for {selectedOverlay?.overlayType} overlays are not
-                  yet implemented.
-                </p>
-                <p className="text-sm mt-2">
-                  This is placeholder content for future development.
-                </p>
-              </div>
-            )}
-            <div className="flex justify-end space-x-2 pt-4">
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleSave}>Save Changes</Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {selectedOverlay && (
+        <OverlaySettings
+          overlay={selectedOverlay}
+          isOpen={isDialogOpen}
+          onOpenChange={setIsDialogOpen}
+        />
+      )}
     </div>
   );
 }
