@@ -52,7 +52,7 @@ function LifeTrackerContent() {
   }
 
   return (
-    <div className="flex flex-col h-screen w-full">
+    <div className="flex flex-col h-screen-dynamic w-full overscroll-none overflow-hidden">
       <Health index="2" />
       <Separator />
       <Health index="1" />
