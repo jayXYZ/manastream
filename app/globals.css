@@ -141,6 +141,11 @@
   height: 100dvh; /* Dynamic viewport height */
 }
 
+html,
+body {
+  overscroll-behavior: none;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
