@@ -73,6 +73,18 @@ export function MatchController({ matchOverlayId }: MatchControllerProps) {
     throw new Error("Overlay type mismatch");
   }
 
+  const handleUpdate = () => {
+    updateMatch({
+      overlayId: matchOverlay._id,
+      player1DisplayName: inputs.player1Name,
+      player2DisplayName: inputs.player2Name,
+      player1DisplayDeck: inputs.player1DeckName,
+      player2DisplayDeck: inputs.player2DeckName,
+      player1TournamentRecord: inputs.player1TournamentRecord,
+      player2TournamentRecord: inputs.player2TournamentRecord,
+    });
+  };
+
   return (
     <AccordionCard
       title={matchOverlay.name}
@@ -170,13 +182,7 @@ export function MatchController({ matchOverlayId }: MatchControllerProps) {
         <div className="flex justify-end">
           <Button
             className="px-6 py-2 text-base font-semibold rounded-md shadow bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-            onClick={() => {
-              updateMatch({
-                overlayId: matchOverlay._id,
-                player1DisplayName: inputs.player1Name,
-                player2DisplayName: inputs.player2Name,
-              });
-            }}
+            onClick={() => handleUpdate()}
           >
             Update
           </Button>
