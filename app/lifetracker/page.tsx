@@ -10,6 +10,7 @@ import { useQuery } from "convex/react";
 import { usePresence } from "@/hooks/use-presence";
 import { Cog } from "lucide-react";
 import LifeTrackerErrorBoundary from "./error-boundary";
+import PWAInstaller from "@/components/pwa-installer";
 
 function LifeTrackerContent() {
   const connectedOverlayId = useLifeTrackerStore(
@@ -63,6 +64,7 @@ export default function LifeTracker() {
   return (
     <LifeTrackerErrorBoundary>
       <LifeTrackerContent />
+      <PWAInstaller />
     </LifeTrackerErrorBoundary>
   );
 }
