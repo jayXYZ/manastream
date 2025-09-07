@@ -18,13 +18,13 @@ interface OverlaySettingsProps {
 }
 
 // Type-safe component map with proper typing for each overlay type
-const TYPE_COMPONENTS = {
-  match: MatchSettings,
-  card: null, // Will be implemented later
-  commentary: null, // Will be implemented later
-  deck: null,
-  standings: null,
-} as const;
+// const TYPE_COMPONENTS = {
+//   match: MatchSettings,
+//   card: null, // Will be implemented later
+//   commentary: null, // Will be implemented later
+//   deck: null,
+//   standings: null,
+// } as const;
 
 export default function OverlaySettings({
   overlay,

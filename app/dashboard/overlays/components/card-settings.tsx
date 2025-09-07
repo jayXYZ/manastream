@@ -3,6 +3,7 @@ import { CardOverlay } from "@/convex/types";
 import { useState } from "react";
 import { useDashboardStore } from "../../store";
 import { Button } from "@/components/ui/button";
+import { DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface CardSettingsProps {
   overlay: CardOverlay;
@@ -18,19 +19,26 @@ export default function CardSettings({ overlay }: CardSettingsProps) {
   const [showCardOverlay, setShowCardOverlay] = useState(showCardOverlayStore);
 
   return (
-    <div className="space-y-2 items-center flex flex-row">
-      <label className="text-sm font-medium flex-1 w-full">
-        Show Card Overlay?
-      </label>
-      <div className="flex-1">
-        <Switch
-          checked={showCardOverlay}
-          onCheckedChange={(checked) => setShowCardOverlay(checked as boolean)}
-        />
+    <>
+      <DialogHeader>
+        <DialogTitle>{overlay.name}</DialogTitle>
+      </DialogHeader>
+      <div className="space-y-2 items-center flex flex-row">
+        <label className="text-sm font-medium flex-1 w-full">
+          Show Card Overlay?
+        </label>
+        <div className="flex-1">
+          <Switch
+            checked={showCardOverlay}
+            onCheckedChange={(checked) =>
+              setShowCardOverlay(checked as boolean)
+            }
+          />
+        </div>
+        <Button onClick={() => setShowCardOverlayStore(showCardOverlay)}>
+          Save
+        </Button>
       </div>
-      <Button onClick={() => setShowCardOverlayStore(showCardOverlay)}>
-        Save
-      </Button>
-    </div>
+    </>
   );
 }

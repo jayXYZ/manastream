@@ -1,3 +1,4 @@
+import { DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Select,
   SelectItem,
@@ -20,26 +21,31 @@ export default function CommentarySettings({
   );
 
   return (
-    <div className="space-y-2">
-      <label className="text-sm font-medium">Template</label>
-      <Select
-        value={selectedTemplate}
-        onValueChange={(value: TemplateType) => setSelectedTemplate(value)}
-      >
-        <SelectTrigger>
-          <SelectValue placeholder="Select template" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem disabled value="Default">
-            Default
-          </SelectItem>
-          <SelectItem value="Duress Crew">Duress Crew</SelectItem>
-          <SelectItem value="Lobstercon">Lobstercon</SelectItem>
-          <SelectItem disabled value="Custom">
-            Custom
-          </SelectItem>
-        </SelectContent>
-      </Select>
-    </div>
+    <>
+      <DialogHeader>
+        <DialogTitle>{overlay.name}</DialogTitle>
+      </DialogHeader>
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Template</label>
+        <Select
+          value={selectedTemplate}
+          onValueChange={(value: TemplateType) => setSelectedTemplate(value)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select template" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem disabled value="Default">
+              Default
+            </SelectItem>
+            <SelectItem value="Duress Crew">Duress Crew</SelectItem>
+            <SelectItem value="Lobstercon">Lobstercon</SelectItem>
+            <SelectItem disabled value="Custom">
+              Custom
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    </>
   );
 }

@@ -1,0 +1,22 @@
+{
+  "name": "DxC Overlay - Life Tracker",
+  "short_name": "Life Tracker",
+  "description": "Magic: The Gathering tournament life tracker for feature matches",
+  "start_url": "/lifetracker",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "theme_color": "#000000",
+  "background_color": "#000000",
+  "icons": [
+    {
+      "src": "/swamp-white.svg",
+      "sizes": "367x381",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["games", "entertainment"],
+  "lang": "en",
+  "scope": "/lifetracker",
+  "prefer_related_applications": false
+}
