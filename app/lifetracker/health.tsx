@@ -6,11 +6,17 @@ import { useLifeTrackerStore } from "./store";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
-import { SettingsIcon, RotateCcwIcon, XIcon } from "lucide-react";
+import {
+  SettingsIcon,
+  RotateCcwIcon,
+  XIcon,
+  ArrowDownUpIcon,
+} from "lucide-react";
 
 export default function Health(props: { index: "1" | "2" }) {
   const [showSettings, setShowSettings] = useState(false);
   const [showGameReset, setShowGameReset] = useState(false);
+  const [showSwapPlayers, setShowSwapPlayers] = useState(false);
   const [pendingOpacity, setPendingOpacity] = useState(0);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const opacityIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -40,6 +46,7 @@ export default function Health(props: { index: "1" | "2" }) {
   // Specialized mutations for specific operations
   const updatePlayerLife = useMutation(api.overlays.updatePlayerLife);
   const incrementGamesWon = useMutation(api.overlays.incrementGamesWon);
+  const swapPlayers = useMutation(api.overlays.swapPlayers);
 
   // Initialize local state when server data loads
   useEffect(() => {
@@ -140,6 +147,21 @@ export default function Health(props: { index: "1" | "2" }) {
     debouncedUpdateLife(newLifeTotal);
   };
 
+  const handleSwapPlayers = () => {
+    if (!connectedOverlayId) return;
+    swapPlayers({
+      overlayId: connectedOverlayId as Id<"overlays">,
+    });
+    setShowSwapPlayers(false);
+  };
+
+  const swapEnabled =
+    data?.overlayType === "match" &&
+    data.player1GamesWon === 0 &&
+    data.player2GamesWon === 0 &&
+    data.player1Life === 20 &&
+    data.player2Life === 20;
+
   if (!data) {
     // display loading spinner
     return;
@@ -178,7 +200,7 @@ export default function Health(props: { index: "1" | "2" }) {
 
       {/* Settings */}
       {showSettings && (
-        <div className="absolute top-0 left-0 w-full h-full bg-black/70 z-50">
+        <div className="absolute top-0 left-0 w-full h-full bg-black/80 z-50">
           <div className="absolute top-4 right-4 z-100">
             <Button
               variant="ghost"
@@ -188,15 +210,28 @@ export default function Health(props: { index: "1" | "2" }) {
               <XIcon className="size-16" />
             </Button>
           </div>
-          <div className="w-full h-full flex flex-col items-center justify-center gap-8">
-            <Button
-              variant="ghost"
-              className="w-24 h-32 flex flex-col items-center justify-center"
-              onClick={() => setShowGameReset(true)}
-            >
-              <RotateCcwIcon className="size-16" />
-              <span className="text-sm">Reset Game</span>
-            </Button>
+          <div className="flex flex-row items-center justify-center w-1/2 h-full mx-auto">
+            <div className="w-full h-full flex flex-col items-center justify-center gap-8">
+              <Button
+                variant="ghost"
+                className="w-32 h-32 flex flex-col items-center justify-center"
+                onClick={() => setShowGameReset(true)}
+              >
+                <RotateCcwIcon className="size-16 stroke-3 stroke-red-500" />
+                <span className="text-sm font-bold">Reset Game</span>
+              </Button>
+            </div>
+            <div className="w-full h-full flex flex-col items-center justify-center gap-8">
+              <Button
+                disabled={!swapEnabled}
+                variant="ghost"
+                className="w-32 h-32 flex flex-col items-center justify-center"
+                onClick={() => setShowSwapPlayers(true)}
+              >
+                <ArrowDownUpIcon className="size-16 stroke-3 stroke-yellow-500" />
+                <span className="text-sm font-bold">Swap Players</span>
+              </Button>
+            </div>
 
             {/* Admin buttons - positioned at bottom and styled to be less prominent */}
             <div className="absolute bottom-4 left-4 flex flex-col gap-2">
@@ -229,21 +264,54 @@ export default function Health(props: { index: "1" | "2" }) {
             <div className="flex flex-col gap-2 text-center">
               <h2 className="text-lg leading-none font-semibold">Reset Game</h2>
               <p className="text-muted-foreground text-sm">
-                Did you win or lose this game?
+                Did you lose or winthis game?
               </p>
             </div>
-            <div className="flex flex-row gap-2 justify-center mt-4">
+            <div className="w-2/3 mx-auto flex flex-row gap-2 justify-between mt-4">
               <Button
-                className="bg-green-500"
+                className="bg-red-500 font-bold"
+                onClick={() => handleGameReset(false)}
+              >
+                I lost!
+              </Button>
+              <Button
+                className="bg-green-500 font-bold"
                 onClick={() => handleGameReset(true)}
               >
                 I won!
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Swap Players */}
+      {showSwapPlayers && (
+        <div className="absolute inset-0 bg-black/70 z-50 flex items-center justify-center">
+          <div className="relative bg-background rounded-lg border p-6 shadow-lg max-w-sm w-full mx-4">
+            <div className="absolute top-2 right-2">
               <Button
-                className="bg-red-500"
-                onClick={() => handleGameReset(false)}
+                variant="ghost"
+                className="size-10"
+                onClick={() => setShowSwapPlayers(false)}
               >
-                I lost!
+                <XIcon className="size-8" />
+              </Button>
+            </div>
+            <div className="flex flex-col gap-2 text-center">
+              <h2 className="text-lg leading-none font-semibold">
+                Swap Players
+              </h2>
+              <p className="text-muted-foreground text-sm">
+                Swap seats with the other player.
+              </p>
+            </div>
+            <div className="w-full flex mx-auto items-center justify-center mt-4">
+              <Button
+                className="bg-green-500 font-bold"
+                onClick={() => handleSwapPlayers()}
+              >
+                Swap
               </Button>
             </div>
           </div>

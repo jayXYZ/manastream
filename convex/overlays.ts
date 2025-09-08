@@ -385,6 +385,41 @@ export const resetMatch = mutation({
   },
 });
 
+export const swapPlayers = mutation({
+  args: {
+    overlayId: v.id("overlays"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User not authenticated");
+    }
+
+    const overlay = await ctx.db.get(args.overlayId);
+    if (!overlay || overlay.overlayType !== "match") {
+      throw new Error("Match overlay not found");
+    }
+
+    const tournament = await ctx.db.get(overlay.tournamentId);
+    if (!tournament || tournament.userId !== userId) {
+      throw new Error("Access denied");
+    }
+
+    await ctx.db.patch(args.overlayId, {
+      player1: overlay.player2,
+      player2: overlay.player1,
+      player1DisplayName: overlay.player2DisplayName,
+      player2DisplayName: overlay.player1DisplayName,
+      player1DisplayDeck: overlay.player2DisplayDeck,
+      player2DisplayDeck: overlay.player1DisplayDeck,
+      player1TournamentRecord: overlay.player2TournamentRecord,
+      player2TournamentRecord: overlay.player1TournamentRecord,
+    });
+    return null;
+  },
+});
+
 // Reset match overlay data (authenticated)
 export const resetMatchOverlay = mutation({
   args: {
