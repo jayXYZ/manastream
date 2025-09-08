@@ -8,8 +8,10 @@ import { useLifeTrackerStore } from "./store";
 import { Separator } from "@/components/ui/separator";
 import { useQuery } from "convex/react";
 import { usePresence } from "@/hooks/use-presence";
+import { useWakeLock } from "@/hooks/use-wake-lock";
 import { Cog } from "lucide-react";
 import LifeTrackerErrorBoundary from "./error-boundary";
+import { useEffect } from "react";
 
 function LifeTrackerContent() {
   const connectedOverlayId = useLifeTrackerStore(
@@ -28,6 +30,32 @@ function LifeTrackerContent() {
 
   // Only call usePresence if we have a valid connectedOverlayId
   usePresence(connectedOverlayId || null);
+
+  // Wake lock to prevent screen from sleeping
+  const { requestWakeLock, releaseWakeLock, isSupported, isActive, error } =
+    useWakeLock();
+
+  // Request wake lock when component mounts and we're not in admin settings
+  useEffect(() => {
+    if (!showAdminSettings && connectedOverlayId && isSupported) {
+      requestWakeLock();
+    } else if (showAdminSettings) {
+      releaseWakeLock();
+    }
+  }, [
+    showAdminSettings,
+    connectedOverlayId,
+    isSupported,
+    requestWakeLock,
+    releaseWakeLock,
+  ]);
+
+  // Cleanup wake lock when component unmounts
+  useEffect(() => {
+    return () => {
+      releaseWakeLock();
+    };
+  }, [releaseWakeLock]);
 
   if (!connectedOverlayId || showAdminSettings) {
     return <AdminSettings />;
