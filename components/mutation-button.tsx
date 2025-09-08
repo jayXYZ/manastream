@@ -1,7 +1,7 @@
 import { Button } from "./ui/button";
 import { useState } from "react";
 
-export default function MutationButton({
+export default function MutationButton<TParams = unknown>({
   mutation,
   mutationParams,
   children,
@@ -9,8 +9,8 @@ export default function MutationButton({
   disabled = false,
   className,
 }: {
-  mutation: (params: any) => Promise<void | null>;
-  mutationParams: any;
+  mutation: (params: TParams) => Promise<void | null>;
+  mutationParams: TParams;
   children: React.ReactNode;
   loadingText?: string;
   disabled?: boolean;
