@@ -1,6 +1,7 @@
 import { api } from "@/convex/_generated/api";
 import { MatchOverlayWithPlayers } from "@/convex/types";
 import { useQuery } from "convex/react";
+import Timer from "@/components/timer";
 
 export default function MatchDuressCrewOverlay({
   data,
@@ -51,15 +52,9 @@ export default function MatchDuressCrewOverlay({
         <div className="absolute left-0 right-0 text-center text-[24px] pt-[8px]">
           {tournamentInfo?.currentRound || "Round 1"}
         </div>
-        {/* <div
-              className={
-                "absolute left-0 right-0 mt-auto mb-auto text-center font-bold text-[60px] pt-[28px] " +
-                (negativeTime ? "text-red-500" : "")
-              }
-            >
-              {negativeTime ? "-" : ""}
-              {leadingZeroMinutes}:{leadingZeroSeconds}
-            </div> */}
+        <div className="absolute left-0 right-0 mt-auto mb-auto text-center font-bold text-[60px] pt-[28px]">
+          <Timer />
+        </div>
 
         <div
           className={

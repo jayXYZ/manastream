@@ -151,11 +151,14 @@ export const getOverlayByUuid = query({
           ctx.db.get(overlay.player1),
           ctx.db.get(overlay.player2),
         ]);
+        const tournament = await ctx.db.get(overlay.tournamentId);
 
         return {
           ...overlay,
           player1Data: player1 ?? undefined,
           player2Data: player2 ?? undefined,
+          manualTimerExpiry: tournament?.manualTimerExpiry ?? undefined,
+          manualTimerRunning: tournament?.manualTimerRunning ?? undefined,
         };
       } else {
         return {

@@ -12,6 +12,7 @@ import {
   XIcon,
   ArrowDownUpIcon,
 } from "lucide-react";
+import Timer from "@/components/timer";
 
 export default function Health(props: { index: "1" | "2" }) {
   const [showSettings, setShowSettings] = useState(false);
@@ -330,26 +331,32 @@ export default function Health(props: { index: "1" | "2" }) {
         onClick={() => handleLifeChange(playerLife - 1)}
       />
       {/* Game won indicator */}
-      <div className="absolute left-4 top-4 flex">
-        Games Won:
-        <span className="flex flex-row items-center gap-2 px-1">
-          <div
-            className={`size-4 rounded-full border-2 border-white ${
-              data[`player${props.index}GamesWon`] !== null &&
-              data[`player${props.index}GamesWon`] >= 1
-                ? "bg-white"
-                : ""
-            }`}
-          />
-          <div
-            className={`size-4 rounded-full border-2 border-white ${
-              data[`player${props.index}GamesWon`] !== null &&
-              data[`player${props.index}GamesWon`] >= 2
-                ? "bg-white"
-                : ""
-            }`}
-          />
-        </span>
+      <div className="absolute left-4 top-4 flex flex-col font-bold text-lg">
+        <div className="flex flex-row">
+          Games Won:
+          <span className="flex flex-row items-center gap-2 px-1">
+            <div
+              className={`size-4 rounded-full border-2 border-white ${
+                data[`player${props.index}GamesWon`] !== null &&
+                data[`player${props.index}GamesWon`] >= 1
+                  ? "bg-white"
+                  : ""
+              }`}
+            />
+            <div
+              className={`size-4 rounded-full border-2 border-white ${
+                data[`player${props.index}GamesWon`] !== null &&
+                data[`player${props.index}GamesWon`] >= 2
+                  ? "bg-white"
+                  : ""
+              }`}
+            />
+          </span>
+        </div>
+        <div className="flex flex-row items-center gap-2">
+          <span className="">Timer:</span>
+          <Timer />
+        </div>
       </div>
       {/* Life total */}
       <div className="flex flex-row items-center gap-4">
@@ -377,7 +384,7 @@ export default function Health(props: { index: "1" | "2" }) {
         </div>
       )}
       {/* Player Name */}
-      <div className="absolute bottom-[10vmin] text-white text-2xl font-bold text-center">
+      <div className="absolute bottom-[8vmin] text-white text-3xl font-bold text-center">
         {data[`player${props.index}DisplayName`] ||
           data[`player${props.index}Data`]?.name}
       </div>

@@ -186,6 +186,8 @@ export const matchOverlayWithPlayersValidator = v.object({
   ...matchOverlayValidator.fields,
   player1Data: v.optional(playerValidator),
   player2Data: v.optional(playerValidator),
+  manualTimerExpiry: v.optional(v.number()),
+  manualTimerRunning: v.optional(v.boolean()),
 });
 
 export const featureMatchWithPlayersValidator = v.object({

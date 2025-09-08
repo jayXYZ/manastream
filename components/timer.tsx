@@ -24,14 +24,6 @@ export default function Timer() {
     return <p>Loading...</p>;
   }
 
-  // Debug info - you can remove this later
-  console.log("Timer Component Debug:", {
-    manualTimerExpiry: tournament.manualTimerExpiry,
-    manualTimerRunning: tournament.manualTimerRunning,
-    timerTotalSeconds: timer.totalSeconds,
-    timerIsRunning: timer.isRunning,
-  });
-
   const timerDisplay = formatTime(timer.totalSeconds);
   const isNegative = timerDisplay.startsWith("-");
 
