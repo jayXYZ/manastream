@@ -54,7 +54,10 @@ export default function ControllersPage() {
         </div>
         {cardOverlay && showCardOverlay && (
           <div className="h-full">
-            <CardController cardOverlayId={cardOverlay._id} />
+            <CardController
+              cardOverlayId={cardOverlay._id}
+              title="Card Overlay Controller"
+            />
           </div>
         )}
       </div>

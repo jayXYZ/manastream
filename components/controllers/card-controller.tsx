@@ -24,9 +24,10 @@ import {
 
 interface CardControllerProps {
   cardOverlayId: Id<"overlays">;
+  title?: string;
 }
 
-export function CardController({ cardOverlayId }: CardControllerProps) {
+export function CardController({ cardOverlayId, title }: CardControllerProps) {
   const [input, setInput] = useState<string>("");
   const [cardlist, setCardlist] = useState<string[]>([]);
   const [prints, setPrints] = useState<Scry.Card[]>([]);
@@ -77,7 +78,7 @@ export function CardController({ cardOverlayId }: CardControllerProps) {
   return (
     <Card className="flex flex-col h-full">
       <CardHeader className="flex-none">
-        <CardTitle>Card Overlay Controller</CardTitle>
+        {title && <CardTitle>{title}</CardTitle>}
         <SearchBar
           value={input}
           results={cardlist}
