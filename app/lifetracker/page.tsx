@@ -32,8 +32,7 @@ function LifeTrackerContent() {
   usePresence(connectedOverlayId || null);
 
   // Wake lock to prevent screen from sleeping
-  const { requestWakeLock, releaseWakeLock, isSupported, isActive, error } =
-    useWakeLock();
+  const { requestWakeLock, releaseWakeLock, isSupported } = useWakeLock();
 
   // Request wake lock when component mounts and we're not in admin settings
   useEffect(() => {
