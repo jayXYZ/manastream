@@ -2,7 +2,7 @@
 
 import { ReactNode } from "react";
 import {
-  LayoutDashboard,
+  HeartPlus,
   Monitor,
   Settings,
   Trophy,
@@ -27,9 +27,9 @@ import Timer from "@/components/timer";
 
 const navigationItems = [
   {
-    name: "Dashboard",
-    href: "/dashboard",
-    icon: LayoutDashboard,
+    name: "Controllers",
+    href: "/dashboard/controllers",
+    icon: Trophy,
   },
   {
     name: "Overlays",
@@ -37,14 +37,14 @@ const navigationItems = [
     icon: Monitor,
   },
   {
-    name: "Controllers",
-    href: "/dashboard/controllers",
-    icon: Trophy,
-  },
-  {
     name: "Timer",
     href: "/dashboard/timer",
     icon: TimerIcon,
+  },
+  {
+    name: "Life Tracker",
+    href: "/lifetracker",
+    icon: HeartPlus,
   },
   {
     name: "Settings",
@@ -59,7 +59,9 @@ function DashboardSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="border-b px-6 py-4">
-        <h1 className="text-xl font-semibold">DxC Overlay</h1>
+        <Link href="/dashboard">
+          <h1 className="text-xl font-semibold">DxC Overlay</h1>
+        </Link>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
