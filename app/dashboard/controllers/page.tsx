@@ -6,6 +6,7 @@ import { useQuery } from "convex/react";
 import { CardController } from "@/components/controllers/card-controller";
 import type { Overlay } from "@/convex/types";
 import { useDashboardStore } from "../store";
+import TournamentController from "@/components/controllers/tournament-controller";
 
 export default function ControllersPage() {
   const overlays = useQuery(api.overlays.getUserOverlays);
@@ -42,6 +43,7 @@ export default function ControllersPage() {
       <div className="flex flex-row gap-4 h-[calc(100vh-16rem)]">
         <div className="flex-grow">
           <div className="flex flex-col gap-4">
+            <TournamentController />
             {matchOverlays.map((matchOverlay) => (
               <MatchController
                 key={matchOverlay._id}

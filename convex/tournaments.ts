@@ -1,5 +1,4 @@
 import { mutation, query } from "./_generated/server";
-import { Doc } from "./_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { filterUndefined } from "./lib/utils";
@@ -102,6 +101,32 @@ export const setTournamentTimer = mutation({
     const { tournamentId, ...updateFields } = args;
     const updates = filterUndefined(updateFields);
     await ctx.db.patch(tournamentId, updates);
+    return null;
+  },
+});
+
+export const updateTournament = mutation({
+  args: {
+    tournamentId: v.id("tournaments"),
+    eventName: v.optional(v.string()),
+    currentRoundDisplayName: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User not authenticated");
+    }
+
+    const tournament = await ctx.db.get(args.tournamentId);
+    if (!tournament || tournament.userId !== userId) {
+      throw new Error("User does not own this tournament");
+    }
+
+    await ctx.db.patch(args.tournamentId, {
+      eventName: args.eventName,
+      currentRoundDisplayName: args.currentRoundDisplayName,
+    });
     return null;
   },
 });

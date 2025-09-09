@@ -43,7 +43,12 @@ export default function OverlaySettings({
       case "card":
         return <CardSettings overlay={overlay as CardOverlay} />;
       case "commentary":
-        return <CommentarySettings overlay={overlay as CommentaryOverlay} />;
+        return (
+          <CommentarySettings
+            overlay={overlay as CommentaryOverlay}
+            onOpenChange={onOpenChange}
+          />
+        );
       case "deck":
         return (
           <div className="text-gray-500 dark:text-gray-400">

@@ -93,7 +93,7 @@ export default function MatchLobsterconOverlay({
         </div>
 
         <div className="absolute left-0 right-0 text-center text-[24px]">
-          {tournamentInfo?.currentRound || "Round 1"}
+          {tournamentInfo?.currentRoundDisplayName || "Round 1"}
         </div>
 
         <div className="absolute left-0 right-0 mt-auto mb-auto text-center font-bold text-[56px] pt-[20px]">

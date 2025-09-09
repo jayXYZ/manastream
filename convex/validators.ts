@@ -14,6 +14,7 @@ export const settingsValidator = v.object({
 export const tournamentValidator = v.object({
   _id: v.id("tournaments"),
   _creationTime: v.number(),
+  eventName: v.optional(v.string()),
   userId: v.id("users"), // Direct user ownership
   mode: v.union(v.literal("manual"), v.literal("auto")),
   spicerackId: v.optional(v.number()),
@@ -23,6 +24,7 @@ export const tournamentValidator = v.object({
   currentRound: v.number(),
   currentRoundDisplayName: v.optional(v.string()),
   manualTimerExpiry: v.optional(v.number()),
+  manualTimerSecondsRemaining: v.optional(v.number()),
   manualTimerRunning: v.boolean(),
   createdAt: v.number(),
   updatedAt: v.number(),

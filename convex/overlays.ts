@@ -198,6 +198,39 @@ export const getOverlayByUuid = query({
   },
 });
 
+export const updateCommentaryOverlay = mutation({
+  args: {
+    overlayId: v.id("overlays"),
+    commentatorLeft: v.optional(v.string()),
+    commentatorLeftSubText: v.optional(v.string()),
+    commentatorRight: v.optional(v.string()),
+    commentatorRightSubText: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User not authenticated");
+    }
+
+    const overlay = await ctx.db.get(args.overlayId);
+    if (!overlay || overlay.overlayType !== "commentary") {
+      throw new Error("Commentary overlay not found");
+    }
+    // Verify tournament ownership
+    const tournament = await ctx.db.get(overlay.tournamentId);
+    if (!tournament || tournament.userId !== userId) {
+      throw new Error("Access denied");
+    }
+
+    const { overlayId, ...updateFields } = args;
+    const updates = filterUndefined(updateFields);
+
+    await ctx.db.patch(args.overlayId, updates);
+    return null;
+  },
+});
+
 // Update match overlay data (authenticated)
 export const updateMatchOverlay = mutation({
   args: {
@@ -622,6 +655,32 @@ export const setMatchOverlaySettings = mutation({
     const overlay = await ctx.db.get(args.overlayId);
     if (!overlay || overlay.overlayType !== "match") {
       throw new Error("Match overlay not found");
+    }
+
+    await ctx.db.patch(args.overlayId, {
+      name: args.name,
+      template: args.template,
+    });
+    return null;
+  },
+});
+
+export const setCommentaryOverlaySettings = mutation({
+  args: {
+    overlayId: v.id("overlays"),
+    name: v.string(),
+    template: availableTemplatesValidator,
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User not authenticated");
+    }
+
+    const overlay = await ctx.db.get(args.overlayId);
+    if (!overlay || overlay.overlayType !== "commentary") {
+      throw new Error("Commentary overlay not found");
     }
 
     await ctx.db.patch(args.overlayId, {
