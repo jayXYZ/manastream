@@ -97,7 +97,7 @@ export default function MatchLobsterconOverlay({
         </div>
 
         <div className="absolute left-0 right-0 mt-auto mb-auto text-center font-bold text-[56px] pt-[20px]">
-          <Timer tournamentId={data.tournamentId} />
+          {tournamentInfo && <Timer tournamentInfo={tournamentInfo} />}
         </div>
 
         <div className="absolute right-[690px] top-[15px]">

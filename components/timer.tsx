@@ -1,25 +1,12 @@
-import { api } from "@/convex/_generated/api";
+import { TournamentInfo } from "@/convex/types";
 import { useTimer } from "@/hooks/use-timer";
-import { useQuery } from "convex/react";
-import { Id } from "@/convex/_generated/dataModel";
 import { formatTime } from "@/lib/utils";
 
 export default function Timer({
-  tournamentId,
+  tournamentInfo,
 }: {
-  tournamentId?: Id<"tournaments">;
+  tournamentInfo: TournamentInfo;
 }) {
-  const tournamentInfo = useQuery(
-    api.tournaments.getTournamentInfo,
-    tournamentId ? { tournamentId: tournamentId as Id<"tournaments"> } : "skip",
-  );
-  const userTournament = useQuery(
-    api.tournaments.getUserTournament,
-    tournamentId ? "skip" : {},
-  );
-
-  const tournament = tournamentId ? tournamentInfo : userTournament;
-
   // Create a default expiry timestamp that's in the future (e.g., 1 hour from now)
   const getDefaultExpiry = () => {
     const now = new Date();
@@ -28,13 +15,13 @@ export default function Timer({
   };
 
   const timer = useTimer({
-    expiryTimestamp: tournament?.manualTimerExpiry
-      ? new Date(tournament.manualTimerExpiry)
+    expiryTimestamp: tournamentInfo?.manualTimerExpiry
+      ? new Date(tournamentInfo.manualTimerExpiry)
       : getDefaultExpiry(),
-    autoStart: tournament?.manualTimerRunning || false,
+    autoStart: tournamentInfo?.manualTimerRunning || false,
   });
 
-  if (!tournament) {
+  if (!tournamentInfo) {
     return <p>Loading...</p>;
   }
 

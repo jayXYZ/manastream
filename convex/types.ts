@@ -4,6 +4,7 @@ import {
   commentaryOverlayValidator,
   deckOverlayValidator,
   featureMatchWithPlayersValidator,
+  getTournamentInfoValidator,
   matchOverlayValidator,
   matchOverlayWithPlayersValidator,
   standingsOverlayValidator,
@@ -30,3 +31,6 @@ export type FeatureMatchWithPlayers = Infer<
 
 // Template types from the validators
 export type TemplateType = "Default" | "Duress Crew" | "Lobstercon" | "Custom";
+
+// Tournament info types from the validators
+export type TournamentInfo = Infer<typeof getTournamentInfoValidator>;
