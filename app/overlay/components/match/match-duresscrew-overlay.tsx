@@ -53,7 +53,7 @@ export default function MatchDuressCrewOverlay({
           {tournamentInfo?.currentRoundDisplayName || "Round 1"}
         </div>
         <div className="absolute left-0 right-0 mt-auto mb-auto text-center font-bold text-[60px] pt-[28px]">
-          <Timer />
+          <Timer tournamentId={data.tournamentId} />
         </div>
 
         <div

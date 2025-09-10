@@ -1,10 +1,19 @@
 import { api } from "@/convex/_generated/api";
 import { useTimer } from "@/hooks/use-timer";
 import { useQuery } from "convex/react";
+import { Id } from "@/convex/_generated/dataModel";
 import { formatTime } from "@/lib/utils";
 
-export default function Timer() {
-  const tournament = useQuery(api.tournaments.getUserTournament);
+export default function Timer({
+  tournamentId,
+}: {
+  tournamentId?: Id<"tournaments">;
+}) {
+  const tournament = tournamentId
+    ? useQuery(api.tournaments.getTournamentInfo, {
+        tournamentId: tournamentId as Id<"tournaments">,
+      })
+    : useQuery(api.tournaments.getUserTournament);
 
   // Create a default expiry timestamp that's in the future (e.g., 1 hour from now)
   const getDefaultExpiry = () => {
