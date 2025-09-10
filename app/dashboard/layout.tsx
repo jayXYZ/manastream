@@ -24,6 +24,8 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import Timer from "@/components/timer";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
 const navigationItems = [
   {
@@ -91,6 +93,7 @@ function DashboardSidebar() {
 }
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
+  const tournamentInfo = useQuery(api.tournaments.getUserTournament);
   return (
     <SidebarProvider>
       <DashboardSidebar />
@@ -102,7 +105,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             className="flex items-center gap-1 cursor-pointer text-black hover:text-blue-500 transition-colors bg-blue-300 p-2 rounded-full font-semibold text-lg px-4"
           >
             <TimerIcon className="size-5" />
-            <Timer />
+            {tournamentInfo && <Timer tournamentInfo={tournamentInfo} />}
           </Link>
         </header>
         <main className="p-6">{children}</main>
