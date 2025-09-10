@@ -44,6 +44,8 @@ export default function Health(props: { index: "1" | "2" }) {
     overlayId: connectedOverlayId as Id<"overlays">,
   });
 
+  const tournamentInfo = useQuery(api.tournaments.getUserTournament);
+
   // Specialized mutations for specific operations
   const updatePlayerLife = useMutation(api.overlays.updatePlayerLife);
   const incrementGamesWon = useMutation(api.overlays.incrementGamesWon);
@@ -355,7 +357,7 @@ export default function Health(props: { index: "1" | "2" }) {
         </div>
         <div className="flex flex-row items-center gap-2">
           <span className="">Timer:</span>
-          <Timer />
+          {tournamentInfo && <Timer tournamentInfo={tournamentInfo} />}
         </div>
       </div>
       {/* Life total */}
