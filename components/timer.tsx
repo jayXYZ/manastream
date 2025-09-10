@@ -9,11 +9,16 @@ export default function Timer({
 }: {
   tournamentId?: Id<"tournaments">;
 }) {
-  const tournament = tournamentId
-    ? useQuery(api.tournaments.getTournamentInfo, {
-        tournamentId: tournamentId as Id<"tournaments">,
-      })
-    : useQuery(api.tournaments.getUserTournament);
+  const tournamentInfo = useQuery(
+    api.tournaments.getTournamentInfo,
+    tournamentId ? { tournamentId: tournamentId as Id<"tournaments"> } : "skip",
+  );
+  const userTournament = useQuery(
+    api.tournaments.getUserTournament,
+    tournamentId ? "skip" : {},
+  );
+
+  const tournament = tournamentId ? tournamentInfo : userTournament;
 
   // Create a default expiry timestamp that's in the future (e.g., 1 hour from now)
   const getDefaultExpiry = () => {
