@@ -1,11 +1,11 @@
-import { TournamentInfo } from "@/convex/types";
-import { useTimer } from "@/hooks/use-timer";
+import { TournamentInfo, Tournament } from "@/convex/types";
+import { useTimerNoAuth } from "@/hooks/use-timer-no-auth";
 import { formatTime } from "@/lib/utils";
 
 export default function Timer({
   tournamentInfo,
 }: {
-  tournamentInfo: TournamentInfo;
+  tournamentInfo: TournamentInfo | Tournament;
 }) {
   // Create a default expiry timestamp that's in the future (e.g., 1 hour from now)
   const getDefaultExpiry = () => {
@@ -14,11 +14,13 @@ export default function Timer({
     return now;
   };
 
-  const timer = useTimer({
+  const timer = useTimerNoAuth({
     expiryTimestamp: tournamentInfo?.manualTimerExpiry
       ? new Date(tournamentInfo.manualTimerExpiry)
       : getDefaultExpiry(),
     autoStart: tournamentInfo?.manualTimerRunning || false,
+    manualTimerExpiry: tournamentInfo?.manualTimerExpiry,
+    manualTimerRunning: tournamentInfo?.manualTimerRunning,
   });
 
   if (!tournamentInfo) {
