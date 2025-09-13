@@ -27,7 +27,7 @@ export default function Timer({
     return <p>Loading...</p>;
   }
 
-  const timerDisplay = formatTime(timer.totalSeconds);
+  const timerDisplay = formatTime(timer.totalSeconds, false);
   // const isNegative = timerDisplay.startsWith("-");
 
   return (
