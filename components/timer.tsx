@@ -28,9 +28,10 @@ export default function Timer({
   }
 
   const timerDisplay = formatTime(timer.totalSeconds);
-  const isNegative = timerDisplay.startsWith("-");
+  // const isNegative = timerDisplay.startsWith("-");
 
   return (
-    <span className={isNegative ? "text-red-500" : ""}>{timerDisplay}</span>
+    // <span className={isNegative ? "text-red-500" : ""}>{timerDisplay}</span>
+    <span>{timerDisplay}</span>
   );
 }
