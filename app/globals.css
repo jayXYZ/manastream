@@ -141,6 +141,30 @@
   height: 100dvh; /* Dynamic viewport height */
 }
 
+/* Corner cross effect */
+/* Corner brackets with cross accents - all four corners */
+.corner-brackets-cross {
+  position: relative;
+}
+
+/* Corner bracket lines */
+.corner-brackets-cross::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  pointer-events: none;
+  background:
+    linear-gradient(#f26200 0 0) top left 3px / 2px 8px,
+    linear-gradient(#f26200 0 0) top 3px left / 8px 2px,
+    linear-gradient(#f26200 0 0) top right 3px / 2px 8px,
+    linear-gradient(#f26200 0 0) top 3px right / 8px 2px,
+    linear-gradient(#f26200 0 0) bottom left 3px / 2px 8px,
+    linear-gradient(#f26200 0 0) bottom 3px left / 8px 2px,
+    linear-gradient(#f26200 0 0) bottom right 3px / 2px 8px,
+    linear-gradient(#f26200 0 0) bottom 3px right / 8px 2px;
+  background-repeat: no-repeat;
+}
+
 html,
 body {
   overscroll-behavior: none;

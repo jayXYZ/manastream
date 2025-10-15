@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 export default function Dashboard() {
   const { isAuthenticated } = useConvexAuth();
   const tournament = useQuery(api.tournaments.getUserTournament);
-  const createTournament = useMutation(api.tournaments.createTournament);
   const overlays = useQuery(api.overlays.getUserOverlays);
   return (
     <div>
@@ -18,9 +17,6 @@ export default function Dashboard() {
         <p>You have a tournament! Great job!</p>
       ) : (
         <p>You do not have a tournament, please create one to get started</p>
-      )}
-      {!tournament && (
-        <Button onClick={() => createTournament({})}>Create Tournament</Button>
       )}
       {overlays && overlays.length > 0 ? (
         <p>
