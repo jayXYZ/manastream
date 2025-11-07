@@ -3,6 +3,7 @@ export {
   createMatchOverlay,
   internalCreateMatchOverlay,
   updateMatchOverlay,
+  updateMatchOverlayDisplayInfo,
   updatePlayerLife,
   incrementGamesWon,
   resetMatch,
@@ -26,6 +27,9 @@ export {
   updateCommentaryOverlay,
   setCommentaryOverlaySettings,
 } from "./_overlays/commentary";
+
+// Deck overlay operations
+export { internalCreateDeckOverlay, updateDeckOverlay } from "./_overlays/deck";
 
 // Cross-overlay queries
 export {

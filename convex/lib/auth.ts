@@ -5,6 +5,7 @@ import {
   requireCommentaryOverlay,
   requireCardOverlay,
   requireMatchOverlay,
+  requireDeckOverlay,
 } from "./validation";
 
 export async function requireAuth(
@@ -66,7 +67,7 @@ export async function requireMatchOverlayAccess(
     overlayId,
   );
   requireMatchOverlay(overlay);
-  return { userId, overlay: overlay as any, tournament };
+  return { userId, overlay, tournament };
 }
 
 export async function requireCardOverlayAccess(
@@ -82,7 +83,7 @@ export async function requireCardOverlayAccess(
     overlayId,
   );
   requireCardOverlay(overlay);
-  return { userId, overlay: overlay as any, tournament };
+  return { userId, overlay, tournament };
 }
 
 export async function requireCommentaryOverlayAccess(
@@ -98,5 +99,21 @@ export async function requireCommentaryOverlayAccess(
     overlayId,
   );
   requireCommentaryOverlay(overlay);
-  return { userId, overlay: overlay as any, tournament };
+  return { userId, overlay, tournament };
+}
+
+export async function requireDeckOverlayAccess(
+  ctx: QueryCtx | MutationCtx,
+  overlayId: Id<"overlays">,
+): Promise<{
+  userId: Id<"users">;
+  overlay: Doc<"overlays"> & { overlayType: "deck" };
+  tournament: Doc<"tournaments">;
+}> {
+  const { userId, overlay, tournament } = await requireOverlayAccess(
+    ctx,
+    overlayId,
+  );
+  requireDeckOverlay(overlay);
+  return { userId, overlay, tournament };
 }

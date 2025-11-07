@@ -190,7 +190,7 @@ export default function Health(props: { index: "1" | "2" }) {
     >
       {/* Settings button */}
       {!showSettings && (
-        <div className="absolute top-4 right-4 z-10">
+        <div className="absolute top-4 right-4 z-10 dark:hover:bg-black/30 hover:bg-black/30 active:bg-black/50 dark:active:bg-black/50">
           <Button
             variant="ghost"
             className="size-20"
@@ -204,7 +204,7 @@ export default function Health(props: { index: "1" | "2" }) {
       {/* Settings */}
       {showSettings && (
         <div className="absolute top-0 left-0 w-full h-full bg-black/80 z-50">
-          <div className="absolute top-4 right-4 z-100">
+          <div className="absolute top-4 right-4 z-100 dark:hover:bg-black/30 hover:bg-black/30 active:bg-black/50 dark:active:bg-black/50">
             <Button
               variant="ghost"
               className="size-20"
@@ -267,18 +267,18 @@ export default function Health(props: { index: "1" | "2" }) {
             <div className="flex flex-col gap-2 text-center">
               <h2 className="text-lg leading-none font-semibold">Reset Game</h2>
               <p className="text-muted-foreground text-sm">
-                Did you lose or winthis game?
+                Did you lose or win this game?
               </p>
             </div>
             <div className="w-2/3 mx-auto flex flex-row gap-2 justify-between mt-4">
               <Button
-                className="bg-red-500 font-bold"
+                className="bg-red-500 font-bold dark:hover:bg-red-900 hover:bg-red-900"
                 onClick={() => handleGameReset(false)}
               >
                 I lost!
               </Button>
               <Button
-                className="bg-green-500 font-bold"
+                className="bg-green-500 font-bold dark:hover:bg-green-900 hover:bg-green-900"
                 onClick={() => handleGameReset(true)}
               >
                 I won!
@@ -324,12 +324,12 @@ export default function Health(props: { index: "1" | "2" }) {
       {/* Buttons */}
       <Button
         variant="ghost"
-        className="absolute inset-y-0 right-0 h-full w-1/2 touch-manipulation"
+        className="absolute inset-y-0 right-0 h-full w-1/2 touch-manipulation dark:hover:bg-black/30 hover:bg-black/30 active:bg-black/50 dark:active:bg-black/50"
         onClick={() => handleLifeChange(playerLife + 1)}
       />
       <Button
         variant="ghost"
-        className="absolute inset-y-0 left-0 h-full w-1/2 touch-manipulation"
+        className="absolute inset-y-0 left-0 h-full w-1/2 touch-manipulation dark:hover:bg-black/30 hover:bg-black/30 active:bg-black/50 dark:active:bg-black/50"
         onClick={() => handleLifeChange(playerLife - 1)}
       />
       {/* Game won indicator */}

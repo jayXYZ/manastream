@@ -35,7 +35,7 @@ export function CardController({ cardOverlayId, title }: CardControllerProps) {
   const cardOverlay = useQuery(api.overlays.getOverlayById, {
     overlayId: cardOverlayId,
   });
-  const setCard = useMutation(api.overlays.setCardInCardOverlay);
+  const setCard = useMutation(api.overlays.updateCardOverlay);
 
   const handleValueChange = async (value: string) => {
     setInput(value);
@@ -76,18 +76,18 @@ export function CardController({ cardOverlayId, title }: CardControllerProps) {
   }
 
   return (
-    <Card className="flex flex-col h-full">
-      <CardHeader className="flex-none">
+    <Card className="flex flex-col min-h-[calc(100vh-4rem)] border-r-0 border-b-0">
+      <CardHeader className="">
         {title && <CardTitle>{title}</CardTitle>}
+      </CardHeader>
+      <CardContent className="flex flex-col justify-between flex-1 min-h-0">
         <SearchBar
           value={input}
           results={cardlist}
           onValueChange={handleValueChange}
           onSelect={handleSelect}
         />
-      </CardHeader>
-      <CardContent className="flex-1 min-h-0">
-        <div className="h-full w-full relative">
+        <div className="w-full relative">
           <Image
             src={cardOverlay.cardUrl}
             alt={"Card Image"}
@@ -97,28 +97,28 @@ export function CardController({ cardOverlayId, title }: CardControllerProps) {
             priority
           />
         </div>
+        <div className="py-4">
+          <Select
+            value={selectedIndex.toString()}
+            onValueChange={handlePrintSelect}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select a printing" />
+            </SelectTrigger>
+            <SelectContent>
+              {prints.map((card, index) => (
+                <SelectItem
+                  key={index}
+                  value={index.toString()}
+                  className="cursor-pointer"
+                >
+                  {card.set_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </CardContent>
-      <CardFooter className="flex-none">
-        <Select
-          value={selectedIndex.toString()}
-          onValueChange={handlePrintSelect}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Select a printing" />
-          </SelectTrigger>
-          <SelectContent>
-            {prints.map((card, index) => (
-              <SelectItem
-                key={index}
-                value={index.toString()}
-                className="cursor-pointer"
-              >
-                {card.set_name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </CardFooter>
     </Card>
   );
 }

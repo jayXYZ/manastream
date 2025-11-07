@@ -1,83 +1,95 @@
-import { query } from "./_generated/server";
+import { internalMutation, internalQuery, query } from "./_generated/server";
 import { v } from "convex/values";
 import {
-  featureMatchValidator,
   featureMatchWithPlayersValidator,
+  spicerackMatchValidator,
 } from "./validators";
-import { getAuthUserId } from "@convex-dev/auth/server";
+import { getOwnTournament } from "./lib/tournaments";
+import {
+  generateFeatureMatchExternalId,
+  parseCurrentRoundFeatureMatches,
+} from "./models/spicerack";
+import {
+  createFeatureMatches,
+  getFeatureMatchesWithPlayerData,
+} from "./lib/featurematches";
+import { getPlayersForMatch } from "./lib/players";
+import { compareSpicerackToDatabase } from "./lib/featurematches";
 
-export const getFeatureMatches = query({
-  args: {},
-  returns: v.array(featureMatchValidator),
+// unauthenticated query for use in deck overlays
+export const getFeatureMatchPlayersAndDecks = query({
+  args: {
+    id: v.id("featureMatches"),
+  },
+  returns: featureMatchWithPlayersValidator,
+
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-
-    if (!userId) {
-      throw new Error("User not authenticated");
+    const match = await ctx.db.get(args.id);
+    if (!match) {
+      throw new Error("Feature match not found");
     }
-    // Find the user's tournament (assuming 1 tournament per user)
-    const tournament = await ctx.db
-      .query("tournaments")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .unique();
-
-    if (!tournament) {
-      return [];
-    }
-    const featureMatches = await ctx.db
-      .query("featureMatches")
-      .withIndex("by_tournament_and_round", (q) =>
-        q.eq("tournamentId", tournament._id),
-      )
-      .collect();
-    return featureMatches;
+    const { player1Data, player2Data } = await getPlayersForMatch(
+      ctx,
+      match.player1,
+      match.player2,
+    );
+    return {
+      ...match,
+      player1Data: player1Data ?? undefined,
+      player2Data: player2Data ?? undefined,
+    };
   },
 });
 
 export const getCurrentRoundFeatureMatches = query({
   args: {},
   returns: v.array(featureMatchWithPlayersValidator),
-  handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("User not authenticated");
-    }
-    const tournament = await ctx.db
-      .query("tournaments")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .unique();
-
-    if (!tournament) {
+  handler: async (ctx) => {
+    const tournament = await getOwnTournament(ctx);
+    const currentRoundNumber = tournament.spicerackCurrentRoundNumber;
+    if (!currentRoundNumber) {
       return [];
     }
-    const currentRound = tournament.currentRound;
-
-    const featureMatches = await ctx.db
-      .query("featureMatches")
-      .withIndex("by_tournament_and_round", (q) =>
-        q.eq("tournamentId", tournament._id).eq("roundNumber", currentRound),
-      )
-      .collect();
-
-    const featureMatchesWithPlayerData = await Promise.all(
-      featureMatches.map(async (match) => {
-        const player1 = await ctx.db
-          .query("players")
-          .withIndex("by_id", (q) => q.eq("_id", match.player1))
-          .unique();
-        const player2 = await ctx.db
-          .query("players")
-          .withIndex("by_id", (q) => q.eq("_id", match.player2))
-          .unique();
-
-        if (!player1 || !player2) {
-          return null;
-        }
-
-        return { ...match, player1Data: player1, player2Data: player2 };
-      }),
+    const featureMatchesWithPlayerData = await getFeatureMatchesWithPlayerData(
+      ctx,
+      tournament._id,
+      currentRoundNumber,
     );
+    return featureMatchesWithPlayerData;
+  },
+});
 
-    return featureMatchesWithPlayerData.filter((match) => match !== null);
+export const getAllFeatureMatches = query({
+  args: {},
+  returns: v.array(featureMatchWithPlayersValidator),
+  handler: async (ctx) => {
+    const tournament = await getOwnTournament(ctx);
+    const featureMatchesWithPlayerData = await getFeatureMatchesWithPlayerData(
+      ctx,
+      tournament._id,
+    );
+    return featureMatchesWithPlayerData;
+  },
+});
+
+export const createNewFeatureMatches = internalMutation({
+  args: {
+    jsonData: v.any(),
+    tournamentId: v.id("tournaments"),
+  },
+  returns: v.array(v.object({ playerId: v.id("players"), deckId: v.number() })),
+  handler: async (ctx, args) => {
+    const { newFeatureMatches, newPlayers } = await compareSpicerackToDatabase(
+      ctx,
+      args.tournamentId,
+      args.jsonData,
+    );
+    const playerAndDeckIds = await createFeatureMatches(
+      ctx,
+      args.tournamentId,
+      newFeatureMatches,
+      newPlayers,
+    );
+    return playerAndDeckIds;
   },
 });

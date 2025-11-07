@@ -7,6 +7,7 @@ import {
   Settings,
   Trophy,
   Timer as TimerIcon,
+  ChevronsRight,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -22,10 +23,13 @@ import {
   SidebarMenuItem,
   SidebarProvider,
   SidebarTrigger,
+  SidebarFooter,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import Timer from "@/components/timer";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { NavUser } from "@/components/auth/nav-user";
 
 const navigationItems = [
   {
@@ -57,15 +61,16 @@ const navigationItems = [
 
 function DashboardSidebar() {
   const pathname = usePathname();
+  const { state, toggleSidebar } = useSidebar();
 
   return (
-    <Sidebar>
-      <SidebarHeader className="border-b px-6 py-4">
+    <Sidebar collapsible="icon" className="z-1 bg-sidebar">
+      {/* <SidebarHeader className="border-b h-16 flex justify-center pl-6">
         <Link href="/dashboard">
           <h1 className="text-xl font-semibold">DxC Overlay</h1>
         </Link>
-      </SidebarHeader>
-      <SidebarContent>
+      </SidebarHeader> */}
+      <SidebarContent className="pt-16">
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -88,17 +93,43 @@ function DashboardSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton onClick={toggleSidebar}>
+              <ChevronsRight
+                className={`transition-transform duration-500 ease-in-out ${
+                  state === "expanded" ? "rotate-y-180" : "rotate-y-0"
+                }`}
+              />
+              <span>Toggle</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
     </Sidebar>
+  );
+}
+
+function DashboardHeader() {
+  return (
+    <header className="sticky top-0 z-10 bg-sidebar h-16 border-b-1 flex flex-row justify-between items-center p-4 w-full">
+      <Link href="/">ManaStream</Link>
+      <NavUser />
+    </header>
   );
 }
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const tournamentInfo = useQuery(api.tournaments.getUserTournament);
   return (
-    <SidebarProvider>
-      <DashboardSidebar />
-      <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 justify-between">
+    <div className="flex flex-col h-screen overflow-hidden">
+      <DashboardHeader />
+      <div className="flex-1 min-h-0">
+        <SidebarProvider>
+          <DashboardSidebar />
+          <SidebarInset className="overflow-hidden">
+            {/* <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 justify-between">
           <SidebarTrigger className="-ml-1" />
           <Link
             href="/dashboard/timer"
@@ -107,9 +138,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             <TimerIcon className="size-5" />
             {tournamentInfo && <Timer tournamentInfo={tournamentInfo} />}
           </Link>
-        </header>
-        <main className="p-6">{children}</main>
-      </SidebarInset>
-    </SidebarProvider>
+        </header> */}
+
+            <main className="h-full overflow-auto">{children}</main>
+          </SidebarInset>
+        </SidebarProvider>
+      </div>
+    </div>
   );
 }

@@ -3,6 +3,7 @@
 import { useConvexAuth } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useRouter } from "next/navigation";
+import { CyberCard, OpsPanel } from "@/components/test";
 
 export default function Home() {
   return (
@@ -32,7 +33,7 @@ function SignInOutButton() {
           className="bg-slate-200 dark:bg-slate-800 text-foreground rounded-md px-2 py-1"
           onClick={() =>
             void signOut().then(() => {
-              router.push("/signin");
+              router.push("/login");
             })
           }
         >
@@ -42,7 +43,7 @@ function SignInOutButton() {
       {!isAuthenticated && (
         <button
           className="bg-slate-200 dark:bg-slate-800 text-foreground rounded-md px-2 py-1"
-          onClick={() => router.push("/signin")}
+          onClick={() => router.push("/login")}
         >
           Sign in
         </button>
@@ -73,6 +74,8 @@ function Content() {
           </button>
         </div>
       )}
+      <OpsPanel />
+      <CyberCard title="test">hello world</CyberCard>
     </div>
   );
 }

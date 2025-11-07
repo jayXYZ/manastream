@@ -71,7 +71,7 @@ export default function VerifyEmail() {
           <p className="text-lg font-semibold">Verification failed</p>
           <p className="text-sm text-muted-foreground">{error}</p>
           <button
-            onClick={() => router.push("/signin")}
+            onClick={() => router.push("/login")}
             className="bg-foreground text-background rounded-md p-2 px-4"
           >
             Back to sign in

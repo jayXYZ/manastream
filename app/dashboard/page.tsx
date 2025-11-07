@@ -10,7 +10,7 @@ export default function Dashboard() {
   const tournament = useQuery(api.tournaments.getUserTournament);
   const overlays = useQuery(api.overlays.getUserOverlays);
   return (
-    <div>
+    <div className="flex flex-col h-full">
       <p>Welcome to the dashboard</p>
       <p>You are {isAuthenticated ? "authenticated" : "not authenticated"}</p>
       {tournament ? (

@@ -12,6 +12,20 @@ import { useWakeLock } from "@/hooks/use-wake-lock";
 import { Cog } from "lucide-react";
 import LifeTrackerErrorBoundary from "./error-boundary";
 import { useEffect } from "react";
+import { Id } from "@/convex/_generated/dataModel";
+import type { MatchOverlayWithPlayers } from "@/convex/types";
+import type { Infer } from "convex/values";
+import { getOverlayByIdValidator } from "@/convex/validators";
+import { Spinner } from "@/components/ui/spinner";
+// Type for the overlay data returned from getOverlayById query
+type OverlayData = Infer<typeof getOverlayByIdValidator> | undefined;
+
+// Type guard to narrow the overlay union type to match overlay
+function isMatchOverlay(
+  overlay: OverlayData,
+): overlay is MatchOverlayWithPlayers {
+  return overlay?.overlayType === "match";
+}
 
 function LifeTrackerContent() {
   const connectedOverlayId = useLifeTrackerStore(
@@ -27,6 +41,12 @@ function LifeTrackerContent() {
   const tournament = useQuery(api.tournaments.getUserTournament);
   const tournamentMode = tournament?.mode;
   const tournamentCurrentRound = tournament?.currentRound;
+  const overlayData = useQuery(
+    api.overlays.getOverlayById,
+    connectedOverlayId
+      ? { overlayId: connectedOverlayId as Id<"overlays"> }
+      : "skip",
+  );
 
   // Only call usePresence if we have a valid connectedOverlayId
   usePresence(connectedOverlayId || null);
@@ -56,23 +76,43 @@ function LifeTrackerContent() {
     };
   }, [releaseWakeLock]);
 
+  if (!tournament) {
+    return (
+      <div className="flex flex-col gap-4 items-center justify-center min-h-screen">
+        <Spinner />
+        <div className="text-2xl font-bold">Loading tournament...</div>
+      </div>
+    );
+  }
+
   if (!connectedOverlayId || showAdminSettings) {
     return <AdminSettings />;
   }
+
+  // Type guard to ensure overlay is a match overlay
+  // After this check, overlayData is narrowed to MatchOverlayWithPlayers type
+  if (overlayData && !isMatchOverlay(overlayData)) {
+    throw new Error("Overlay is not a match overlay");
+  }
+
   if (
     tournamentMode === "auto" &&
-    tournamentCurrentRound &&
-    tournamentCurrentRound > currentRound
+    !overlayData.player1 &&
+    !overlayData.player2 &&
+    !overlayData.player1DisplayName &&
+    !overlayData.player2DisplayName
   ) {
     return (
-      <div>
+      <div className="flex flex-col h-screen-dynamic w-full overscroll-none overflow-hidden">
         <div
           className="absolute top-0 right-0"
           onClick={() => setShowAdminSettings(true)}
         >
           <Cog />
         </div>
-        <MatchSelect />;
+        <div className="flex-1 flex items-center justify-center">
+          <MatchSelect />
+        </div>
       </div>
     );
   }

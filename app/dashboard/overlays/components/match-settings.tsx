@@ -130,9 +130,7 @@ export default function MatchSettings({
             <SelectValue placeholder="Select template" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem disabled value="Default">
-              Default
-            </SelectItem>
+            <SelectItem value="Default">Default</SelectItem>
             <SelectItem value="Duress Crew">Duress Crew</SelectItem>
             <SelectItem value="Lobstercon">Lobstercon</SelectItem>
             <SelectItem disabled value="Custom">

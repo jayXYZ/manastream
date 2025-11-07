@@ -54,13 +54,9 @@ export function MatchController({ matchOverlayId }: MatchControllerProps) {
           matchOverlayWithPlayers.player2DisplayDeck ||
           "",
         player1TournamentRecord:
-          matchOverlayWithPlayers.player1Data?.record ||
-          matchOverlayWithPlayers.player1TournamentRecord ||
-          "",
+          matchOverlayWithPlayers.player1TournamentRecord || "",
         player2TournamentRecord:
-          matchOverlayWithPlayers.player2Data?.record ||
-          matchOverlayWithPlayers.player2TournamentRecord ||
-          "",
+          matchOverlayWithPlayers.player2TournamentRecord || "",
       });
     }
   }, [matchOverlay]);

@@ -96,6 +96,31 @@ export const updateMatchOverlay = mutation({
   },
 });
 
+export const updateMatchOverlayDisplayInfo = mutation({
+  args: {
+    overlayId: v.id("overlays"),
+    player1DisplayName: v.optional(v.string()),
+    player2DisplayName: v.optional(v.string()),
+    player1DisplayDeck: v.optional(v.string()),
+    player2DisplayDeck: v.optional(v.string()),
+    player1TournamentRecord: v.optional(v.string()),
+    player2TournamentRecord: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await requireMatchOverlayAccess(ctx, args.overlayId);
+
+    // don't filter undefined values here, just update all fields
+    await ctx.db.patch(args.overlayId, {
+      player1DisplayName: args.player1DisplayName,
+      player2DisplayName: args.player2DisplayName,
+      player1DisplayDeck: args.player1DisplayDeck,
+      player2DisplayDeck: args.player2DisplayDeck,
+      player1TournamentRecord: args.player1TournamentRecord,
+      player2TournamentRecord: args.player2TournamentRecord,
+    });
+  },
+});
+
 export const updatePlayerLife = mutation({
   args: {
     overlayId: v.id("overlays"),
@@ -198,13 +223,22 @@ export const setOverlayFeatureMatch = mutation({
     const player1 = args.playersSwapped
       ? featureMatch.player2
       : featureMatch.player1;
+    const player1TournamentRecord = args.playersSwapped
+      ? featureMatch.player2TournamentRecord
+      : featureMatch.player1TournamentRecord;
     const player2 = args.playersSwapped
       ? featureMatch.player1
       : featureMatch.player2;
+    const player2TournamentRecord = args.playersSwapped
+      ? featureMatch.player1TournamentRecord
+      : featureMatch.player2TournamentRecord;
 
+    // TODO: am i forgetting to swap the tournament records?
     await ctx.db.patch(args.overlayId, {
       player1,
       player2,
+      player1TournamentRecord,
+      player2TournamentRecord,
     });
   },
 });

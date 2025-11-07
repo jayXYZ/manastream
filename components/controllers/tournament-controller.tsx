@@ -23,7 +23,7 @@ export default function TournamentController() {
   const commentaryOverlay = userOverlays?.find(
     (overlay) => overlay.overlayType === "commentary",
   );
-  const updateTournament = useMutation(api.tournaments.updateTournament);
+  const updateTournament = useMutation(api.tournaments.updateTournamentInfo);
   const updateCommentaryOverlay = useMutation(
     api.overlays.updateCommentaryOverlay,
   );
@@ -42,7 +42,9 @@ export default function TournamentController() {
     }
   }, [tournament, commentaryOverlay]);
 
-  if (!tournament) return <p>Loading...</p>;
+  if (!tournament || !updateTournament || !updateCommentaryOverlay) {
+    return;
+  }
 
   const handleUpdate = () => {
     updateTournament({

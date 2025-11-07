@@ -1,6 +1,7 @@
 import { MatchOverlayWithPlayers } from "@/convex/types";
 import MatchDuressCrewOverlay from "./match-duresscrew-overlay";
 import MatchLobsterconOverlay from "./match-lobstercon-overlay";
+import MatchDefaultOverlay from "./match-default-overlay";
 
 export default function MatchOverlay({
   data,
@@ -11,6 +12,7 @@ export default function MatchOverlay({
   const TEMPLATE_COMPONENTS = {
     "Duress Crew": MatchDuressCrewOverlay,
     Lobstercon: MatchLobsterconOverlay,
+    Default: MatchDefaultOverlay,
   } as const;
 
   type TemplateName = keyof typeof TEMPLATE_COMPONENTS;

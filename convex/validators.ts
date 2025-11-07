@@ -17,11 +17,18 @@ export const tournamentValidator = v.object({
   eventName: v.optional(v.string()),
   userId: v.id("users"), // Direct user ownership
   mode: v.union(v.literal("manual"), v.literal("auto")),
-  spicerackId: v.optional(v.number()),
+  spicerackTournamentId: v.optional(v.number()),
   spicerackTournamentStatus: v.optional(
     v.union(v.literal("active"), v.literal("completed")),
   ),
-  currentRound: v.number(),
+  spicerackLastPolledAt: v.optional(v.number()),
+  spicerackPollingStatus: v.optional(
+    v.union(v.literal("active"), v.literal("inactive"), v.literal("error")),
+  ),
+  spicerackErrorMessage: v.optional(v.string()),
+  spicerackCurrentRoundId: v.number(),
+  spicerackCurrentRoundNumber: v.number(),
+  currentRound: v.optional(v.number()),
   currentRoundDisplayName: v.optional(v.string()),
   manualTimerExpiry: v.optional(v.number()),
   manualTimerSecondsRemaining: v.optional(v.number()),
@@ -33,14 +40,16 @@ export const tournamentValidator = v.object({
 export const featureMatchValidator = v.object({
   _id: v.id("featureMatches"),
   _creationTime: v.number(),
-  externalId: v.string(), // Spicerack Tournament ID + Round Number + Player 1 Name + Player 2 Name
+  externalId: v.string(), // Spicerack Tournament ID + Round ID + Player 1 Name + Player 2 Name
   tournamentId: v.id("tournaments"),
   roundNumber: v.number(),
   player1: v.id("players"),
   player2: v.id("players"),
+  player1TournamentRecord: v.string(),
+  player2TournamentRecord: v.string(),
   tableNumber: v.optional(v.number()),
   spicerackTimerExpiry: v.optional(v.number()), // Unix timestamp
-  spicerackTimerRunning: v.boolean(),
+  spicerackTimerRunning: v.optional(v.boolean()),
   createdAt: v.number(),
 });
 
@@ -176,11 +185,29 @@ export const playerValidator = v.object({
   _id: v.id("players"),
   _creationTime: v.number(),
   name: v.string(),
+  externalId: v.number(),
   tournamentId: v.id("tournaments"),
+  deckId: v.number(),
   deckName: v.string(), // Archetype name
   deckList: v.string(), // Plaintext deck list
-  record: v.string(), // Tournament record like "2-1"
   createdAt: v.number(),
+});
+
+export const spicerackLogValidator = v.object({
+  _id: v.id("spicerackLogs"),
+  _creationTime: v.number(),
+  userId: v.id("users"),
+  timestamp: v.number(),
+  action: v.string(),
+  status: v.union(
+    v.literal("success"),
+    v.literal("error"),
+    v.literal("info"),
+    v.literal("warning"),
+  ),
+  message: v.string(),
+  tournamentId: v.optional(v.id("tournaments")),
+  metadata: v.optional(v.any()),
 });
 
 // Expanded Validators
@@ -194,8 +221,8 @@ export const matchOverlayWithPlayersValidator = v.object({
 
 export const featureMatchWithPlayersValidator = v.object({
   ...featureMatchValidator.fields,
-  player1Data: playerValidator,
-  player2Data: playerValidator,
+  player1Data: v.optional(playerValidator),
+  player2Data: v.optional(playerValidator),
 });
 
 export const deckOverlayWithMatchAndPlayersValidator = v.object({
@@ -222,8 +249,66 @@ export const getOverlayByUuidValidator = v.union(
 );
 
 export const getTournamentInfoValidator = v.object({
-  currentRound: v.number(),
+  currentRound: v.optional(v.number()),
   currentRoundDisplayName: v.optional(v.string()),
   manualTimerExpiry: v.optional(v.number()),
   manualTimerRunning: v.optional(v.boolean()),
+});
+
+// Validator for updateMatchOverlay arguments
+// These fields are picked from matchOverlayValidator and made optional for updates
+export const updateMatchOverlayArgsValidator = v.object({
+  overlayId: v.id("overlays"),
+  // Life totals
+  player1Life: v.optional(v.number()),
+  player2Life: v.optional(v.number()),
+  // Games won
+  player1GamesWon: v.optional(v.number()),
+  player2GamesWon: v.optional(v.number()),
+  // Display overrides
+  player1DisplayName: v.optional(v.string()),
+  player2DisplayName: v.optional(v.string()),
+  player1DisplayDeck: v.optional(v.string()),
+  player2DisplayDeck: v.optional(v.string()),
+  player1TournamentRecord: v.optional(v.string()),
+  player2TournamentRecord: v.optional(v.string()),
+});
+
+// Spicerack API Validators
+
+export const spicerackUserValidator = v.object({
+  id: v.number(),
+  username: v.optional(v.string()),
+  best_identifier: v.string(),
+  email: v.optional(v.string()),
+});
+
+export const spicerackUserEventStatusValidator = v.object({
+  id: v.number(),
+  user: spicerackUserValidator,
+  decklist: v.union(v.number(), v.null()),
+  registration_status: v.string(),
+  final_place_in_standings: v.union(v.number(), v.null()),
+  matches_won: v.number(),
+  matches_lost: v.number(),
+  matches_drawn: v.number(),
+  total_match_points: v.number(),
+});
+
+export const spicerackPlayerMatchRelationshipValidator = v.object({
+  id: v.number(),
+  user_event_status: spicerackUserEventStatusValidator,
+  games_won: v.number(),
+  points_gained: v.number(),
+  player_order: v.number(),
+});
+
+export const spicerackMatchValidator = v.object({
+  id: v.number(),
+  is_feature_match: v.boolean(),
+  table_number: v.number(),
+  status: v.string(),
+  player_match_relationships: v.array(
+    spicerackPlayerMatchRelationshipValidator,
+  ),
 });

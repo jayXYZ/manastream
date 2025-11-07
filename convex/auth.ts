@@ -115,7 +115,8 @@ async function initializeNewUser(ctx: MutationCtx, userId: Id<"users">) {
   const tournamentId = await ctx.db.insert("tournaments", {
     userId,
     mode: "manual",
-    spicerackCurrentRound: 0,
+    spicerackCurrentRoundId: -1,
+    spicerackCurrentRoundNumber: -1,
     manualTimerRunning: false,
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -149,6 +150,17 @@ async function initializeNewUser(ctx: MutationCtx, userId: Id<"users">) {
       name: "Commentary Overlay",
     },
   );
+
+  // Create a deck overlay
+  await ctx.runMutation(internal._overlays.deck.internalCreateDeckOverlay, {
+    tournamentId,
+    name: "Deck Overlay",
+  });
+
+  // Create default settings for the new user
+  await ctx.runMutation(internal.settings.internalCreateSettings, {
+    userId,
+  });
 }
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({

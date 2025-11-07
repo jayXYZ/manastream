@@ -31,22 +31,20 @@ export default function MatchLobsterconOverlay({
               </>
             )}
             {(data.player1DisplayDeck || data.player1Data?.deckName) &&
-              (data.player1TournamentRecord || data.player1Data?.record) && (
+              data.player1TournamentRecord && (
                 <>
                   <span className="text-[24px] font-bold text-[#1417c4] mx-[4px]">
                     {(data.player1DisplayDeck || data.player1Data?.deckName) &&
-                    (data.player1TournamentRecord || data.player1Data?.record)
+                    data.player1TournamentRecord
                       ? "|"
                       : ""}
                   </span>
                 </>
               )}
-            {(data.player1TournamentRecord || data.player1Data?.record) && (
+            {data.player1TournamentRecord && (
               <>
                 <span className="text-[24px] text-white/80">
-                  {data.player1TournamentRecord ||
-                    data.player1Data?.record ||
-                    "0-0"}
+                  {data.player1TournamentRecord || "N/A"}
                 </span>
               </>
             )}
@@ -93,7 +91,7 @@ export default function MatchLobsterconOverlay({
         </div>
 
         <div className="absolute left-0 right-0 text-center text-[24px]">
-          {tournamentInfo?.currentRoundDisplayName || "Round 1"}
+          {tournamentInfo?.currentRoundDisplayName || "N/A"}
         </div>
 
         <div className="absolute left-0 right-0 mt-auto mb-auto text-center font-bold text-[56px] pt-[20px]">
@@ -151,22 +149,20 @@ export default function MatchLobsterconOverlay({
               </>
             )}
             {(data.player2DisplayDeck || data.player2Data?.deckName) &&
-              (data.player2TournamentRecord || data.player2Data?.record) && (
+              data.player2TournamentRecord && (
                 <>
                   <span className="text-[24px] font-bold text-[#1417c4] mx-[4px]">
                     {(data.player2DisplayDeck || data.player2Data?.deckName) &&
-                    (data.player2TournamentRecord || data.player2Data?.record)
+                    data.player2TournamentRecord
                       ? "|"
                       : ""}
                   </span>
                 </>
               )}
-            {(data.player2TournamentRecord || data.player2Data?.record) && (
+            {data.player2TournamentRecord && (
               <>
                 <span className="text-[24px] text-white/80">
-                  {data.player2TournamentRecord ||
-                    data.player2Data?.record ||
-                    "0-0"}
+                  {data.player2TournamentRecord || "N/A"}
                 </span>
               </>
             )}
