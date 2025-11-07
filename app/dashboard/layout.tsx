@@ -21,9 +21,13 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
+  SidebarTrigger,
   SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
+import Timer from "@/components/timer";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { NavUser } from "@/components/auth/nav-user";
 
 const navigationItems = [
@@ -111,6 +115,7 @@ function DashboardHeader() {
 }
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
+  const tournamentInfo = useQuery(api.tournaments.getUserTournament);
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       <DashboardHeader />

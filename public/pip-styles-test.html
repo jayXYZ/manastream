@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Win Pip Styles - Inspiration</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+            padding: 40px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 48px;
+            margin-bottom: 60px;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .style-section {
+            margin-bottom: 80px;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 40px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .style-title {
+            font-size: 28px;
+            margin-bottom: 30px;
+            color: #a8d5e2;
+            border-bottom: 2px solid rgba(168, 213, 226, 0.3);
+            padding-bottom: 10px;
+        }
+
+        .pip-container {
+            display: flex;
+            gap: 60px;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .pip-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .pip-label {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.6);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Style 1: Duresscrew Triangles */
+        .duresscrew-triangle {
+            width: 54px;
+            height: 50px;
+            clip-path: polygon(29px 50px, 0px 0px, 25px 0px, 54px 50px);
+        }
+        .duresscrew-triangle.off {
+            background: transparent;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+        .duresscrew-triangle.on {
+            background: #E0DDDD;
+        }
+
+        /* Style 2: Lobstercon SVG Flags */
+        .lobstercon-flag {
+            width: 84.5px;
+            height: 28.5px;
+        }
+
+        /* Style 3: Default Circles */
+        .default-circle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+        .default-circle.off {
+            background: transparent;
+        }
+        .default-circle.on {
+            background: white;
+        }
+
+        /* Style 4: Filled Squares */
+        .square-pip {
+            width: 32px;
+            height: 32px;
+            border: 2px solid white;
+        }
+        .square-pip.off {
+            background: transparent;
+        }
+        .square-pip.on {
+            background: white;
+        }
+
+        /* Style 5: Diamond Shape */
+        .diamond-pip {
+            width: 32px;
+            height: 32px;
+            transform: rotate(45deg);
+            border: 2px solid white;
+        }
+        .diamond-pip.off {
+            background: transparent;
+        }
+        .diamond-pip.on {
+            background: white;
+        }
+
+        /* Style 6: Hexagon */
+        .hexagon-pip {
+            width: 40px;
+            height: 40px;
+            clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+            border: 2px solid white;
+        }
+        .hexagon-pip.off {
+            background: transparent;
+        }
+        .hexagon-pip.on {
+            background: white;
+        }
+
+        /* Style 7: Star Shape */
+        .star-pip {
+            width: 40px;
+            height: 40px;
+            clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+            border: 2px solid white;
+        }
+        .star-pip.off {
+            background: transparent;
+        }
+        .star-pip.on {
+            background: white;
+        }
+
+        /* Style 8: Checkmark */
+        .checkmark-pip {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 2px solid white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        .checkmark-pip.off {
+            background: transparent;
+        }
+        .checkmark-pip.on {
+            background: white;
+        }
+        .checkmark-pip.on::after {
+            content: '✓';
+            color: #1a1a2e;
+            font-size: 20px;
+            font-weight: bold;
+            position: absolute;
+        }
+
+        /* Style 9: Glowing Orbs */
+        .glow-orb {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+        .glow-orb.off {
+            background: transparent;
+        }
+        .glow-orb.on {
+            background: white;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.8), 0 0 30px rgba(255, 255, 255, 0.4);
+        }
+
+        /* Style 10: Gradient Fill */
+        .gradient-pip {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+        .gradient-pip.off {
+            background: transparent;
+        }
+        .gradient-pip.on {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+        }
+
+        /* Style 11: Outlined with Inner Fill */
+        .outlined-pip {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 3px solid white;
+        }
+        .outlined-pip.off {
+            background: transparent;
+        }
+        .outlined-pip.on {
+            background: white;
+            border-width: 2px;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Style 12: Card-like Rectangle */
+        .card-pip {
+            width: 28px;
+            height: 40px;
+            border-radius: 4px;
+            border: 2px solid white;
+            background: transparent;
+        }
+        .card-pip.off {
+            background: transparent;
+        }
+        .card-pip.on {
+            background: linear-gradient(180deg, #ff6b6b 0%, #c92a2a 100%);
+            border-color: #ff6b6b;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Style 13: Lightning Bolt */
+        .lightning-pip {
+            width: 32px;
+            height: 40px;
+            clip-path: polygon(50% 0%, 35% 40%, 65% 40%, 50% 100%, 65% 60%, 35% 60%);
+            border: 2px solid white;
+        }
+        .lightning-pip.off {
+            background: transparent;
+        }
+        .lightning-pip.on {
+            background: #ffd700;
+            border-color: #ffd700;
+            filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.6));
+        }
+
+        /* Style 14: Shield */
+        .shield-pip {
+            width: 32px;
+            height: 40px;
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+            border: 2px solid white;
+        }
+        .shield-pip.off {
+            background: transparent;
+        }
+        .shield-pip.on {
+            background: linear-gradient(180deg, #4a90e2 0%, #2e5c8a 100%);
+        }
+
+        /* Style 15: Minimalist Dot */
+        .dot-pip {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: none;
+        }
+        .dot-pip.off {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .dot-pip.on {
+            background: white;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+
+        /* Style 16: Ring Style */
+        .ring-pip {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 3px solid white;
+            background: transparent;
+            position: relative;
+        }
+        .ring-pip.off {
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+        .ring-pip.on::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: white;
+        }
+
+        /* Style 17: Arrow Shape */
+        .arrow-pip {
+            width: 40px;
+            height: 24px;
+            clip-path: polygon(0% 0%, 75% 0%, 100% 50%, 75% 100%, 0% 100%);
+            border: 2px solid white;
+        }
+        .arrow-pip.off {
+            background: transparent;
+        }
+        .arrow-pip.on {
+            background: white;
+        }
+
+        /* Style 18: Pulse Effect */
+        .pulse-pip {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid white;
+            animation: pulse 2s infinite;
+        }
+        .pulse-pip.off {
+            background: transparent;
+            animation: none;
+        }
+        .pulse-pip.on {
+            background: #ff6b6b;
+        }
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.7); }
+            50% { box-shadow: 0 0 0 10px rgba(255, 107, 107, 0); }
+        }
+
+        /* Style 19: Split Circle */
+        .split-pip {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid white;
+            position: relative;
+            overflow: hidden;
+        }
+        .split-pip.off {
+            background: transparent;
+        }
+        .split-pip.on {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+        }
+
+        /* Style 20: Minimalist Line */
+        .line-pip {
+            width: 40px;
+            height: 4px;
+            border-radius: 2px;
+        }
+        .line-pip.off {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .line-pip.on {
+            background: white;
+            box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+        }
+
+        /* Demo pairs showing OFF and ON states */
+        .demo-pair {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 Game Win Pip Styles - Inspiration Gallery</h1>
+
+        <!-- Style 1: Duresscrew Triangles -->
+        <div class="style-section">
+            <h2 class="style-title">1. Duresscrew Triangles (Existing)</h2>
+            <div class="pip-container">
+                <div class="pip-group">
+                    <div class="demo-pair">
+                        <div class="duresscrew-triangle off"></div>
+                        <div class="duresscrew-triangle on"></div>
+                    </div>
+                    <span class="pip-label">OFF → ON</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Style 2: Lobstercon SVG Flags -->
+        <div class="style-section">
+            <h2 class="style-title">2. Lobstercon SVG Flags (Existing)</h2>
+            <div class="pip-container">
+                <div class="pip-group">
+                    <div class="demo-pair">
+                        <svg class="lobstercon-flag" xmlns="http://www.w3.org/2000/svg">
+                            <path fillRule="evenodd" stroke="rgb(255, 255, 255)" strokeWidth="2px" fill="none" d="M37.162,0.996 L82.289,0.996 L66.94,17.266 C60.984,22.401 52.696,26.563 47.584,26.563 L2.457,26.563 L18.651,10.293 C23.762,5.158 32.49,0.996 37.162,0.996 Z" />
+                        </svg>
+                        <svg class="lobstercon-flag" xmlns="http://www.w3.org/2000/svg">
+                            <path fillRule="evenodd" stroke="rgb(255, 255, 255)" strokeWidth="2px" fill="rgb(0, 40, 255)" d="M37.162,0.996 L82.289,0.996 L66.94,17.266 C60.984,22.401 52.696,26.563 47.584,26.563 L2.457,26.563 L18.651,10.293 C23.762,5.158 32.49,0.996 37.162,0.996 Z" />
+                        </svg>
+                    </div>
+                    <span class="pip-label">OFF → ON</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Style 3: Default Circles -->
+        <div class="style-section">
+            <h2 class="style-title">3. Default Circles (Existing)</h2>
+            <div class="pip-container">
+                <div class="pip-group">
+                    <div class="demo-pair">
+                        <div class="default-circle off"></div>
+                        <div class="default-circle on"></div>
+                    </div>
+                    <span class="pip-label">OFF → ON</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Style 4: Filled Squares -->
+        <div class="style-section">
+            <h2 class="style-title">4. Filled Squares</h2>
+            <div class="pip-container">
+                <div class="pip-group">
+                    <div class="demo-pair">
+                        <div class="square-pip off"></div>
+                        <div class="square-pip on"></div>
+                    </div>
+                    <span class="pip-label">OFF → ON</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Style 5: Diamond Shape -->
+        <div class="style-section">
+            <h2 class="style-title">5. Diamond Shape</h2>
+            <div class="pip-container">
+                <div class="pip-group">
+                    <div class="demo-pair">
+                        <div class="diamond-pip off"></div>
+                        <div class="diamond-pip on"></div>
+                    </div>
+                    <span class="pip-label">OFF → ON</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Style 6: Hexagon -->
+        <div class="style-section">
+            <h2 class="style-title">6. Hexagon</h2>
+            <div class="pip-container">
+                <div class="pip-group">
+                    <div class="demo-pair">
+                        <div class="hexagon-pip off"></div>
+                        <div class="hexagon-pip on"></div>
+                    </div>
+                    <span class="pip-label">OFF → ON</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Style 7: Star Shape -->
+        <div class="style-section">
+            <h2 class="style-title">7. Star Shape</h2>
+            <div class="pip-container">
+                <div class="pip-group">
+                    <div class="demo-pair">
+                        <div class="star-pip off"></div>
+                        <div class="star-pip on"></div>
+                    </div>
+                    <span class="pip-label">OFF → ON</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Style 8: Checkmark -->
+        <div class="style-section">
+            <h2 class="style-title">8. Checkmark Circle</h2>
+            <div class="pip-container">
+                <div class="pip-group">
+                    <div class="demo-pair">
+                        <div class="checkmark-pip off"></div>
+                        <div class="checkmark-pip on"></div>
+                    </div>
+                    <span class="pip-label">OFF → ON</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Style 9: Glowing Orbs -->
+        <div class="style-section">
+            <h2 class="style-title">9. Glowing Orbs</h2>
+            <div class="pip-container">
+                <div class="pip-group">
+                    <div class="demo-pair">
+                        <div class="glow-orb off"></div>
+                        <div class="glow-orb on"></div>
+                    </div>
+                    <span class="pip-label">OFF → ON</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Style 10: Gradient Fill -->
+        <div class="style-section">
+            <h2 class="style-title">10. Gradient Fill</h2>
+            <div class="pip-container">
+                <div class="pip-group">
+                    <div class="demo-pair">
+                        <div class="gradient-pip off"></div>
+                        <div class="gradient-pip on"></div>
+                    </div>
+                    <span class="pip-label">OFF → ON</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Style 11: Outlined with Inner Fill -->
+        <div class="style-section">
+            <h2 class="style-title">11. Outlined with Inner Fill</h2>
+            <div class="pip-container">
+                <div class="pip-group">
+                    <div class="demo-pair">
+                        <div class="outlined-pip off"></div>
+                        <div class="outlined-pip on"></div>
+                    </div>
+                    <span class="pip-label">OFF → ON</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Style 12: Card-like Rectangle -->
+        <div class="style-section">
+            <h2 class="style-title">12. Card-like Rectangle (Magic Theme)</h2>
+            <div class="pip-container">
+                <div class="pip-group">
+                    <div class="demo-pair">
+                        <div class="card-pip off"></div>
+                        <div class="card-pip on"></div>
+                    </div>
+                    <span class="pip-label">OFF → ON</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Style 13: Lightning Bolt -->
+        <div class="style-section">
+            <h2 class="style-title">13. Lightning Bolt</h2>
+            <div class="pip-container">
+                <div class="pip-group">
+                    <div class="demo-pair">
+                        <div class="lightning-pip off"></div>
+                        <div class="lightning-pip on"></div>
+                    </div>
+                    <span class="pip-label">OFF → ON</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Style 14: Shield -->
+        <div class="style-section">
+            <h2 class="style-title">14. Shield</h2>
+            <div class="pip-container">
+                <div class="pip-group">
+                    <div class="demo-pair">
+                        <div class="shield-pip off"></div>
+                        <div class="shield-pip on"></div>
+                    </div>
+                    <span class="pip-label">OFF → ON</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Style 15: Minimalist Dot -->
+        <div class="style-section">
+            <h2 class="style-title">15. Minimalist Dot</h2>
+            <div class="pip-container">
+                <div class="pip-group">
+                    <div class="demo-pair">
+                        <div class="dot-pip off"></div>
+                        <div class="dot-pip on"></div>
+                    </div>
+                    <span class="pip-label">OFF → ON</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Style 16: Ring Style -->
+        <div class="style-section">
+            <h2 class="style-title">16. Ring Style</h2>
+            <div class="pip-container">
+                <div class="pip-group">
+                    <div class="demo-pair">
+                        <div class="ring-pip off"></div>
+                        <div class="ring-pip on"></div>
+                    </div>
+                    <span class="pip-label">OFF → ON</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Style 17: Arrow Shape -->
+        <div class="style-section">
+            <h2 class="style-title">17. Arrow Shape</h2>
+            <div class="pip-container">
+                <div class="pip-group">
+                    <div class="demo-pair">
+                        <div class="arrow-pip off"></div>
+                        <div class="arrow-pip on"></div>
+                    </div>
+                    <span class="pip-label">OFF → ON</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Style 18: Pulse Effect -->
+        <div class="style-section">
+            <h2 class="style-title">18. Pulse Effect (Animated)</h2>
+            <div class="pip-container">
+                <div class="pip-group">
+                    <div class="demo-pair">
+                        <div class="pulse-pip off"></div>
+                        <div class="pulse-pip on"></div>
+                    </div>
+                    <span class="pip-label">OFF → ON</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Style 19: Split Circle -->
+        <div class="style-section">
+            <h2 class="style-title">19. Split Circle (Gradient)</h2>
+            <div class="pip-container">
+                <div class="pip-group">
+                    <div class="demo-pair">
+                        <div class="split-pip off"></div>
+                        <div class="split-pip on"></div>
+                    </div>
+                    <span class="pip-label">OFF → ON</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Style 20: Minimalist Line -->
+        <div class="style-section">
+            <h2 class="style-title">20. Minimalist Line</h2>
+            <div class="pip-container">
+                <div class="pip-group">
+                    <div class="demo-pair">
+                        <div class="line-pip off"></div>
+                        <div class="line-pip on"></div>
+                    </div>
+                    <span class="pip-label">OFF → ON</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</body>
+</html>
+

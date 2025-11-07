@@ -323,3 +323,61 @@ export const spicerackMatchValidator = v.object({
     spicerackPlayerMatchRelationshipValidator,
   ),
 });
+
+// Validator for updateMatchOverlay arguments
+// These fields are picked from matchOverlayValidator and made optional for updates
+export const updateMatchOverlayArgsValidator = v.object({
+  overlayId: v.id("overlays"),
+  // Life totals
+  player1Life: v.optional(v.number()),
+  player2Life: v.optional(v.number()),
+  // Games won
+  player1GamesWon: v.optional(v.number()),
+  player2GamesWon: v.optional(v.number()),
+  // Display overrides
+  player1DisplayName: v.optional(v.string()),
+  player2DisplayName: v.optional(v.string()),
+  player1DisplayDeck: v.optional(v.string()),
+  player2DisplayDeck: v.optional(v.string()),
+  player1TournamentRecord: v.optional(v.string()),
+  player2TournamentRecord: v.optional(v.string()),
+});
+
+// Spicerack API Validators
+
+export const spicerackUserValidator = v.object({
+  id: v.number(),
+  username: v.optional(v.string()),
+  best_identifier: v.string(),
+  email: v.optional(v.string()),
+});
+
+export const spicerackUserEventStatusValidator = v.object({
+  id: v.number(),
+  user: spicerackUserValidator,
+  decklist: v.union(v.number(), v.null()),
+  registration_status: v.string(),
+  final_place_in_standings: v.union(v.number(), v.null()),
+  matches_won: v.number(),
+  matches_lost: v.number(),
+  matches_drawn: v.number(),
+  total_match_points: v.number(),
+});
+
+export const spicerackPlayerMatchRelationshipValidator = v.object({
+  id: v.number(),
+  user_event_status: spicerackUserEventStatusValidator,
+  games_won: v.number(),
+  points_gained: v.number(),
+  player_order: v.number(),
+});
+
+export const spicerackMatchValidator = v.object({
+  id: v.number(),
+  is_feature_match: v.boolean(),
+  table_number: v.number(),
+  status: v.string(),
+  player_match_relationships: v.array(
+    spicerackPlayerMatchRelationshipValidator,
+  ),
+});

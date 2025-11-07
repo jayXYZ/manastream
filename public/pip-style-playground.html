@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Overlay Pip Style Playground</title>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      :root {
+        color-scheme: dark light;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: radial-gradient(circle at top, #151c2b, #090b12 65%);
+        color: #f1f5f9;
+        padding: 48px clamp(24px, 6vw, 80px);
+      }
+
+      header {
+        max-width: 960px;
+        margin: 0 auto 48px auto;
+        text-align: center;
+      }
+
+      header h1 {
+        margin: 0 0 16px 0;
+        font-size: clamp(2.25rem, 4vw, 3.5rem);
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+
+      header p {
+        margin: 0;
+        font-size: 1.05rem;
+        line-height: 1.6;
+        color: #cbd5f5;
+      }
+
+      main {
+        max-width: 1120px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 28px;
+      }
+
+      .style-card {
+        position: relative;
+        padding: 28px;
+        border-radius: 20px;
+        background: linear-gradient(160deg, rgba(255, 255, 255, 0.05), rgba(9, 11, 18, 0.65));
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        box-shadow: 0 20px 40px rgba(9, 11, 18, 0.45);
+        backdrop-filter: blur(12px);
+        --accent: #7dd3fc;
+        --accent-strong: #22d3ee;
+        --accent-muted: rgba(125, 211, 252, 0.35);
+        --pip-off-bg: rgba(148, 163, 184, 0.15);
+      }
+
+      .style-card h2 {
+        margin: 0 0 18px 0;
+        font-size: 1.25rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+      }
+
+      .style-card p {
+        margin: 0 0 20px 0;
+        font-size: 0.95rem;
+        line-height: 1.5;
+        color: rgba(226, 232, 240, 0.75);
+      }
+
+      .pip-row {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-top: 12px;
+      }
+
+      .pip-row span {
+        width: 44px;
+        font-size: 0.75rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: rgba(226, 232, 240, 0.65);
+      }
+
+      .pip-group {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .pip {
+        position: relative;
+        flex: 0 0 auto;
+        width: var(--pip-width, 38px);
+        height: var(--pip-height, 38px);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: 160ms ease;
+        transition-property: background, border, transform, box-shadow, filter;
+        cursor: pointer;
+      }
+
+      .pip::after,
+      .pip::before {
+        content: "";
+        position: absolute;
+      }
+
+      .pip:not(.on):hover {
+        transform: translateY(-2px) scale(1.02);
+      }
+
+      .pip.on {
+        filter: drop-shadow(0 8px 18px rgba(34, 211, 238, 0.35));
+      }
+
+      /* THEME OVERRIDES */
+
+      .theme-classic {
+        --accent: #e2e8f0;
+        --accent-strong: #f8fafc;
+        --accent-muted: rgba(226, 232, 240, 0.35);
+        --pip-off-bg: rgba(226, 232, 240, 0.08);
+      }
+
+      .theme-ember {
+        --accent: #ff7a45;
+        --accent-strong: #ff5c38;
+        --accent-muted: rgba(255, 122, 69, 0.3);
+        --pip-off-bg: rgba(255, 122, 69, 0.12);
+      }
+
+      .theme-crystal {
+        --accent: #a855f7;
+        --accent-strong: #c084fc;
+        --accent-muted: rgba(168, 85, 247, 0.35);
+        --pip-off-bg: rgba(168, 85, 247, 0.12);
+      }
+
+      .theme-verdant {
+        --accent: #34d399;
+        --accent-strong: #22c55e;
+        --accent-muted: rgba(52, 211, 153, 0.35);
+        --pip-off-bg: rgba(52, 211, 153, 0.12);
+      }
+
+      .theme-cinder {
+        --accent: #f97316;
+        --accent-strong: #fb923c;
+        --accent-muted: rgba(249, 115, 22, 0.4);
+        --pip-off-bg: rgba(249, 115, 22, 0.18);
+      }
+
+      .theme-celestial {
+        --accent: #38bdf8;
+        --accent-strong: #0ea5e9;
+        --accent-muted: rgba(14, 165, 233, 0.35);
+        --pip-off-bg: rgba(14, 165, 233, 0.12);
+      }
+
+      .theme-ink {
+        --accent: #94a3b8;
+        --accent-strong: #f8fafc;
+        --accent-muted: rgba(148, 163, 184, 0.4);
+        --pip-off-bg: rgba(148, 163, 184, 0.12);
+      }
+
+      .theme-neon {
+        --accent: #f472b6;
+        --accent-strong: #fb7185;
+        --accent-muted: rgba(244, 114, 182, 0.4);
+        --pip-off-bg: rgba(244, 114, 182, 0.16);
+      }
+
+      .theme-slate {
+        --accent: #fbbf24;
+        --accent-strong: #facc15;
+        --accent-muted: rgba(251, 191, 36, 0.4);
+        --pip-off-bg: rgba(251, 191, 36, 0.16);
+      }
+
+      .theme-royal {
+        --accent: #60a5fa;
+        --accent-strong: #3b82f6;
+        --accent-muted: rgba(96, 165, 250, 0.35);
+        --pip-off-bg: rgba(96, 165, 250, 0.16);
+      }
+
+      /* STYLE 1: CLASSIC CIRCLE */
+      .pip--circle {
+        border-radius: 50%;
+        border: 2px solid var(--accent-muted);
+        background: var(--pip-off-bg);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+      }
+
+      .pip--circle.on {
+        border-color: var(--accent-strong);
+        background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.35), rgba(0, 0, 0, 0.25) 60%),
+          var(--accent-strong);
+        box-shadow: 0 0 14px rgba(255, 255, 255, 0.2), 0 0 0 2px rgba(255, 255, 255, 0.12);
+      }
+
+      /* STYLE 2: STADIUM BARS */
+      .pip--bar {
+        --pip-width: 64px;
+        --pip-height: 16px;
+        border-radius: 999px;
+        border: 1px solid var(--accent-muted);
+        background: linear-gradient(90deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.35));
+      }
+
+      .pip--bar.on {
+        border-color: var(--accent-strong);
+        background: linear-gradient(90deg, rgba(255, 255, 255, 0.55), rgba(0, 0, 0, 0.05));
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4), 0 12px 18px rgba(255, 255, 255, 0.08);
+      }
+
+      /* STYLE 3: FACETED DIAMONDS */
+      .pip--diamond {
+        clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(0, 0, 0, 0.45));
+        border: 2px solid var(--accent-muted);
+      }
+
+      .pip--diamond.on {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.75), rgba(0, 0, 0, 0.05));
+        border-color: var(--accent-strong);
+        box-shadow: 0 14px 24px rgba(0, 0, 0, 0.25), inset 0 0 0 1px rgba(255, 255, 255, 0.45);
+      }
+
+      /* STYLE 4: SHIELD SHARDS */
+      .pip--shield {
+        --pip-width: 54px;
+        --pip-height: 48px;
+        clip-path: polygon(50% 100%, 0% 20%, 25% 0%, 75% 0%, 100% 20%);
+        background: var(--pip-off-bg);
+        border: 2px solid var(--accent-muted);
+      }
+
+      .pip--shield.on {
+        background: linear-gradient(155deg, var(--accent-strong), rgba(0, 0, 0, 0.3));
+        border-color: var(--accent-strong);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+      }
+
+      /* STYLE 5: HOLLOW RINGS */
+      .pip--ring {
+        border-radius: 50%;
+        border: 2px solid var(--accent-muted);
+        background: conic-gradient(from 90deg, transparent 0deg, transparent 180deg, rgba(255, 255, 255, 0.03) 180deg, rgba(255, 255, 255, 0.06) 360deg);
+      }
+
+      .pip--ring::after {
+        inset: 6px;
+        border-radius: 50%;
+        border: 2px dashed rgba(255, 255, 255, 0.1);
+      }
+
+      .pip--ring.on {
+        border-width: 3px;
+        border-color: rgba(255, 255, 255, 0.75);
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.5), rgba(0, 0, 0, 0.55));
+        box-shadow: 0 0 18px rgba(255, 255, 255, 0.25);
+      }
+
+      .pip--ring.on::after {
+        border-color: rgba(255, 255, 255, 0.5);
+      }
+
+      /* STYLE 6: NEON GLYPHS */
+      .pip--neon {
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.04);
+        --pip-width: 48px;
+        --pip-height: 24px;
+      }
+
+      .pip--neon::after {
+        inset: 5px;
+        border-radius: 8px;
+        border: 2px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .pip--neon.on {
+        border-color: rgba(255, 255, 255, 0.45);
+        background: rgba(255, 255, 255, 0.08);
+        box-shadow: 0 0 20px rgba(244, 114, 182, 0.7), 0 0 2px 1px rgba(255, 255, 255, 0.4);
+      }
+
+      .pip--neon.on::after {
+        border-color: rgba(255, 255, 255, 0.65);
+        box-shadow: 0 0 16px rgba(244, 114, 182, 0.8);
+      }
+
+      /* STYLE 7: SPLIT SIGILS */
+      .pip--split {
+        border-radius: 8px;
+        --pip-width: 40px;
+        --pip-height: 40px;
+        overflow: hidden;
+        border: 1px solid var(--accent-muted);
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 50%, rgba(0, 0, 0, 0.4) 50%);
+      }
+
+      .pip--split::after {
+        inset: 6px;
+        border-radius: 6px;
+        background: linear-gradient(-45deg, rgba(255, 255, 255, 0.05) 50%, rgba(0, 0, 0, 0.35) 50%);
+      }
+
+      .pip--split.on {
+        border-color: rgba(255, 255, 255, 0.4);
+        background: linear-gradient(135deg, var(--accent-strong) 50%, rgba(0, 0, 0, 0.2) 50%);
+      }
+
+      .pip--split.on::after {
+        background: linear-gradient(-45deg, rgba(255, 255, 255, 0.45) 50%, rgba(0, 0, 0, 0.1) 50%);
+      }
+
+      /* STYLE 8: RUNE MARKERS */
+      .pip--rune {
+        --pip-width: 44px;
+        --pip-height: 44px;
+        border-radius: 14px;
+        background: var(--pip-off-bg);
+        border: 1px solid var(--accent-muted);
+      }
+
+      .pip--rune::before,
+      .pip--rune::after {
+        width: 2px;
+        height: 60%;
+        left: 50%;
+        top: 20%;
+        transform: translateX(-50%) rotate(25deg);
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 999px;
+      }
+
+      .pip--rune::after {
+        transform: translateX(-50%) rotate(-25deg);
+      }
+
+      .pip--rune.on {
+        background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.22), rgba(0, 0, 0, 0.3));
+        border-color: var(--accent-strong);
+        box-shadow: 0 0 18px rgba(52, 211, 153, 0.45);
+      }
+
+      .pip--rune.on::before,
+      .pip--rune.on::after {
+        background: rgba(255, 255, 255, 0.75);
+      }
+
+      /* STYLE 9: TICKET STUBS */
+      .pip--ticket {
+        --pip-width: 56px;
+        --pip-height: 30px;
+        border: 1px solid var(--accent-muted);
+        border-radius: 8px;
+        background: var(--pip-off-bg);
+      }
+
+      .pip--ticket::before,
+      .pip--ticket::after {
+        width: 10px;
+        height: 10px;
+        background: #090b12;
+        border-radius: 50%;
+        top: 50%;
+        transform: translateY(-50%);
+      }
+
+      .pip--ticket::before {
+        left: -5px;
+      }
+
+      .pip--ticket::after {
+        right: -5px;
+      }
+
+      .pip--ticket.on {
+        background: linear-gradient(90deg, var(--accent-strong), rgba(255, 255, 255, 0.25));
+        border-color: rgba(255, 255, 255, 0.6);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55), 0 0 14px rgba(96, 165, 250, 0.35);
+      }
+
+      /* STYLE 10: CARD BADGES */
+      .pip--card {
+        --pip-width: 48px;
+        --pip-height: 58px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        background: linear-gradient(180deg, rgba(0, 0, 0, 0.4), rgba(255, 255, 255, 0.05));
+        overflow: hidden;
+      }
+
+      .pip--card::before {
+        inset: 10px;
+        border-radius: 8px;
+        border: 1px dashed rgba(255, 255, 255, 0.1);
+      }
+
+      .pip--card::after {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        top: 8px;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 2px solid rgba(255, 255, 255, 0.18);
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .pip--card.on {
+        border-color: rgba(255, 255, 255, 0.45);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.45), rgba(0, 0, 0, 0.35));
+        box-shadow: 0 18px 30px rgba(0, 0, 0, 0.35);
+      }
+
+      .pip--card.on::after {
+        border-color: rgba(255, 255, 255, 0.85);
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.2));
+      }
+
+      /* Utility: accent chips */
+      .accent {
+        position: absolute;
+        inset: auto 28px 24px auto;
+        font-size: 0.7rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: rgba(148, 163, 184, 0.15);
+        color: rgba(226, 232, 240, 0.65);
+      }
+
+      @media (max-width: 620px) {
+        body {
+          padding: 32px 20px;
+        }
+
+        main {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Game Win Pip Explorations</h1>
+      <p>
+        Static concepts for match overlay pips. Each card shows a single style with off/on variants so you can mix, match,
+        and iterate toward a cohesive broadcast package.
+      </p>
+    </header>
+    <main>
+      <section class="style-card theme-classic">
+        <h2>Classic Halo Orbs</h2>
+        <p>Minimal circular tokens with a subtle halo when active. Great for neutral overlays with clean typography.</p>
+        <div class="accent">Neutral</div>
+        <div class="pip-row">
+          <span>Off</span>
+          <div class="pip-group">
+            <div class="pip pip--circle"></div>
+            <div class="pip pip--circle"></div>
+            <div class="pip pip--circle"></div>
+          </div>
+        </div>
+        <div class="pip-row">
+          <span>On</span>
+          <div class="pip-group">
+            <div class="pip pip--circle on"></div>
+            <div class="pip pip--circle on"></div>
+            <div class="pip pip--circle"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="style-card theme-ember">
+        <h2>Stadium Bars</h2>
+        <p>Horizontal energy bars that echo esport overlays. Animate width or glow to highlight match point moments.</p>
+        <div class="accent">Aggro</div>
+        <div class="pip-row">
+          <span>Off</span>
+          <div class="pip-group">
+            <div class="pip pip--bar"></div>
+            <div class="pip pip--bar"></div>
+            <div class="pip pip--bar"></div>
+          </div>
+        </div>
+        <div class="pip-row">
+          <span>On</span>
+          <div class="pip-group">
+            <div class="pip pip--bar on"></div>
+            <div class="pip pip--bar on"></div>
+            <div class="pip pip--bar"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="style-card theme-crystal">
+        <h2>Faceted Diamonds</h2>
+        <p>Shard-inspired geometry that meshes nicely with mystical or high fantasy frames.</p>
+        <div class="accent">Mystic</div>
+        <div class="pip-row">
+          <span>Off</span>
+          <div class="pip-group">
+            <div class="pip pip--diamond"></div>
+            <div class="pip pip--diamond"></div>
+            <div class="pip pip--diamond"></div>
+          </div>
+        </div>
+        <div class="pip-row">
+          <span>On</span>
+          <div class="pip-group">
+            <div class="pip pip--diamond on"></div>
+            <div class="pip pip--diamond on"></div>
+            <div class="pip pip--diamond"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="style-card theme-cinder">
+        <h2>Shield Shards</h2>
+        <p>Angular plates inspired by the Duresscrew overlay. Mix rotations to mirror player sides.</p>
+        <div class="accent">Fragment</div>
+        <div class="pip-row">
+          <span>Off</span>
+          <div class="pip-group">
+            <div class="pip pip--shield"></div>
+            <div class="pip pip--shield"></div>
+          </div>
+        </div>
+        <div class="pip-row">
+          <span>On</span>
+          <div class="pip-group">
+            <div class="pip pip--shield on"></div>
+            <div class="pip pip--shield on"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="style-card theme-ink">
+        <h2>Hollow Rings</h2>
+        <p>Refined rings with inner tracers. Works well when overlaid on textured backgrounds.</p>
+        <div class="accent">Minimal</div>
+        <div class="pip-row">
+          <span>Off</span>
+          <div class="pip-group">
+            <div class="pip pip--ring"></div>
+            <div class="pip pip--ring"></div>
+            <div class="pip pip--ring"></div>
+          </div>
+        </div>
+        <div class="pip-row">
+          <span>On</span>
+          <div class="pip-group">
+            <div class="pip pip--ring on"></div>
+            <div class="pip pip--ring on"></div>
+            <div class="pip pip--ring"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="style-card theme-neon">
+        <h2>Neon Glyphs</h2>
+        <p>Retro-futuristic capsules with inner frame. Crank the glow for synthwave or cyberpunk vibes.</p>
+        <div class="accent">Neon</div>
+        <div class="pip-row">
+          <span>Off</span>
+          <div class="pip-group">
+            <div class="pip pip--neon"></div>
+            <div class="pip pip--neon"></div>
+            <div class="pip pip--neon"></div>
+            <div class="pip pip--neon"></div>
+          </div>
+        </div>
+        <div class="pip-row">
+          <span>On</span>
+          <div class="pip-group">
+            <div class="pip pip--neon on"></div>
+            <div class="pip pip--neon on"></div>
+            <div class="pip pip--neon on"></div>
+            <div class="pip pip--neon"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="style-card theme-verdant">
+        <h2>Split Sigils</h2>
+        <p>Dual-tone panels that can echo opposing colors or guild alignments.</p>
+        <div class="accent">Duality</div>
+        <div class="pip-row">
+          <span>Off</span>
+          <div class="pip-group">
+            <div class="pip pip--split"></div>
+            <div class="pip pip--split"></div>
+            <div class="pip pip--split"></div>
+          </div>
+        </div>
+        <div class="pip-row">
+          <span>On</span>
+          <div class="pip-group">
+            <div class="pip pip--split on"></div>
+            <div class="pip pip--split on"></div>
+            <div class="pip pip--split"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="style-card theme-celestial">
+        <h2>Rune Markers</h2>
+        <p>Soft squares with etched runic strokes. Great for ancient artifacts or blue control decks.</p>
+        <div class="accent">Glyph</div>
+        <div class="pip-row">
+          <span>Off</span>
+          <div class="pip-group">
+            <div class="pip pip--rune"></div>
+            <div class="pip pip--rune"></div>
+            <div class="pip pip--rune"></div>
+          </div>
+        </div>
+        <div class="pip-row">
+          <span>On</span>
+          <div class="pip-group">
+            <div class="pip pip--rune on"></div>
+            <div class="pip pip--rune on"></div>
+            <div class="pip pip--rune"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="style-card theme-slate">
+        <h2>Ticket Stubs</h2>
+        <p>Event badge inspired, perfect for convention streams or tournament coverage.</p>
+        <div class="accent">Event</div>
+        <div class="pip-row">
+          <span>Off</span>
+          <div class="pip-group">
+            <div class="pip pip--ticket"></div>
+            <div class="pip pip--ticket"></div>
+            <div class="pip pip--ticket"></div>
+          </div>
+        </div>
+        <div class="pip-row">
+          <span>On</span>
+          <div class="pip-group">
+            <div class="pip pip--ticket on"></div>
+            <div class="pip pip--ticket on"></div>
+            <div class="pip pip--ticket"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="style-card theme-royal">
+        <h2>Card Badges</h2>
+        <p>Vertical frames with inset medallions. Channel deck boxes, shields, or plane symbols.</p>
+        <div class="accent">Badge</div>
+        <div class="pip-row">
+          <span>Off</span>
+          <div class="pip-group">
+            <div class="pip pip--card"></div>
+            <div class="pip pip--card"></div>
+          </div>
+        </div>
+        <div class="pip-row">
+          <span>On</span>
+          <div class="pip-group">
+            <div class="pip pip--card on"></div>
+            <div class="pip pip--card on"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
+

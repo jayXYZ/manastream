@@ -36,9 +36,15 @@
   --sidebar-accent-foreground: oklch(1 0 0);
   --sidebar-border: oklch(0.8452 0 0);
   --sidebar-ring: oklch(0.6958 0.2043 43.491);
+<<<<<<< HEAD
   --font-sans: "Inter", Helvetica, Arial, sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: "JetBrains Mono", monospace;
+=======
+  --font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-serif: Georgia, serif;
+  --font-mono: "SF Mono", "Roboto Mono", monospace;
+>>>>>>> fb1ab8f (giga commit cuz im an idiot)
   --radius: 0.3rem;
   --shadow-x: 0rem;
   --shadow-y: 0.2rem;
@@ -101,9 +107,15 @@
   --sidebar-accent-foreground: oklch(1 0 0);
   --sidebar-border: oklch(0.36 0 0);
   --sidebar-ring: oklch(0.6958 0.2043 43.491);
+<<<<<<< HEAD
   --font-sans: "Inter", Helvetica, Arial, sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: "JetBrains Mono", monospace;
+=======
+  --font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-serif: Georgia, serif;
+  --font-mono: "SF Mono", "Roboto Mono", monospace;
+>>>>>>> fb1ab8f (giga commit cuz im an idiot)
   --radius: 0.3rem;
   --shadow-x: 0rem;
   --shadow-y: 0.2rem;
@@ -173,6 +185,7 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+<<<<<<< HEAD
 
   --shadow-2xs: var(--shadow-2xs);
   --shadow-xs: var(--shadow-xs);

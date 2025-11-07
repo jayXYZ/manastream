@@ -4,6 +4,7 @@ import { useConvexAuth } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { CyberCard, OpsPanel } from "@/components/test";
 
 export default function Home() {
   return (
@@ -78,6 +79,8 @@ function Content() {
           </Button>
         </div>
       )}
+      <OpsPanel />
+      <CyberCard title="test">hello world</CyberCard>
     </div>
   );
 }

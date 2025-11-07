@@ -44,6 +44,7 @@ export default function OverlaysPage() {
     api.overlays.setCommentaryOverlaySettings,
   );
 
+<<<<<<< HEAD
   const handleSaveTemplate = () => {
     if (selectedOverlay && selectedTemplate) {
       if (selectedOverlay.overlayType === "match") {

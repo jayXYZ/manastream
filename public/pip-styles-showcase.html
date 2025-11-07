@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Win Pip Styles - Showcase</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #1a1a1a;
+            color: #fff;
+            font-family: 'Arial', sans-serif;
+            padding: 40px;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 40px;
+            font-size: 2.5rem;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 40px;
+        }
+
+        .pip-section {
+            background: #2a2a2a;
+            padding: 30px;
+            border-radius: 12px;
+            border: 1px solid #444;
+        }
+
+        .pip-section h2 {
+            margin-bottom: 20px;
+            font-size: 1.3rem;
+            color: #4a9eff;
+        }
+
+        .pip-container {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        /* Style 1: Classic Circles */
+        .pip-circle-basic {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 3px solid #fff;
+        }
+        .pip-circle-basic.on {
+            background: #fff;
+        }
+        .pip-circle-basic.off {
+            background: transparent;
+        }
+
+        /* Style 2: Glowing Circles */
+        .pip-circle-glow {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 3px solid #4a9eff;
+        }
+        .pip-circle-glow.on {
+            background: #4a9eff;
+            box-shadow: 0 0 20px #4a9eff, 0 0 40px #4a9eff;
+        }
+        .pip-circle-glow.off {
+            background: transparent;
+            opacity: 0.3;
+        }
+
+        /* Style 3: Solid Squares */
+        .pip-square {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #fff;
+        }
+        .pip-square.on {
+            background: #fff;
+        }
+        .pip-square.off {
+            background: transparent;
+        }
+
+        /* Style 4: Rotated Squares (Diamonds) */
+        .pip-diamond {
+            width: 35px;
+            height: 35px;
+            border: 3px solid #ffd700;
+            transform: rotate(45deg);
+        }
+        .pip-diamond.on {
+            background: #ffd700;
+        }
+        .pip-diamond.off {
+            background: transparent;
+        }
+
+        /* Style 5: Hexagons */
+        .pip-hexagon {
+            width: 40px;
+            height: 46px;
+            position: relative;
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+            border: 3px solid #ff4444;
+        }
+        .pip-hexagon.on {
+            background: #ff4444;
+        }
+        .pip-hexagon.off {
+            background: transparent;
+        }
+
+        /* Style 6: Stars */
+        .pip-star {
+            width: 50px;
+            height: 50px;
+            position: relative;
+            clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+        }
+        .pip-star.on {
+            background: #ffaa00;
+            filter: drop-shadow(0 0 8px #ffaa00);
+        }
+        .pip-star.off {
+            background: transparent;
+            border: 2px solid #ffaa00;
+        }
+
+        /* Style 7: Pills/Capsules */
+        .pip-pill {
+            width: 60px;
+            height: 30px;
+            border-radius: 15px;
+            border: 3px solid #00ff88;
+        }
+        .pip-pill.on {
+            background: #00ff88;
+        }
+        .pip-pill.off {
+            background: transparent;
+        }
+
+        /* Style 8: Triangles */
+        .pip-triangle {
+            width: 0;
+            height: 0;
+            border-left: 25px solid transparent;
+            border-right: 25px solid transparent;
+            border-bottom: 45px solid #ff6b6b;
+        }
+        .pip-triangle.off {
+            border-bottom-color: transparent;
+            border-left: 25px solid #ff6b6b;
+            border-right: 25px solid #ff6b6b;
+            border-bottom: 45px solid transparent;
+            border-top: 3px solid #ff6b6b;
+        }
+
+        /* Style 9: Gradient Circles */
+        .pip-gradient {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid #fff;
+        }
+        .pip-gradient.on {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .pip-gradient.off {
+            background: transparent;
+        }
+
+        /* Style 10: Neon Hexagons */
+        .pip-neon-hex {
+            width: 40px;
+            height: 46px;
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+        }
+        .pip-neon-hex.on {
+            background: #00ffff;
+            box-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff, 0 0 30px #00ffff;
+        }
+        .pip-neon-hex.off {
+            background: transparent;
+            border: 2px solid #00ffff;
+            opacity: 0.3;
+        }
+
+        /* Style 11: 3D Circles */
+        .pip-3d {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid #fff;
+        }
+        .pip-3d.on {
+            background: radial-gradient(circle at 30% 30%, #ffffff, #888888);
+            box-shadow: 2px 2px 8px rgba(0,0,0,0.5);
+        }
+        .pip-3d.off {
+            background: radial-gradient(circle at 30% 30%, #444444, #222222);
+            box-shadow: inset 2px 2px 8px rgba(0,0,0,0.8);
+        }
+
+        /* Style 12: Double Border Circles */
+        .pip-double-border {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 3px solid #fff;
+            position: relative;
+        }
+        .pip-double-border.on {
+            background: #fff;
+            box-shadow: 0 0 0 6px #2a2a2a, 0 0 0 9px #fff;
+        }
+        .pip-double-border.off {
+            background: transparent;
+        }
+
+        /* Style 13: Octagon */
+        .pip-octagon {
+            width: 40px;
+            height: 40px;
+            clip-path: polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%);
+            border: 2px solid #ff00ff;
+        }
+        .pip-octagon.on {
+            background: #ff00ff;
+        }
+        .pip-octagon.off {
+            background: transparent;
+        }
+
+        /* Style 14: Plus/Cross */
+        .pip-plus {
+            width: 40px;
+            height: 40px;
+            position: relative;
+            clip-path: polygon(40% 0%, 60% 0%, 60% 40%, 100% 40%, 100% 60%, 60% 60%, 60% 100%, 40% 100%, 40% 60%, 0% 60%, 0% 40%, 40% 40%);
+        }
+        .pip-plus.on {
+            background: #00ff00;
+        }
+        .pip-plus.off {
+            background: transparent;
+            border: 2px solid #00ff00;
+        }
+
+        /* Style 15: Shield */
+        .pip-shield {
+            width: 36px;
+            height: 42px;
+            clip-path: polygon(50% 0%, 100% 20%, 100% 70%, 50% 100%, 0% 70%, 0% 20%);
+            border: 2px solid #ffd700;
+        }
+        .pip-shield.on {
+            background: linear-gradient(180deg, #ffd700 0%, #ff8c00 100%);
+        }
+        .pip-shield.off {
+            background: transparent;
+        }
+
+        /* Style 16: Chevron/Arrow */
+        .pip-chevron {
+            width: 40px;
+            height: 40px;
+            clip-path: polygon(0% 0%, 75% 0%, 100% 50%, 75% 100%, 0% 100%, 25% 50%);
+        }
+        .pip-chevron.on {
+            background: #00bcd4;
+        }
+        .pip-chevron.off {
+            background: transparent;
+            border: 2px solid #00bcd4;
+        }
+
+        /* Style 17: Concentric Circles */
+        .pip-concentric {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 3px solid #fff;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .pip-concentric.on {
+            background: #fff;
+        }
+        .pip-concentric.off {
+            background: transparent;
+        }
+        .pip-concentric::after {
+            content: '';
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid #2a2a2a;
+            position: absolute;
+        }
+        .pip-concentric.on::after {
+            background: #2a2a2a;
+        }
+
+        /* Style 18: Gem/Crystal */
+        .pip-gem {
+            width: 40px;
+            height: 45px;
+            clip-path: polygon(50% 0%, 80% 30%, 100% 100%, 50% 80%, 0% 100%, 20% 30%);
+        }
+        .pip-gem.on {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #667eea 100%);
+            filter: drop-shadow(0 0 8px #667eea);
+        }
+        .pip-gem.off {
+            background: transparent;
+            border: 2px solid #667eea;
+        }
+
+        /* Style 19: Rounded Squares */
+        .pip-rounded-square {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            border: 3px solid #ff9800;
+        }
+        .pip-rounded-square.on {
+            background: #ff9800;
+        }
+        .pip-rounded-square.off {
+            background: transparent;
+        }
+
+        /* Style 20: Pentagon */
+        .pip-pentagon {
+            width: 40px;
+            height: 40px;
+            clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%);
+        }
+        .pip-pentagon.on {
+            background: #e91e63;
+        }
+        .pip-pentagon.off {
+            background: transparent;
+            border: 2px solid #e91e63;
+        }
+
+        /* Style 21: Mana Symbol Style */
+        .pip-mana {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 3px solid #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 20px;
+        }
+        .pip-mana.on {
+            background: #4CAF50;
+            color: #fff;
+        }
+        .pip-mana.off {
+            background: transparent;
+            color: #666;
+        }
+
+        /* Style 22: Chevron Up */
+        .pip-chevron-up {
+            width: 40px;
+            height: 40px;
+            clip-path: polygon(50% 0%, 100% 40%, 85% 50%, 50% 20%, 15% 50%, 0% 40%);
+        }
+        .pip-chevron-up.on {
+            background: #ff5722;
+        }
+        .pip-chevron-up.off {
+            background: transparent;
+            border: 2px solid #ff5722;
+        }
+
+        /* Style 23: Inner Glow Circle */
+        .pip-inner-glow {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 3px solid #03a9f4;
+        }
+        .pip-inner-glow.on {
+            background: #03a9f4;
+            box-shadow: inset 0 0 15px #fff;
+        }
+        .pip-inner-glow.off {
+            background: transparent;
+        }
+
+        /* Style 24: Slash Pattern */
+        .pip-slash {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 3px solid #9c27b0;
+            position: relative;
+            overflow: hidden;
+        }
+        .pip-slash.on {
+            background: #9c27b0;
+        }
+        .pip-slash.on::after {
+            content: '';
+            position: absolute;
+            width: 60px;
+            height: 4px;
+            background: #2a2a2a;
+            transform: rotate(-45deg);
+            top: 18px;
+            left: -10px;
+        }
+        .pip-slash.off {
+            background: transparent;
+        }
+
+        .label {
+            text-align: center;
+            margin-top: 15px;
+            color: #888;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <h1>Game Win Pip Styles Showcase</h1>
+    
+    <div class="container">
+        <!-- Style 1 -->
+        <div class="pip-section">
+            <h2>1. Classic Circles</h2>
+            <div class="pip-container">
+                <div class="pip-circle-basic off"></div>
+                <div class="pip-circle-basic on"></div>
+                <div class="pip-circle-basic on"></div>
+            </div>
+            <div class="label">Clean and simple</div>
+        </div>
+
+        <!-- Style 2 -->
+        <div class="pip-section">
+            <h2>2. Glowing Circles</h2>
+            <div class="pip-container">
+                <div class="pip-circle-glow off"></div>
+                <div class="pip-circle-glow on"></div>
+                <div class="pip-circle-glow on"></div>
+            </div>
+            <div class="label">Neon glow effect</div>
+        </div>
+
+        <!-- Style 3 -->
+        <div class="pip-section">
+            <h2>3. Solid Squares</h2>
+            <div class="pip-container">
+                <div class="pip-square off"></div>
+                <div class="pip-square on"></div>
+                <div class="pip-square on"></div>
+            </div>
+            <div class="label">Sharp and modern</div>
+        </div>
+
+        <!-- Style 4 -->
+        <div class="pip-section">
+            <h2>4. Diamonds</h2>
+            <div class="pip-container">
+                <div class="pip-diamond off"></div>
+                <div class="pip-diamond on"></div>
+                <div class="pip-diamond on"></div>
+            </div>
+            <div class="label">Elegant rotated squares</div>
+        </div>
+
+        <!-- Style 5 -->
+        <div class="pip-section">
+            <h2>5. Hexagons</h2>
+            <div class="pip-container">
+                <div class="pip-hexagon off"></div>
+                <div class="pip-hexagon on"></div>
+                <div class="pip-hexagon on"></div>
+            </div>
+            <div class="label">Tech/gaming aesthetic</div>
+        </div>
+
+        <!-- Style 6 -->
+        <div class="pip-section">
+            <h2>6. Stars</h2>
+            <div class="pip-container">
+                <div class="pip-star off"></div>
+                <div class="pip-star on"></div>
+                <div class="pip-star on"></div>
+            </div>
+            <div class="label">Achievement style</div>
+        </div>
+
+        <!-- Style 7 -->
+        <div class="pip-section">
+            <h2>7. Pills/Capsules</h2>
+            <div class="pip-container">
+                <div class="pip-pill off"></div>
+                <div class="pip-pill on"></div>
+                <div class="pip-pill on"></div>
+            </div>
+            <div class="label">Horizontal bars</div>
+        </div>
+
+        <!-- Style 8 -->
+        <div class="pip-section">
+            <h2>8. Triangles</h2>
+            <div class="pip-container">
+                <div class="pip-triangle off"></div>
+                <div class="pip-triangle on"></div>
+                <div class="pip-triangle on"></div>
+            </div>
+            <div class="label">Directional and bold</div>
+        </div>
+
+        <!-- Style 9 -->
+        <div class="pip-section">
+            <h2>9. Gradient Circles</h2>
+            <div class="pip-container">
+                <div class="pip-gradient off"></div>
+                <div class="pip-gradient on"></div>
+                <div class="pip-gradient on"></div>
+            </div>
+            <div class="label">Colorful gradient fill</div>
+        </div>
+
+        <!-- Style 10 -->
+        <div class="pip-section">
+            <h2>10. Neon Hexagons</h2>
+            <div class="pip-container">
+                <div class="pip-neon-hex off"></div>
+                <div class="pip-neon-hex on"></div>
+                <div class="pip-neon-hex on"></div>
+            </div>
+            <div class="label">Cyberpunk vibes</div>
+        </div>
+
+        <!-- Style 11 -->
+        <div class="pip-section">
+            <h2>11. 3D Circles</h2>
+            <div class="pip-container">
+                <div class="pip-3d off"></div>
+                <div class="pip-3d on"></div>
+                <div class="pip-3d on"></div>
+            </div>
+            <div class="label">Dimensional depth</div>
+        </div>
+
+        <!-- Style 12 -->
+        <div class="pip-section">
+            <h2>12. Double Border</h2>
+            <div class="pip-container">
+                <div class="pip-double-border off"></div>
+                <div class="pip-double-border on"></div>
+                <div class="pip-double-border on"></div>
+            </div>
+            <div class="label">Layered borders</div>
+        </div>
+
+        <!-- Style 13 -->
+        <div class="pip-section">
+            <h2>13. Octagons</h2>
+            <div class="pip-container">
+                <div class="pip-octagon off"></div>
+                <div class="pip-octagon on"></div>
+                <div class="pip-octagon on"></div>
+            </div>
+            <div class="label">Stop sign style</div>
+        </div>
+
+        <!-- Style 14 -->
+        <div class="pip-section">
+            <h2>14. Plus/Cross</h2>
+            <div class="pip-container">
+                <div class="pip-plus off"></div>
+                <div class="pip-plus on"></div>
+                <div class="pip-plus on"></div>
+            </div>
+            <div class="label">Medical/health theme</div>
+        </div>
+
+        <!-- Style 15 -->
+        <div class="pip-section">
+            <h2>15. Shields</h2>
+            <div class="pip-container">
+                <div class="pip-shield off"></div>
+                <div class="pip-shield on"></div>
+                <div class="pip-shield on"></div>
+            </div>
+            <div class="label">Protective emblem</div>
+        </div>
+
+        <!-- Style 16 -->
+        <div class="pip-section">
+            <h2>16. Chevrons</h2>
+            <div class="pip-container">
+                <div class="pip-chevron off"></div>
+                <div class="pip-chevron on"></div>
+                <div class="pip-chevron on"></div>
+            </div>
+            <div class="label">Arrow-like progression</div>
+        </div>
+
+        <!-- Style 17 -->
+        <div class="pip-section">
+            <h2>17. Concentric Circles</h2>
+            <div class="pip-container">
+                <div class="pip-concentric off"></div>
+                <div class="pip-concentric on"></div>
+                <div class="pip-concentric on"></div>
+            </div>
+            <div class="label">Target/bullseye style</div>
+        </div>
+
+        <!-- Style 18 -->
+        <div class="pip-section">
+            <h2>18. Gems/Crystals</h2>
+            <div class="pip-container">
+                <div class="pip-gem off"></div>
+                <div class="pip-gem on"></div>
+                <div class="pip-gem on"></div>
+            </div>
+            <div class="label">Precious stone aesthetic</div>
+        </div>
+
+        <!-- Style 19 -->
+        <div class="pip-section">
+            <h2>19. Rounded Squares</h2>
+            <div class="pip-container">
+                <div class="pip-rounded-square off"></div>
+                <div class="pip-rounded-square on"></div>
+                <div class="pip-rounded-square on"></div>
+            </div>
+            <div class="label">Soft corners</div>
+        </div>
+
+        <!-- Style 20 -->
+        <div class="pip-section">
+            <h2>20. Pentagons</h2>
+            <div class="pip-container">
+                <div class="pip-pentagon off"></div>
+                <div class="pip-pentagon on"></div>
+                <div class="pip-pentagon on"></div>
+            </div>
+            <div class="label">Five-sided shape</div>
+        </div>
+
+        <!-- Style 21 -->
+        <div class="pip-section">
+            <h2>21. Mana Symbol Style</h2>
+            <div class="pip-container">
+                <div class="pip-mana off">W</div>
+                <div class="pip-mana on">W</div>
+                <div class="pip-mana on">W</div>
+            </div>
+            <div class="label">MTG themed with text</div>
+        </div>
+
+        <!-- Style 22 -->
+        <div class="pip-section">
+            <h2>22. Chevron Up</h2>
+            <div class="pip-container">
+                <div class="pip-chevron-up off"></div>
+                <div class="pip-chevron-up on"></div>
+                <div class="pip-chevron-up on"></div>
+            </div>
+            <div class="label">Upward pointing</div>
+        </div>
+
+        <!-- Style 23 -->
+        <div class="pip-section">
+            <h2>23. Inner Glow</h2>
+            <div class="pip-container">
+                <div class="pip-inner-glow off"></div>
+                <div class="pip-inner-glow on"></div>
+                <div class="pip-inner-glow on"></div>
+            </div>
+            <div class="label">Glowing from within</div>
+        </div>
+
+        <!-- Style 24 -->
+        <div class="pip-section">
+            <h2>24. Slash Pattern</h2>
+            <div class="pip-container">
+                <div class="pip-slash off"></div>
+                <div class="pip-slash on"></div>
+                <div class="pip-slash on"></div>
+            </div>
+            <div class="label">Diagonal stripe detail</div>
+        </div>
+    </div>
+
+    <div style="margin-top: 60px; text-align: center; color: #666; padding-bottom: 40px;">
+        <p>Open this file in a browser to view all 24 different pip styles</p>
+        <p>Each shows: OFF state | ON state | ON state</p>
+    </div>
+</body>
+</html>
