@@ -68,8 +68,12 @@ export default function ConfirmResetPassword() {
 
       // Success! Redirect to dashboard
       router.push("/dashboard");
-    } catch (err: any) {
-      setError(err.message || "Failed to reset password. Please try again.");
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : "Failed to reset password. Please try again.";
+      setError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
