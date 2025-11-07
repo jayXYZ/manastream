@@ -4,6 +4,7 @@ import { DEFAULT_MATCH } from "../constants";
 import { parseCurrentSpicerackRound } from "../../models/spicerack";
 import { SpicerackEventResponse } from "../../types/spicerack";
 import { logSpicerackEvent } from "../logging";
+import { getCurrentRoundDisplayName } from "../../models/spicerack";
 
 /**
  * Checks for a new Spicerack round and handles it if found.
@@ -36,11 +37,13 @@ export async function checkForNewSpicerackRound(
     jsonData.current_round_number !== tournament.spicerackCurrentRoundNumber
   ) {
     console.log("New round detected, handling new round");
+    const newRoundDisplayName = getCurrentRoundDisplayName(jsonData);
     await handleNewSpicerackRound(
       ctx,
       tournamentId,
       currentRound.id,
       jsonData.current_round_number,
+      newRoundDisplayName ?? "",
     );
   }
 }
@@ -57,6 +60,7 @@ export async function handleNewSpicerackRound(
   tournamentId: Id<"tournaments">,
   spicerackNewRoundId: number,
   spicerackNewRoundNumber: number,
+  newRoundDisplayName: string | undefined,
 ) {
   console.log(
     "Handling new round",
@@ -67,6 +71,7 @@ export async function handleNewSpicerackRound(
   await ctx.db.patch(tournamentId, {
     spicerackCurrentRoundId: spicerackNewRoundId,
     spicerackCurrentRoundNumber: spicerackNewRoundNumber,
+    currentRoundDisplayName: newRoundDisplayName ?? "",
   });
 
   // resets all match overlays for the tournament
