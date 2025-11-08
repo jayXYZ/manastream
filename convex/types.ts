@@ -29,6 +29,8 @@ export type FeatureMatchWithPlayers = Infer<
   typeof featureMatchWithPlayersValidator
 >;
 
+export type OverlayType = Overlay["overlayType"];
+
 // Template types from the validators
 export type TemplateType = "Default" | "Duress Crew" | "Lobstercon" | "Custom";
 
