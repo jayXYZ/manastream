@@ -14,9 +14,13 @@ export default function Timer({
     return now;
   };
 
+  const countDirection = tournamentInfo?.manualTimerCountDirection || "down";
+
   const timer = useTimerNoAuth({
     expiryTimestamp: tournamentInfo?.manualTimerExpiry
-      ? new Date(tournamentInfo.manualTimerExpiry)
+      ? countDirection === "down"
+        ? new Date(tournamentInfo.manualTimerExpiry)
+        : new Date(Date.now())
       : getDefaultExpiry(),
     autoStart: tournamentInfo?.manualTimerRunning || false,
     manualTimerExpiry: tournamentInfo?.manualTimerExpiry,
@@ -28,10 +32,10 @@ export default function Timer({
   }
 
   const timerDisplay = formatTime(timer.totalSeconds, false);
-  // const isNegative = timerDisplay.startsWith("-");
+  const isNegative =
+    countDirection === "down" ? timerDisplay.startsWith("-") : false;
 
   return (
-    // <span className={isNegative ? "text-red-500" : ""}>{timerDisplay}</span>
-    <span>{timerDisplay}</span>
+    <span className={isNegative ? "text-red-500" : ""}>{timerDisplay}</span>
   );
 }

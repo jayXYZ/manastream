@@ -24,9 +24,7 @@ export default function MatchDuressCrewOverlay({
           </div>
           <div className="mt-[-16px] text-right">
             <span className="text-[36px] text-white/60 mr-[24px]">
-              {data.player1TournamentRecord ||
-                data.player1Data?.record ||
-                "0-0"}
+              {data.player1TournamentRecord || "N/A"}
             </span>
             <span className="text-[36px] text-[#C6AD65]">
               {data.player1DisplayDeck ||
@@ -50,7 +48,7 @@ export default function MatchDuressCrewOverlay({
         ></div>
 
         <div className="absolute left-0 right-0 text-center text-[24px] pt-[8px]">
-          {tournamentInfo?.currentRoundDisplayName || "Round 1"}
+          {tournamentInfo?.currentRoundDisplayName || "N/A"}
         </div>
         <div className="absolute left-0 right-0 mt-auto mb-auto text-center font-bold text-[60px] pt-[28px]">
           {tournamentInfo && <Timer tournamentInfo={tournamentInfo} />}
@@ -80,9 +78,7 @@ export default function MatchDuressCrewOverlay({
                 "Deck 2"}
             </span>
             <span className="text-[36px] text-white/60 ml-[24px]">
-              {data.player2TournamentRecord ||
-                data.player2Data?.record ||
-                "0-0"}
+              {data.player2TournamentRecord || "N/A"}
             </span>
           </div>
         </div>
