@@ -1,6 +1,6 @@
 {
   "name": "dxc-overlay",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "private": true,
   "scripts": {
     "dev": "npm-run-all --parallel dev:frontend dev:backend",
