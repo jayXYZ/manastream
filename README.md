@@ -1,15 +1,20 @@
 ## Todo
 
 - [x] Make accordion group of match overlays?
-- [ ] Redo dashboard page (and make it not AI slop)
-- [ ] Add overlay components (what does this mean)
+- [x] Redo dashboard page (and make it not AI slop)
+- [x] Add overlays
 - [ ] Add second slug to overlay route for player 1 and player 2 in deck overlay
-- [?] Add spicerack integration
+- [ ] Add spicerack integration
 - [ ] Create landing page, protect dashboard routes
-- [ ] Add menu button to get to lifetracker
+- [x] Add menu button to get to lifetracker
 - [x] Add menus to lifetracker (admin settings, exit, reset, etc.)
-- [ ] Remove unused files/folders/components
+- [x] Remove unused files/folders/components
 - [ ] Add creation limits for overlays (1 card, 1 deck, 3 match, etc)
+- [ ] Setting to make timer count up
+- [ ] Create "default" overlays w/ some customizable options (text color, etc.)
+- [x] Create tournament on user sign up
+- [ ] Organizations?
+- [ ] figure out wtf that conflicting timer bug was
 
 ### Overlay Editor todos
 
