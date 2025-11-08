@@ -8,6 +8,7 @@ import {
   settingsValidator,
   featureMatchValidator,
   templateValidator,
+  spicerackLogValidator,
 } from "./validators";
 
 // The schema is normally optional, but Convex Auth
@@ -22,7 +23,8 @@ export default defineSchema({
   // Tournaments table - directly owned by users
   tournaments: defineTable(tournamentValidator)
     .index("by_user", ["userId"])
-    .index("by_spicerack_id", ["spicerackId"]),
+    .index("by_spicerack_id", ["spicerackTournamentId"])
+    .index("by_mode_and_status", ["mode", "spicerackTournamentStatus"]),
 
   // Unified Overlays Table with discriminated union and direct UUID
   overlays: defineTable(overlayValidator)
@@ -52,5 +54,11 @@ export default defineSchema({
   // Players table
   players: defineTable(playerValidator)
     .index("by_name", ["name"])
-    .index("by_tournament", ["tournamentId"]),
+    .index("by_tournament", ["tournamentId"])
+    .index("by_external_id", ["externalId"]),
+
+  // Spicerack Debug Logs table
+  spicerackLogs: defineTable(spicerackLogValidator)
+    .index("by_user", ["userId"])
+    .index("by_user_and_timestamp", ["userId", "timestamp"]),
 });
