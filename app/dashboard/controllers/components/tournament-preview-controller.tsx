@@ -49,7 +49,7 @@ export function TournamentPreviewController() {
 
   const deckOverlayMatch = useQuery(
     api.featurematches.getFeatureMatchPlayersAndDecks,
-    deckOverlay.matchId
+    deckOverlay?.matchId
       ? { id: deckOverlay.matchId as Id<"featureMatches"> }
       : "skip",
   );
