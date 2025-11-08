@@ -140,15 +140,18 @@ export async function enrichMatchOverlay(
 
 /**
  * Helper function to enrich a deck overlay with feature match data.
- * Returns the overlay unchanged if matchId is not set.
+ * Always returns matchData field (null if matchId is not set).
  */
 export async function enrichDeckOverlay(
   ctx: QueryCtx,
   overlay: Doc<"overlays"> & { overlayType: "deck" },
 ) {
   if (!overlay.matchId) {
-    // Return overlay without enrichment if matchId is not set
-    return overlay;
+    // Return overlay with matchData set to null if matchId is not set
+    return {
+      ...overlay,
+      matchData: null,
+    };
   }
   const featureMatch = await ctx.db.get(overlay.matchId);
   if (!featureMatch) {
