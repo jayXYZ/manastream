@@ -47,7 +47,10 @@ function useOverlayValidation() {
   return { allOverlays, connectedOverlayId, setConnectedOverlayId };
 }
 
-export default function AdminSettings() {
+export default function AdminSettings(props: {
+  setShowAdminSettings: (show: boolean) => void;
+}) {
+  const { setShowAdminSettings } = props;
   const { allOverlays, connectedOverlayId, setConnectedOverlayId } =
     useOverlayValidation();
   const [selectedOverlay, setSelectedOverlay] = useState<string>(
@@ -55,9 +58,6 @@ export default function AdminSettings() {
   );
   const [showSuccess, setShowSuccess] = useState(false);
 
-  const setShowAdminSettings = useLifeTrackerStore(
-    (state) => state.setShowAdminSettings,
-  );
   const resetBothPlayers = useLifeTrackerStore(
     (state) => state.resetBothPlayers,
   );

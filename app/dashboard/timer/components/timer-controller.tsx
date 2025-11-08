@@ -46,15 +46,19 @@ export function TimerController({
   timerRef.current = timer;
 
   // Sync timer state with backend when component mounts or tournament changes
+  // Note: The hook (use-timer.ts) handles initialization and paused time adjustment locally.
+  // When paused, we don't call restart to avoid overwriting the hook's adjustment.
+  // When running or not initialized, we call restart to sync state.
   useEffect(() => {
     if (tournament) {
       if (tournament.manualTimerExpiry) {
-        // Use existing timer from backend
-        const expiry = new Date(tournament.manualTimerExpiry);
-        timerRef.current.restart(
-          expiry,
-          tournament.manualTimerRunning ?? false,
-        );
+        // If timer is paused, let the hook handle initialization (it adjusts for paused time)
+        // If timer is running, sync state by calling restart
+        if (tournament.manualTimerRunning) {
+          const expiry = new Date(tournament.manualTimerExpiry);
+          timerRef.current.restart(expiry, true);
+        }
+        // When paused, the hook's useEffect already handles initialization with adjustment
       } else {
         // Initialize timer in backend if it doesn't exist
         const initialExpiry = getInitialExpiry();

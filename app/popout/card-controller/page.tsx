@@ -1,6 +1,6 @@
 "use client";
 
-import { CardController } from "@/components/controllers/card-controller";
+import { CardController } from "@/app/dashboard/controllers/components/card-controller";
 import { api } from "@/convex/_generated/api";
 import { useQuery } from "convex/react";
 import type { Overlay } from "@/convex/types";

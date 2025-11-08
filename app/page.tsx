@@ -3,21 +3,16 @@
 import { useConvexAuth } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
 
 export default function Home() {
   return (
-    <>
-      <header className="sticky top-0 z-10 bg-background p-4 border-b-2 border-slate-200 dark:border-slate-800 flex flex-row justify-between items-center">
-        DxC Overlay
-        <SignInOutButton />
-      </header>
-      <main className="p-8 flex flex-col gap-8">
-        <h1 className="text-4xl font-bold text-center">
-          You probably shouldn&apos;t be here.
-        </h1>
+    <div className="flex flex-col h-screen overflow-hidden">
+      <LandingPageHeader />
+      <main className="h-full overflow-auto">
         <Content />
       </main>
-    </>
+    </div>
   );
 }
 
@@ -28,26 +23,29 @@ function SignInOutButton() {
   return (
     <>
       {isAuthenticated && (
-        <button
-          className="bg-slate-200 dark:bg-slate-800 text-foreground rounded-md px-2 py-1"
+        <Button
           onClick={() =>
             void signOut().then(() => {
-              router.push("/signin");
+              router.push("/login");
             })
           }
         >
           Sign out
-        </button>
+        </Button>
       )}
       {!isAuthenticated && (
-        <button
-          className="bg-slate-200 dark:bg-slate-800 text-foreground rounded-md px-2 py-1"
-          onClick={() => router.push("/signin")}
-        >
-          Sign in
-        </button>
+        <Button onClick={() => router.push("/login")}>Sign in</Button>
       )}
     </>
+  );
+}
+
+function LandingPageHeader() {
+  return (
+    <header className="sticky top-0 z-10 bg-sidebar h-16 border-b-1 flex flex-row justify-between items-center p-4 w-full">
+      <span>ManaStream</span>
+      <SignInOutButton />
+    </header>
   );
 }
 
@@ -55,22 +53,29 @@ function Content() {
   const { isAuthenticated } = useConvexAuth();
   const router = useRouter();
   return (
-    <div className="flex flex-col gap-8 max-w-lg mx-auto">
-      sign in above to get started :)
+    <div className="flex flex-col h-full items-center justify-center gap-8">
+      <div className="flex flex-col items-center justify-center gap-2">
+        {!isAuthenticated && (
+          <h1 className="text-2xl font-bold">
+            Sign in above to get started :)
+          </h1>
+        )}
+        {isAuthenticated && (
+          <h1 className="text-2xl font-bold">Welcome to ManaStream!</h1>
+        )}
+        <p className="text-sm text-muted-foreground">
+          ManaStream is a tool for creating and managing your own Magic: The
+          Gathering streams.
+        </p>
+      </div>
       {isAuthenticated && (
         <div className="flex flex-col gap-2">
-          <button
-            className="bg-slate-200 dark:bg-slate-800 text-foreground rounded-md px-2 py-1"
-            onClick={() => router.push("/dashboard")}
-          >
+          <Button onClick={() => router.push("/dashboard")}>
             Go to dashboard
-          </button>
-          <button
-            className="bg-slate-200 dark:bg-slate-800 text-foreground rounded-md px-2 py-1"
-            onClick={() => router.push("/lifetracker")}
-          >
+          </Button>
+          <Button onClick={() => router.push("/lifetracker")}>
             Go to lifetracker
-          </button>
+          </Button>
         </div>
       )}
     </div>

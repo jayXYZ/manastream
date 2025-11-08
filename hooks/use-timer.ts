@@ -48,7 +48,21 @@ export function useTimer({
   useEffect(() => {
     if (tournament) {
       if (tournament.manualTimerExpiry) {
-        const expiry = new Date(tournament.manualTimerExpiry);
+        let expiry = new Date(tournament.manualTimerExpiry);
+
+        // If timer was paused, adjust expiry to account for paused time
+        if (
+          tournament.manualTimerPausedAt &&
+          !tournament.manualTimerRunning
+        ) {
+          const pausedAt = tournament.manualTimerPausedAt;
+          const now = Date.now();
+          const timePassedWhilePaused = now - pausedAt;
+          // Adjust expiry forward by the time that passed while paused
+          // This effectively "freezes" the timer at the point it was paused
+          expiry = new Date(expiry.getTime() + timePassedWhilePaused);
+        }
+
         setExpiryTimestamp(expiry);
 
         // Calculate seconds remaining, ensuring it's not negative
@@ -75,6 +89,7 @@ export function useTimer({
       setTimer({
         tournamentId: tournament._id,
         manualTimerRunning: false,
+        manualTimerPausedAt: Date.now(),
       });
     }
   }, [tournament?._id, setTimer]);
@@ -100,6 +115,8 @@ export function useTimer({
           tournamentId: tournament._id,
           manualTimerRunning: newAutoStart,
           manualTimerExpiry: newExpiryTimestamp.getTime(),
+          // If restarting paused, set paused timestamp; if restarting running, clear it
+          manualTimerPausedAt: newAutoStart ? null : Date.now(),
         });
         console.log("restarted timer", newExpiryTimestamp, newAutoStart);
       }
@@ -110,8 +127,20 @@ export function useTimer({
   const resume = useCallback(() => {
     const time = new Date();
     time.setMilliseconds(time.getMilliseconds() + seconds * 1000);
-    restart(time);
-  }, [seconds, restart]);
+    setIsRunning(true);
+    setExpiryTimestamp(time);
+    setDelay(getDelayFromExpiryTimestamp(time));
+    setSeconds(Time.getSecondsFromExpiry(time.getTime(), false));
+    
+    if (tournament?._id) {
+      setTimer({
+        tournamentId: tournament._id,
+        manualTimerRunning: true,
+        manualTimerExpiry: time.getTime(),
+        manualTimerPausedAt: null, // Clear paused timestamp when resuming
+      });
+    }
+  }, [seconds, tournament?._id, setTimer]);
 
   const start = useCallback(() => {
     if (didStart) {
