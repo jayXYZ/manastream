@@ -156,7 +156,7 @@ function DeckDuressCrewOverlay({
   data,
   playerNumber,
 }: {
-  data: FeatureMatchWithPlayers;
+  data: NonNullable<FeatureMatchWithPlayers>;
   playerNumber: "1" | "2";
 }) {
   const playerData = playerNumber === "1" ? data.player1Data : data.player2Data;
