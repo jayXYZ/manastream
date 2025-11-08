@@ -2,8 +2,6 @@
 
 import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useMutation } from "convex/react";
-import { Button } from "@/components/ui/button";
 
 export default function Dashboard() {
   const { isAuthenticated } = useConvexAuth();
