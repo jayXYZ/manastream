@@ -79,11 +79,11 @@ export function LoginForm({
 
               const formData = new FormData(e.currentTarget);
               void signIn("password", formData)
-                .catch((error) => {
-                  setError(error.message);
-                })
                 .then(() => {
                   setStep({ email: formData.get("email") as string });
+                })
+                .catch((error) => {
+                  setError(error.message);
                 });
             }}
           >
@@ -139,12 +139,11 @@ export function LoginForm({
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
                   />
-                  {passwordError ||
-                    (error && (
-                      <FieldDescription className="text-red-500">
-                        {passwordError || error}
-                      </FieldDescription>
-                    ))}
+                  {(passwordError || error) && (
+                    <FieldDescription className="text-red-500">
+                      {passwordError || error}
+                    </FieldDescription>
+                  )}
                 </Field>
               )}
               <Field>

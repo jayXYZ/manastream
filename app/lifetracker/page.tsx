@@ -70,7 +70,7 @@ function LifeTrackerContent() {
     };
   }, [releaseWakeLock]);
 
-  if (!tournament || !overlayData) {
+  if (!tournament) {
     return (
       <div className="flex flex-col gap-4 items-center justify-center min-h-screen">
         <Spinner />
@@ -81,6 +81,15 @@ function LifeTrackerContent() {
 
   if (!connectedOverlayId || showAdminSettings) {
     return <AdminSettings setShowAdminSettings={setShowAdminSettings} />;
+  }
+
+  if (!overlayData) {
+    return (
+      <div className="flex flex-col gap-4 items-center justify-center min-h-screen">
+        <Spinner />
+        <div className="text-2xl font-bold">Loading tournament...</div>
+      </div>
+    );
   }
 
   // Type guard to ensure overlay is a match overlay

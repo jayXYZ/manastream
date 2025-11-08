@@ -191,10 +191,10 @@ export const updateTournamentSettings = mutation({
       if (!settings.spicerackApiKey) {
         throw new Error("No Spicerack API key found for user");
       }
-      if (
-        !updates.spicerackTournamentId ||
-        tournament.spicerackTournamentId === -1
-      ) {
+      // Check the final value after update: use new value if provided, otherwise use existing value
+      const finalSpicerackTournamentId =
+        updates.spicerackTournamentId ?? tournament.spicerackTournamentId;
+      if (!finalSpicerackTournamentId || finalSpicerackTournamentId === -1) {
         throw new Error("No Spicerack tournament ID found for tournament");
       }
 
