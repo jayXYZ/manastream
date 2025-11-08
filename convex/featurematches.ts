@@ -12,14 +12,17 @@ import { compareSpicerackToDatabase } from "./lib/featurematches";
 // unauthenticated query for use in deck overlays
 export const getFeatureMatchPlayersAndDecks = query({
   args: {
-    id: v.id("featureMatches"),
+    id: v.optional(v.id("featureMatches")),
   },
   returns: featureMatchWithPlayersValidator,
 
   handler: async (ctx, args) => {
+    if (!args.id) {
+      return null;
+    }
     const match = await ctx.db.get(args.id);
     if (!match) {
-      throw new Error("Feature match not found");
+      return null;
     }
     const { player1Data, player2Data } = await getPlayersForMatch(
       ctx,

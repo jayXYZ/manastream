@@ -223,11 +223,14 @@ export const matchOverlayWithPlayersValidator = v.object({
   manualTimerRunning: v.optional(v.boolean()),
 });
 
-export const featureMatchWithPlayersValidator = v.object({
-  ...featureMatchValidator.fields,
-  player1Data: v.optional(playerValidator),
-  player2Data: v.optional(playerValidator),
-});
+export const featureMatchWithPlayersValidator = v.union(
+  v.object({
+    ...featureMatchValidator.fields,
+    player1Data: v.optional(playerValidator),
+    player2Data: v.optional(playerValidator),
+  }),
+  v.null(),
+);
 
 export const deckOverlayWithMatchAndPlayersValidator = v.object({
   ...deckOverlayValidator.fields,
