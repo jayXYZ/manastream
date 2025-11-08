@@ -65,7 +65,7 @@ export const internalCreateSettings = internalMutation({
 export const cleanupOldSpicerackLogs = internalMutation({
   args: {},
   handler: async (ctx) => {
-    const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+    const oneWeekAgo = Date.now() - 3 * 24 * 60 * 60 * 1000; // 3 days in milliseconds
 
     // Query all spicerack logs
     const allLogs = await ctx.db.query("spicerackLogs").collect();
