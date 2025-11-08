@@ -183,6 +183,23 @@ export const playerValidator = v.object({
   createdAt: v.number(),
 });
 
+export const spicerackLogValidator = v.object({
+  _id: v.id("spicerackLogs"),
+  _creationTime: v.number(),
+  userId: v.id("users"),
+  timestamp: v.number(),
+  action: v.string(),
+  status: v.union(
+    v.literal("success"),
+    v.literal("error"),
+    v.literal("info"),
+    v.literal("warning"),
+  ),
+  message: v.string(),
+  tournamentId: v.optional(v.id("tournaments")),
+  metadata: v.optional(v.any()),
+});
+
 // Expanded Validators
 export const matchOverlayWithPlayersValidator = v.object({
   ...matchOverlayValidator.fields,
