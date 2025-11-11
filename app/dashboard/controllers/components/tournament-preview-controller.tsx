@@ -7,30 +7,30 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "../../../../components/ui/tooltip";
+} from "@/components/ui/tooltip";
 import { Pencil } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "../../../../components/ui/dialog";
+} from "@/components/ui/dialog";
 import {
   CommentaryOverlay,
   DeckOverlay,
   Overlay,
   Tournament,
 } from "@/convex/types";
-import { Label } from "../../../../components/ui/label";
-import { Input } from "../../../../components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectTrigger,
   SelectValue,
   SelectContent,
   SelectItem,
-} from "../../../../components/ui/select";
-import { Separator } from "../../../../components/ui/separator";
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 import { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 
@@ -54,13 +54,7 @@ export function TournamentPreviewController() {
       : "skip",
   );
 
-  if (
-    !tournament ||
-    !userOverlays ||
-    !commentaryOverlay ||
-    !deckOverlay ||
-    !deckOverlayMatch
-  ) {
+  if (!tournament || !userOverlays || !commentaryOverlay || !deckOverlay) {
     return null;
   }
 

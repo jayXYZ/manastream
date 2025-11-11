@@ -36,9 +36,9 @@
   --sidebar-accent-foreground: oklch(1 0 0);
   --sidebar-border: oklch(0.8452 0 0);
   --sidebar-ring: oklch(0.6958 0.2043 43.491);
-  --font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-sans: "Inter", Helvetica, Arial, sans-serif;
   --font-serif: Georgia, serif;
-  --font-mono: "SF Mono", "Roboto Mono", monospace;
+  --font-mono: "JetBrains Mono", monospace;
   --radius: 0.3rem;
   --shadow-x: 0rem;
   --shadow-y: 0.2rem;
@@ -101,9 +101,9 @@
   --sidebar-accent-foreground: oklch(1 0 0);
   --sidebar-border: oklch(0.36 0 0);
   --sidebar-ring: oklch(0.6958 0.2043 43.491);
-  --font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-sans: "Inter", Helvetica, Arial, sans-serif;
   --font-serif: Georgia, serif;
-  --font-mono: "SF Mono", "Roboto Mono", monospace;
+  --font-mono: "JetBrains Mono", monospace;
   --radius: 0.3rem;
   --shadow-x: 0rem;
   --shadow-y: 0.2rem;

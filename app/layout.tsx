@@ -21,8 +21,8 @@ const jetBrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "DxC Overlay",
-  description: "DxC Overlay",
+  title: "Manastream",
+  description: "Manastream",
   icons: {
     icon: "/swamp-white.svg",
   },
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "DxC Life Tracker",
+    title: "Manastream",
   },
 };
 
