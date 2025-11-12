@@ -12,6 +12,23 @@ function getDelayFromExpiryTimestamp(expiryTimestamp: Date): number {
   return extraMilliSeconds > 0 ? extraMilliSeconds : DEFAULT_DELAY;
 }
 
+// Calculate seconds based on count direction
+function getSecondsFromTimestamp(
+  timestamp: Date,
+  countDirection: "up" | "down",
+): number {
+  const now = Date.now();
+  const timestampMs = timestamp.getTime();
+
+  if (countDirection === "up") {
+    // For count up: calculate elapsed time (now - start)
+    return Math.max(0, (now - timestampMs) / 1000);
+  } else {
+    // For count down: calculate remaining time (expiry - now)
+    return Time.getSecondsFromExpiry(timestampMs, false);
+  }
+}
+
 interface UseTimerOptions {
   expiryTimestamp?: Date;
   autoStart?: boolean;
@@ -44,36 +61,38 @@ export function useTimer({
   const [didStart, setDidStart] = useState<boolean>(autoStart);
   const [delay, setDelay] = useState<number>(DEFAULT_DELAY);
 
+  const countDirection = tournament?.manualTimerCountDirection || "down";
+
   // Initialize timer state from tournament data
   useEffect(() => {
     if (tournament) {
       if (tournament.manualTimerExpiry) {
-        let expiry = new Date(tournament.manualTimerExpiry);
+        let timestamp = new Date(tournament.manualTimerExpiry);
 
-        // If timer was paused, adjust expiry to account for paused time
-        if (
-          tournament.manualTimerPausedAt &&
-          !tournament.manualTimerRunning
-        ) {
+        // If timer was paused, adjust timestamp to account for paused time
+        if (tournament.manualTimerPausedAt && !tournament.manualTimerRunning) {
           const pausedAt = tournament.manualTimerPausedAt;
           const now = Date.now();
           const timePassedWhilePaused = now - pausedAt;
-          // Adjust expiry forward by the time that passed while paused
-          // This effectively "freezes" the timer at the point it was paused
-          expiry = new Date(expiry.getTime() + timePassedWhilePaused);
+
+          if (countDirection === "down") {
+            // For count down: adjust expiry forward by the time that passed while paused
+            // This effectively "freezes" the timer at the point it was paused
+            // When we calculate (expiry - now), it will equal (originalExpiry - pausedAt)
+            timestamp = new Date(timestamp.getTime() + timePassedWhilePaused);
+          } else {
+            // For count up: adjust start time forward by the time that passed while paused
+            // This ensures (now - adjustedStart) = (pausedAt - originalStart)
+            // So the elapsed time stays frozen at the paused value
+            timestamp = new Date(timestamp.getTime() + timePassedWhilePaused);
+          }
         }
 
-        setExpiryTimestamp(expiry);
+        setExpiryTimestamp(timestamp);
+        setSeconds(getSecondsFromTimestamp(timestamp, countDirection));
 
-        // Calculate seconds remaining, ensuring it's not negative
-        // const secondsRemaining = Math.max(
-        //   0,
-        //   Time.getSecondsFromExpiry(expiry.getTime(), false),
-        // );
-        setSeconds(Time.getSecondsFromExpiry(expiry.getTime(), false));
-
-        // Set delay based on expiry
-        setDelay(getDelayFromExpiryTimestamp(expiry));
+        // Set delay based on timestamp
+        setDelay(getDelayFromExpiryTimestamp(timestamp));
       }
 
       if (tournament.manualTimerRunning !== undefined) {
@@ -81,7 +100,7 @@ export function useTimer({
         setDidStart(tournament.manualTimerRunning);
       }
     }
-  }, [tournament]);
+  }, [tournament, countDirection]);
 
   const pause = useCallback(() => {
     setIsRunning(false);
@@ -100,15 +119,7 @@ export function useTimer({
       setDidStart(newAutoStart);
       setIsRunning(newAutoStart);
       setExpiryTimestamp(newExpiryTimestamp);
-
-      // Calculate seconds remaining, ensuring it's not negative
-      // const secondsRemaining = Math.max(
-      //   0,
-      //   Time.getSecondsFromExpiry(newExpiryTimestamp.getTime(), false),
-      // );
-      setSeconds(
-        Time.getSecondsFromExpiry(newExpiryTimestamp.getTime(), false),
-      );
+      setSeconds(getSecondsFromTimestamp(newExpiryTimestamp, countDirection));
 
       if (tournament?._id) {
         setTimer({
@@ -121,17 +132,27 @@ export function useTimer({
         console.log("restarted timer", newExpiryTimestamp, newAutoStart);
       }
     },
-    [tournament?._id, setTimer],
+    [tournament?._id, setTimer, countDirection],
   );
 
   const resume = useCallback(() => {
-    const time = new Date();
-    time.setMilliseconds(time.getMilliseconds() + seconds * 1000);
+    const now = new Date();
+    let time: Date;
+
+    if (countDirection === "up") {
+      // For count up: set start time to now minus current elapsed seconds
+      time = new Date(now.getTime() - seconds * 1000);
+    } else {
+      // For count down: set expiry time to now plus remaining seconds
+      time = new Date();
+      time.setMilliseconds(time.getMilliseconds() + seconds * 1000);
+    }
+
     setIsRunning(true);
     setExpiryTimestamp(time);
     setDelay(getDelayFromExpiryTimestamp(time));
-    setSeconds(Time.getSecondsFromExpiry(time.getTime(), false));
-    
+    setSeconds(getSecondsFromTimestamp(time, countDirection));
+
     if (tournament?._id) {
       setTimer({
         tournamentId: tournament._id,
@@ -140,11 +161,11 @@ export function useTimer({
         manualTimerPausedAt: null, // Clear paused timestamp when resuming
       });
     }
-  }, [seconds, tournament?._id, setTimer]);
+  }, [seconds, tournament?._id, setTimer, countDirection]);
 
   const start = useCallback(() => {
     if (didStart) {
-      const time = Time.getSecondsFromExpiry(expiryTimestamp.getTime(), false);
+      const time = getSecondsFromTimestamp(expiryTimestamp, countDirection);
       const validTime = Math.max(0, time);
       setSeconds(validTime);
       setIsRunning(true);
@@ -158,16 +179,23 @@ export function useTimer({
     } else {
       resume();
     }
-  }, [expiryTimestamp, didStart, resume, tournament?._id, setTimer]);
+  }, [
+    expiryTimestamp,
+    didStart,
+    resume,
+    tournament?._id,
+    setTimer,
+    countDirection,
+  ]);
 
   useInterval(
     () => {
       if (delay !== DEFAULT_DELAY) {
         setDelay(DEFAULT_DELAY);
       }
-      const secondsValue = Time.getSecondsFromExpiry(
-        expiryTimestamp.getTime(),
-        false,
+      const secondsValue = getSecondsFromTimestamp(
+        expiryTimestamp,
+        countDirection,
       );
       setSeconds(secondsValue);
     },

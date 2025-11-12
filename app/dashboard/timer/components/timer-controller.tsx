@@ -4,10 +4,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { useTimer } from "@/hooks/use-timer";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Play, Pause, Square, Edit3 } from "lucide-react";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { formatTime } from "@/lib/utils";
 
@@ -26,18 +27,27 @@ export function TimerController({
     initialSeconds.toString().padStart(2, "0"),
   );
   const tournament = useQuery(api.tournaments.getUserTournament);
+  const setTimer = useMutation(api.tournaments.setTournamentTimer);
 
-  // Create initial expiry timestamp
-  const getInitialExpiry = useCallback(() => {
+  const countDirection = tournament?.manualTimerCountDirection || "down";
+
+  // Create initial timestamp based on count direction
+  const getInitialTimestamp = useCallback(() => {
     const now = new Date();
-    now.setMinutes(now.getMinutes() + initialMinutes);
-    now.setSeconds(now.getSeconds() + initialSeconds);
-    return now;
-  }, [initialMinutes, initialSeconds]);
+    if (countDirection === "up") {
+      // For count up: start time is now (will count elapsed time from now)
+      return now;
+    } else {
+      // For count down: expiry time is now + initial duration
+      now.setMinutes(now.getMinutes() + initialMinutes);
+      now.setSeconds(now.getSeconds() + initialSeconds);
+      return now;
+    }
+  }, [initialMinutes, initialSeconds, countDirection]);
 
   // Create timer hook - always call with consistent parameters
   const timer = useTimer({
-    expiryTimestamp: getInitialExpiry(),
+    expiryTimestamp: getInitialTimestamp(),
     autoStart: false,
   });
 
@@ -55,17 +65,17 @@ export function TimerController({
         // If timer is paused, let the hook handle initialization (it adjusts for paused time)
         // If timer is running, sync state by calling restart
         if (tournament.manualTimerRunning) {
-          const expiry = new Date(tournament.manualTimerExpiry);
-          timerRef.current.restart(expiry, true);
+          const timestamp = new Date(tournament.manualTimerExpiry);
+          timerRef.current.restart(timestamp, true);
         }
         // When paused, the hook's useEffect already handles initialization with adjustment
       } else {
         // Initialize timer in backend if it doesn't exist
-        const initialExpiry = getInitialExpiry();
-        timerRef.current.restart(initialExpiry, false);
+        const initialTimestamp = getInitialTimestamp();
+        timerRef.current.restart(initialTimestamp, false);
       }
     }
-  }, [tournament, getInitialExpiry]);
+  }, [tournament, getInitialTimestamp]);
 
   // Debug info - you can remove this later
   useEffect(() => {
@@ -90,13 +100,27 @@ export function TimerController({
   ]);
 
   // Handle timer restart with new values
-  const handleRestart = useCallback((minutes: number, seconds: number) => {
-    const now = new Date();
-    now.setMinutes(now.getMinutes() + minutes);
-    now.setSeconds(now.getSeconds() + seconds);
-    timerRef.current.restart(now, false);
-    setIsEditing(false);
-  }, []);
+  const handleRestart = useCallback(
+    (minutes: number, seconds: number) => {
+      const now = new Date();
+      let timestamp: Date;
+
+      if (countDirection === "up") {
+        // For count up: set start time to now minus the desired initial value
+        // This allows setting an initial elapsed time
+        timestamp = new Date(now.getTime() - (minutes * 60 + seconds) * 1000);
+      } else {
+        // For count down: set expiry time to now plus the duration
+        now.setMinutes(now.getMinutes() + minutes);
+        now.setSeconds(now.getSeconds() + seconds);
+        timestamp = now;
+      }
+
+      timerRef.current.restart(timestamp, false);
+      setIsEditing(false);
+    },
+    [countDirection],
+  );
 
   // Handle edit submission
   const handleEditSubmit = useCallback(() => {
@@ -121,8 +145,14 @@ export function TimerController({
 
   // Handle reset button
   const handleReset = useCallback(() => {
-    handleRestart(initialMinutes, initialSeconds);
-  }, [initialMinutes, initialSeconds, handleRestart]);
+    if (countDirection === "up") {
+      // For count up: reset to 0:00
+      handleRestart(0, 0);
+    } else {
+      // For count down: reset to initial values
+      handleRestart(initialMinutes, initialSeconds);
+    }
+  }, [initialMinutes, initialSeconds, handleRestart, countDirection]);
 
   // Handle timer click when stopped
   const handleTimerClick = useCallback(() => {
@@ -139,20 +169,71 @@ export function TimerController({
       setIsEditing(false);
       // Reset edit values to current timer values
       const totalSeconds = timerRef.current.totalSeconds;
-      const minutes = Math.floor(totalSeconds / 60);
-      const seconds = totalSeconds % 60;
+      const minutes = Math.floor(Math.abs(totalSeconds) / 60);
+      const seconds = Math.abs(totalSeconds) % 60;
       setEditMinutes(minutes.toString());
       setEditSeconds(seconds.toString().padStart(2, "0"));
     }
   };
 
+  // Handle count direction toggle
+  const handleCountDirectionToggle = useCallback(
+    (checked: boolean) => {
+      if (tournament?._id) {
+        const newDirection = checked ? "up" : "down";
+        setTimer({
+          tournamentId: tournament._id,
+          manualTimerCountDirection: newDirection,
+        });
+
+        // Reset timer when switching directions
+        if (newDirection === "up") {
+          // When switching to count up, set start time to now
+          const now = new Date();
+          timerRef.current.restart(now, false);
+        } else {
+          // When switching to count down, set expiry to now + current time
+          const totalSeconds = timerRef.current.totalSeconds;
+          const now = new Date();
+          now.setSeconds(now.getSeconds() + totalSeconds);
+          timerRef.current.restart(now, false);
+        }
+      }
+    },
+    [tournament?._id, setTimer],
+  );
+
   if (!tournament) {
     return <p>Loading...</p>;
   }
 
+  // Get reset target for disabled check
+  const getResetTarget = () => {
+    if (countDirection === "up") {
+      return 0;
+    } else {
+      return initialMinutes * 60 + initialSeconds;
+    }
+  };
+
   return (
     <Card className="flex flex-col">
       <CardContent className="flex-1 flex flex-col items-center justify-center gap-6">
+        {/* Count Direction Toggle */}
+        <div className="flex items-center gap-3">
+          <Label htmlFor="countDirection" className="text-sm">
+            Count Down
+          </Label>
+          <Switch
+            id="countDirection"
+            checked={countDirection === "up"}
+            onCheckedChange={handleCountDirectionToggle}
+          />
+          <Label htmlFor="countDirection" className="text-sm">
+            Count Up
+          </Label>
+        </div>
+
         {/* Timer Display/Edit */}
         <div className="text-center">
           {isEditing ? (
@@ -207,7 +288,10 @@ export function TimerController({
               title={!timerRef.current.isRunning ? "Click to edit timer" : ""}
             >
               <div className="text-6xl font-mono font-bold text-center group-hover:text-muted-foreground transition-colors">
-                {formatTime(timerRef.current.totalSeconds)}
+                {formatTime(
+                  timerRef.current.totalSeconds,
+                  countDirection === "down",
+                )}
               </div>
               {!timerRef.current.isRunning && (
                 <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground mt-2">
@@ -235,7 +319,9 @@ export function TimerController({
               onClick={() => timerRef.current.resume()}
               size="lg"
               className="px-6"
-              disabled={timerRef.current.totalSeconds === 0}
+              disabled={
+                countDirection === "down" && timerRef.current.totalSeconds === 0
+              }
             >
               <Play className="w-5 h-5 mr-2" />
               Start
@@ -258,10 +344,7 @@ export function TimerController({
               variant="outline"
               size="lg"
               className="px-6"
-              disabled={
-                timerRef.current.totalSeconds ===
-                initialMinutes * 60 + initialSeconds
-              }
+              disabled={timerRef.current.totalSeconds === getResetTarget()}
             >
               <Square className="w-5 h-5 mr-2" />
               Reset
@@ -273,7 +356,8 @@ export function TimerController({
         <div className="text-center text-sm text-muted-foreground">
           {timerRef.current.isRunning ? (
             <span className="text-green-600">Running</span>
-          ) : timerRef.current.totalSeconds === 0 ? (
+          ) : countDirection === "down" &&
+            timerRef.current.totalSeconds <= 0 ? (
             <span className="text-red-600">Finished</span>
           ) : (
             <span className="text-yellow-600">Paused</span>

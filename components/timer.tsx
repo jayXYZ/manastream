@@ -20,18 +20,22 @@ export default function Timer({
     expiryTimestamp: tournamentInfo?.manualTimerExpiry
       ? countDirection === "down"
         ? new Date(tournamentInfo.manualTimerExpiry)
-        : new Date(Date.now())
+        : new Date(tournamentInfo.manualTimerExpiry)
       : getDefaultExpiry(),
     autoStart: tournamentInfo?.manualTimerRunning || false,
     manualTimerExpiry: tournamentInfo?.manualTimerExpiry,
     manualTimerRunning: tournamentInfo?.manualTimerRunning,
+    manualTimerCountDirection: countDirection,
   });
 
   if (!tournamentInfo) {
     return <p>Loading...</p>;
   }
 
-  const timerDisplay = formatTime(timer.totalSeconds, false);
+  const timerDisplay = formatTime(
+    timer.totalSeconds,
+    countDirection === "down",
+  );
   const isNegative =
     countDirection === "down" ? timerDisplay.startsWith("-") : false;
 
