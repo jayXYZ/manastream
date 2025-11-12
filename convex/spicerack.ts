@@ -4,15 +4,9 @@ import {
   internalQuery,
 } from "./_generated/server";
 import { v } from "convex/values";
-import { api, internal } from "./_generated/api";
-import {
-  Decklist,
-  SpicerackEventResponse,
-  SpicerackTournamentPhase,
-} from "./types/spicerack";
-import { Player } from "./types";
+import { internal } from "./_generated/api";
+import { SpicerackTournamentPhase } from "./types/spicerack";
 import { logSpicerackEvent } from "./lib/logging";
-import { parseCurrentSpicerackRound } from "./models/spicerack";
 import { DEFAULT_MATCH, POLLING_INTERVAL } from "./lib/constants";
 import { settingsValidator, tournamentValidator } from "./validators";
 import { checkForNewSpicerackRound } from "./lib/spicerack/rounds";
@@ -25,13 +19,13 @@ import {
 export const updateNewSpicerackRound = internalMutation({
   args: {
     tournamentId: v.id("tournaments"),
-    spicerackCurrentRoundId: v.number(),
-    spicerackCurrentRoundNumber: v.number(),
+    spicerackNewRoundId: v.number(),
+    spicerackNewRoundNumber: v.number(),
   },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.tournamentId, {
-      spicerackCurrentRoundId: args.spicerackCurrentRoundId,
-      spicerackCurrentRoundNumber: args.spicerackCurrentRoundNumber,
+      spicerackCurrentRoundId: args.spicerackNewRoundId,
+      spicerackCurrentRoundNumber: args.spicerackNewRoundNumber,
     });
 
     const tournamentOverlays = await ctx.db
