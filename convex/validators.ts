@@ -263,6 +263,7 @@ export const getTournamentInfoValidator = v.object({
   manualTimerCountDirection: v.optional(
     v.union(v.literal("up"), v.literal("down")),
   ),
+  manualTimerPausedAt: v.optional(v.number()),
 });
 
 // Validator for updateMatchOverlay arguments
