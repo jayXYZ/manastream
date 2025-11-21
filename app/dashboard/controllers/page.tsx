@@ -1,12 +1,12 @@
 "use client";
 
-import { MatchPreviewController } from "@/components/controllers/match-preview-controller";
+import { MatchPreviewController } from "./components/match-preview-controller";
 import { api } from "@/convex/_generated/api";
 import { useQuery } from "convex/react";
 import { CardController } from "@/app/dashboard/controllers/components/card-controller";
 import type { Overlay } from "@/convex/types";
 import { useDashboardStore } from "../store";
-import { TournamentPreviewController } from "@/components/controllers/tournament-preview-controller";
+import { TournamentPreviewController } from "./components/tournament-preview-controller";
 import { Spinner } from "@/components/ui/spinner";
 
 export default function ControllersPage() {

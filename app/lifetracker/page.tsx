@@ -77,7 +77,6 @@ function LifeTrackerContent() {
         <div className="text-2xl font-bold">Loading tournament...</div>
       </div>
     );
-<<<<<<< HEAD
   }
 
   if (!connectedOverlayId || showAdminSettings) {
@@ -93,14 +92,6 @@ function LifeTrackerContent() {
     );
   }
 
-=======
-  }
-
-  if (!connectedOverlayId || showAdminSettings) {
-    return <AdminSettings />;
-  }
-
->>>>>>> fb1ab8f (giga commit cuz im an idiot)
   // Type guard to ensure overlay is a match overlay
   // After this check, overlayData is narrowed to MatchOverlayWithPlayers type
   if (overlayData && !isMatchOverlay(overlayData)) {
@@ -116,7 +107,6 @@ function LifeTrackerContent() {
   ) {
     return (
       <div className="flex flex-col h-screen-dynamic w-full overscroll-none overflow-hidden">
-<<<<<<< HEAD
         <div className="absolute top-4 right-4 z-10 dark:hover:bg-black/30 hover:bg-black/30 active:bg-black/50 dark:active:bg-black/50">
           <Button
             variant="ghost"
@@ -129,17 +119,6 @@ function LifeTrackerContent() {
         <div className="flex-1 flex items-center justify-center w-full">
           <MatchSelect />
         </div>
-=======
-        <div
-          className="absolute top-0 right-0"
-          onClick={() => setShowAdminSettings(true)}
-        >
-          <Cog />
-        </div>
-        <div className="flex-1 flex items-center justify-center">
-          <MatchSelect />
-        </div>
->>>>>>> fb1ab8f (giga commit cuz im an idiot)
       </div>
     );
   }
