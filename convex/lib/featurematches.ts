@@ -5,44 +5,50 @@ import {
   parseCurrentRoundFeatureMatches,
   parsePlayerRecord,
 } from "../models/spicerack";
-import { Player } from "../types";
+import { NewPlayerEntry, Player } from "../types";
 import { SpicerackEventResponse, SpicerackMatch } from "../types/spicerack";
 import {
   createPlayer,
   doesPlayerExist,
-  getPlayersByExternalIds,
+  getPlayersBySpicerackPlayerIds,
   getPlayersForMatch,
 } from "./players";
+import { createPendingPlayerEntry } from "./players";
 
 export async function getFeatureMatches(
   ctx: QueryCtx,
-  tournamentId: Id<"tournaments">,
+  spicerackTournamentId: number,
   roundNumber?: number,
 ): Promise<Doc<"featureMatches">[]> {
   if (!roundNumber) {
     const featureMatches = await ctx.db
       .query("featureMatches")
-      .withIndex("by_tournament_and_round", (q) =>
-        q.eq("tournamentId", tournamentId),
+      .withIndex("by_spicerack_tournament_id", (q) =>
+        q.eq("spicerackTournamentId", spicerackTournamentId),
       )
       .collect();
     return featureMatches;
   } else {
+    // We don't have a composite index for spicerackTournamentId + roundNumber yet?
+    // Schema has "by_tournament_and_round" which uses tournamentId.
+    // But we added "by_spicerack_tournament_id".
+    // Filtering by roundNumber manually is fine if the number of matches per tournament isn't huge.
+    // Or we can add index "by_spicerack_tournament_and_round".
+    // For now, let's query by tournament and filter.
     const featureMatches = await ctx.db
       .query("featureMatches")
-      .withIndex(
-        "by_tournament_and_round",
-        (q) =>
-          q.eq("tournamentId", tournamentId).eq("roundNumber", roundNumber), // round number is NOT the spicerack round ID
+      .withIndex("by_spicerack_tournament_id", (q) =>
+        q.eq("spicerackTournamentId", spicerackTournamentId),
       )
       .collect();
-    return featureMatches;
+
+    return featureMatches.filter((m) => m.roundNumber === roundNumber);
   }
 }
 
 export async function getFeatureMatchesWithPlayerData(
   ctx: QueryCtx,
-  tournamentId: Id<"tournaments">,
+  spicerackTournamentId: number,
   roundNumber?: number,
 ): Promise<
   (Doc<"featureMatches"> & {
@@ -52,7 +58,7 @@ export async function getFeatureMatchesWithPlayerData(
 > {
   const featureMatches = await getFeatureMatches(
     ctx,
-    tournamentId,
+    spicerackTournamentId,
     roundNumber,
   );
   const featureMatchesWithPlayerData = await Promise.all(
@@ -77,20 +83,27 @@ export async function getFeatureMatchesWithPlayerData(
  */
 async function compareFeatureMatches(
   ctx: QueryCtx | MutationCtx,
-  tournamentId: Id<"tournaments">,
+  spicerackTournamentId: number,
   jsonData: SpicerackEventResponse,
 ): Promise<SpicerackMatch[]> {
-  const tournament = await ctx.db.get(tournamentId);
-  if (!tournament || !tournament.spicerackTournamentId) {
-    throw new Error("Tournament not found");
+  const spicerackTournament = await ctx.db
+    .query("spicerackTournaments")
+    .withIndex("by_spicerack_tournament_id", (q) =>
+      q.eq("spicerackTournamentId", spicerackTournamentId),
+    )
+    .unique();
+  if (!spicerackTournament || !spicerackTournament.currentRoundId) {
+    throw new Error(
+      "Spicerack tournament not found or missing current round id",
+    );
   }
   const currentRoundSpicerackMatches =
     parseCurrentRoundFeatureMatches(jsonData);
   const newMatches: SpicerackMatch[] = [];
   for (let spicerackMatch of currentRoundSpicerackMatches) {
     const checkId = generateFeatureMatchExternalId(
-      tournament.spicerackTournamentId,
-      tournament.spicerackCurrentRoundId,
+      spicerackTournament.spicerackTournamentId,
+      spicerackTournament.currentRoundId,
       spicerackMatch,
     );
     const dbFeatureMatch = await ctx.db
@@ -108,15 +121,7 @@ async function compareFeatureMatches(
  * Constant for pending deck information before it's fetched from Spicerack
  */
 const PENDING_DECK_INFO = "PENDING" as const;
-const NO_DECK_INFO = "NO_DECKLIST_FOUND" as const;
-
-/**
- * Type for a new player entry to be created
- */
-type NewPlayerEntry = Pick<
-  Player,
-  "name" | "externalId" | "deckId" | "deckName" | "deckList"
->;
+const NO_DECK_INFO = "MISSING_DECKLIST" as const;
 
 /**
  * Extracts player information from a Spicerack match relationship
@@ -136,32 +141,6 @@ function extractPlayerInfo(
 }
 
 /**
- * Creates a new player entry with pending deck information
- */
-function createPendingPlayerEntry(
-  id: number,
-  name: string,
-  decklistId: number | null,
-): NewPlayerEntry {
-  if (!decklistId) {
-    return {
-      name,
-      externalId: id,
-      deckId: -1,
-      deckName: NO_DECK_INFO,
-      deckList: NO_DECK_INFO,
-    };
-  }
-  return {
-    name,
-    externalId: id,
-    deckId: decklistId,
-    deckName: PENDING_DECK_INFO,
-    deckList: PENDING_DECK_INFO,
-  };
-}
-
-/**
  * Compares players from Spicerack matches with the database and returns
  * new players that need to be created.
  *
@@ -171,6 +150,7 @@ function createPendingPlayerEntry(
  */
 async function comparePlayers(
   ctx: QueryCtx | MutationCtx,
+  spicerackTournamentId: number,
   newFeatureMatches: SpicerackMatch[],
 ): Promise<NewPlayerEntry[]> {
   const newPlayers: NewPlayerEntry[] = [];
@@ -203,6 +183,7 @@ async function comparePlayers(
         createPendingPlayerEntry(
           player1Info.id,
           player1Info.name,
+          spicerackTournamentId,
           player1Info.decklistId,
         ),
       );
@@ -213,6 +194,7 @@ async function comparePlayers(
         createPendingPlayerEntry(
           player2Info.id,
           player2Info.name,
+          spicerackTournamentId,
           player2Info.decklistId,
         ),
       );
@@ -224,13 +206,13 @@ async function comparePlayers(
 /**
  * Compares Spicerack data with the database and returns new feature matches and players.
  * @param ctx - The query or mutation context
- * @param tournamentId - The tournament ID to compare data for
+ * @param spicerackTournamentId - The spicerack tournament ID to compare data for
  * @param jsonData - The Spicerack event response data
  * @returns An object containing the new feature matches and players
  */
 export async function compareSpicerackToDatabase(
   ctx: QueryCtx | MutationCtx,
-  tournamentId: Id<"tournaments">,
+  spicerackTournamentId: number,
   jsonData: SpicerackEventResponse,
 ): Promise<{
   newFeatureMatches: SpicerackMatch[];
@@ -238,24 +220,28 @@ export async function compareSpicerackToDatabase(
 }> {
   const newFeatureMatches = await compareFeatureMatches(
     ctx,
-    tournamentId,
+    spicerackTournamentId,
     jsonData,
   );
-  const newPlayers = await comparePlayers(ctx, newFeatureMatches);
+  const newPlayers = await comparePlayers(
+    ctx,
+    spicerackTournamentId,
+    newFeatureMatches,
+  );
   return { newFeatureMatches, newPlayers };
 }
 
 /**
  * Creates feature matches and players in the database.
  * @param ctx - The mutation context
- * @param tournamentId - The tournament ID to create feature matches for
+ * @param spicerackTournamentId - The spicerack tournament ID to create feature matches for
  * @param newFeatureMatches - The new feature matches to create
  * @param newPlayers - The new players to create
  * @returns void
  */
 export async function createFeatureMatches(
   ctx: MutationCtx,
-  tournamentId: Id<"tournaments">,
+  spicerackTournamentId: number,
   newFeatureMatches: SpicerackMatch[],
   newPlayers: NewPlayerEntry[],
 ): Promise<{ playerId: Id<"players">; deckId: number }[]> {
@@ -265,14 +251,21 @@ export async function createFeatureMatches(
   // First, create all new players
   // Convex will batch these operations efficiently within a single transaction
   for (const newPlayer of newPlayers) {
-    const playerId = await createPlayer(ctx, tournamentId, newPlayer);
+    const playerId = await createPlayer(ctx, spicerackTournamentId, newPlayer);
     playerAndDeckIds.push({ playerId, deckId: newPlayer.deckId });
   }
 
   // Get tournament data to generate external IDs
-  const tournament = await ctx.db.get(tournamentId);
-  if (!tournament || !tournament.spicerackTournamentId) {
-    throw new Error("Tournament not found or missing Spicerack ID");
+  const spicerackTournament = await ctx.db
+    .query("spicerackTournaments")
+    .withIndex("by_spicerack_tournament_id", (q) =>
+      q.eq("spicerackTournamentId", spicerackTournamentId),
+    )
+    .unique();
+  if (!spicerackTournament || !spicerackTournament.currentRoundId) {
+    throw new Error(
+      "Spicerack tournament not found or missing current round id",
+    );
   }
 
   // Now create feature matches, linking them to the players
@@ -290,16 +283,20 @@ export async function createFeatureMatches(
       player_match_relationships;
 
     // Extract player external IDs
-    const player1ExternalId = player1Relationship.user_event_status.id;
-    const player2ExternalId = player2Relationship.user_event_status.id;
+    const player1SpicerackPlayerId = player1Relationship.user_event_status.id;
+    const player2SpicerackPlayerId = player2Relationship.user_event_status.id;
 
     // Look up player database IDs
     const { player1Data: player1Doc, player2Data: player2Doc } =
-      await getPlayersByExternalIds(ctx, player1ExternalId, player2ExternalId);
+      await getPlayersBySpicerackPlayerIds(
+        ctx,
+        player1SpicerackPlayerId,
+        player2SpicerackPlayerId,
+      );
 
     if (!player1Doc || !player2Doc) {
       throw new Error(
-        `Player not found in database. Player 1: ${player1ExternalId}, Player 2: ${player2ExternalId}`,
+        `Player not found in database. Player 1: ${player1SpicerackPlayerId}, Player 2: ${player2SpicerackPlayerId}`,
       );
     }
 
@@ -313,16 +310,16 @@ export async function createFeatureMatches(
 
     // Generate external ID for this feature match
     const externalId = generateFeatureMatchExternalId(
-      tournament.spicerackTournamentId,
-      tournament.spicerackCurrentRoundId,
+      spicerackTournament.spicerackTournamentId,
+      spicerackTournament.currentRoundId,
       featureMatch,
     );
 
     // Insert the feature match
     await ctx.db.insert("featureMatches", {
       externalId,
-      tournamentId,
-      roundNumber: tournament.spicerackCurrentRoundNumber,
+      spicerackTournamentId: spicerackTournament.spicerackTournamentId,
+      roundNumber: spicerackTournament.currentRoundNumber ?? 0,
       player1: player1Doc._id,
       player2: player2Doc._id,
       player1TournamentRecord,

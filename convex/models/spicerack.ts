@@ -43,6 +43,56 @@ export function parseCurrentSpicerackRound(
   return currentRound;
 }
 
+export function getRoundDisplayName(
+  roundId: number,
+  jsonData: SpicerackEventResponse,
+): string {
+  // Find the phase that contains the round with the given roundId
+  const phase = jsonData.tournament_phases.find((phase) =>
+    phase.rounds.some((round) => round.id === roundId),
+  );
+
+  if (!phase) {
+    return "";
+  }
+
+  // Find the actual round object
+  const round = phase.rounds.find((round) => round.id === roundId);
+  if (!round) {
+    return "";
+  }
+
+  // Format based on round type (same logic as getCurrentRoundDisplayName)
+  if (phase.round_type === "SWISS") {
+    return `Round ${round.round_number}`;
+  } else if (
+    phase.round_type === "SINGLE_ELIMINATION" ||
+    phase.round_type === "RANKED_SINGLE_ELIMINATION"
+  ) {
+    // TODO: Make this more adaptable to single elim cuts that aren't just top 8's
+    const swissPhase = jsonData.tournament_phases.find(
+      (phase) => phase.round_type === "SWISS",
+    ) || { rounds: [] };
+    // This should get the correct round number, regardless of whether there was a player meeting or not (round 0)
+    const swissLength =
+      swissPhase.rounds[swissPhase.rounds.length - 1].round_number;
+
+    switch (round.round_number - swissLength) {
+      case 1:
+        return "Quarterfinals";
+      case 2:
+        return "Semifinals";
+      case 3:
+        return "Finals";
+      default:
+        return "Round " + round.round_number;
+    }
+  }
+
+  // Default fallback
+  return "Round " + round.round_number;
+}
+
 /**
  * Get display name for current round (e.g., "Round 3" or "Quarterfinals")
  */
@@ -190,4 +240,21 @@ export function generateFeatureMatchExternalId(
     match.player_match_relationships[1].user_event_status.user.best_identifier;
 
   return `${tournamentId}-${roundId}-${player1Name}vs${player2Name}`;
+}
+
+export function parseCompletedRounds(
+  jsonData: SpicerackEventResponse,
+): { roundId: number; roundName: string }[] {
+  const completedRounds: number[] = [];
+  for (const phase of jsonData.tournament_phases) {
+    for (const round of phase.rounds) {
+      if (round.status === "COMPLETE") {
+        completedRounds.push(round.id);
+      }
+    }
+  }
+  return completedRounds.map((round) => ({
+    roundId: round,
+    roundName: getRoundDisplayName(round, jsonData),
+  }));
 }

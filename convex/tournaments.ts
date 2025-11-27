@@ -23,8 +23,6 @@ export const createTournament = internalMutation({
       userId: userId,
       mode: "manual",
       spicerackTournamentId: args.spicerackTournamentId,
-      spicerackCurrentRoundId: -1,
-      spicerackCurrentRoundNumber: -1,
       manualTimerRunning: false,
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -62,7 +60,7 @@ export const getTournamentInfo = query({
     }
 
     return {
-      currentRound: tournament.spicerackCurrentRoundNumber,
+      currentRound: tournament.currentRound,
       currentRoundDisplayName: tournament.currentRoundDisplayName,
       manualTimerExpiry: tournament.manualTimerExpiry,
       manualTimerRunning: tournament.manualTimerRunning,
@@ -171,7 +169,7 @@ export const updateTournamentMode = mutation({
       await ctx.scheduler.runAfter(
         0,
         internal.spicerack.validateAndStartPolling,
-        { tournamentId: args.tournamentId, userId },
+        { userId: userId },
       );
     }
   },
@@ -183,6 +181,7 @@ export const updateTournamentSettings = mutation({
     mode: v.optional(v.union(v.literal("manual"), v.literal("auto"))),
   },
   handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
     const tournament = await getOwnTournament(ctx);
     const updates = filterUndefined(args);
 
@@ -209,7 +208,7 @@ export const updateTournamentSettings = mutation({
       await ctx.scheduler.runAfter(
         0,
         internal.spicerack.validateAndStartPolling,
-        { tournamentId: tournament._id, userId: tournament.userId },
+        { userId: userId },
       );
     } else {
       await ctx.db.patch(tournament._id, updates);

@@ -21,13 +21,10 @@ export const tournamentValidator = v.object({
   spicerackTournamentStatus: v.optional(
     v.union(v.literal("active"), v.literal("completed")),
   ),
-  spicerackLastPolledAt: v.optional(v.number()),
   spicerackPollingStatus: v.optional(
     v.union(v.literal("active"), v.literal("inactive"), v.literal("error")),
   ),
   spicerackErrorMessage: v.optional(v.string()),
-  spicerackCurrentRoundId: v.number(),
-  spicerackCurrentRoundNumber: v.number(),
   currentRound: v.optional(v.number()),
   currentRoundDisplayName: v.optional(v.string()),
   manualTimerExpiry: v.optional(v.number()),
@@ -41,11 +38,31 @@ export const tournamentValidator = v.object({
   updatedAt: v.number(),
 });
 
+export const spicerackTournamentValidator = v.object({
+  _id: v.id("spicerackTournaments"),
+  _creationTime: v.number(),
+  spicerackTournamentId: v.number(),
+  name: v.optional(v.string()),
+  currentRoundId: v.optional(v.number()),
+  currentRoundNumber: v.optional(v.number()),
+  currentRoundName: v.optional(v.string()),
+  completedRounds: v.optional(
+    v.array(
+      v.object({
+        roundId: v.number(),
+        roundName: v.string(),
+      }),
+    ),
+  ),
+  updatedAt: v.number(),
+});
+
 export const featureMatchValidator = v.object({
   _id: v.id("featureMatches"),
   _creationTime: v.number(),
   externalId: v.string(), // Spicerack Tournament ID + Round ID + Player 1 Name + Player 2 Name
-  tournamentId: v.id("tournaments"),
+  spicerackTournamentId: v.optional(v.number()),
+  tournamentId: v.optional(v.id("tournaments")),
   roundNumber: v.number(),
   player1: v.id("players"),
   player2: v.id("players"),
@@ -189,12 +206,13 @@ export const playerValidator = v.object({
   _id: v.id("players"),
   _creationTime: v.number(),
   name: v.string(),
-  externalId: v.number(),
-  tournamentId: v.id("tournaments"),
+  spicerackPlayerId: v.number(),
+  tournamentId: v.optional(v.id("tournaments")),
+  spicerackTournamentId: v.optional(v.number()),
   deckId: v.number(),
   deckName: v.string(), // Archetype name
   deckList: v.string(), // Plaintext deck list
-  createdAt: v.number(),
+  updatedAt: v.number(),
 });
 
 export const spicerackLogValidator = v.object({

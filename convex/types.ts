@@ -14,6 +14,7 @@ import { Doc } from "./_generated/dataModel";
 export type Overlay = Doc<"overlays">;
 export type Player = Doc<"players">;
 export type Tournament = Doc<"tournaments">;
+export type SpicerackTournament = Doc<"spicerackTournaments">;
 export type Settings = Doc<"settings">;
 
 export type MatchOverlay = Infer<typeof matchOverlayValidator>;
@@ -36,3 +37,16 @@ export type TemplateType = "Default" | "Duress Crew" | "Lobstercon" | "Custom";
 
 // Tournament info types from the validators
 export type TournamentInfo = Infer<typeof getTournamentInfoValidator>;
+
+/**
+ * Type for a new player entry to be created
+ */
+export type NewPlayerEntry = Pick<
+  Player,
+  | "name"
+  | "spicerackPlayerId"
+  | "deckId"
+  | "deckName"
+  | "deckList"
+  | "spicerackTournamentId"
+>;

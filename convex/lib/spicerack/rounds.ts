@@ -18,8 +18,18 @@ export async function checkForNewSpicerackRound(
   jsonData: SpicerackEventResponse,
 ) {
   const tournament = await ctx.db.get(tournamentId);
-  if (!tournament) {
-    throw new Error("Tournament not found");
+  if (!tournament || !tournament.spicerackTournamentId) {
+    throw new Error("Tournament not found or missing Spicerack tournament ID");
+  }
+  const spicerackTournamentId = tournament.spicerackTournamentId;
+  const spicerackTournament = await ctx.db
+    .query("spicerackTournaments")
+    .withIndex("by_spicerack_tournament_id", (q) =>
+      q.eq("spicerackTournamentId", spicerackTournamentId),
+    )
+    .unique();
+  if (!spicerackTournament) {
+    throw new Error("Spicerack tournament not found");
   }
   const currentRound = parseCurrentSpicerackRound(jsonData);
   if (!currentRound) {
@@ -33,14 +43,15 @@ export async function checkForNewSpicerackRound(
     return;
   }
   if (
-    currentRound.id !== tournament.spicerackCurrentRoundId ||
-    currentRound.round_number !== tournament.spicerackCurrentRoundNumber
+    currentRound.id !== spicerackTournament.currentRoundId ||
+    currentRound.round_number !== spicerackTournament.currentRoundNumber
   ) {
     console.log("New round detected, handling new round");
     const newRoundDisplayName = getCurrentRoundDisplayName(jsonData);
     await handleNewSpicerackRound(
       ctx,
       tournamentId,
+      spicerackTournament._id,
       currentRound.id,
       currentRound.round_number,
       newRoundDisplayName ?? "",
@@ -58,6 +69,7 @@ export async function checkForNewSpicerackRound(
 export async function handleNewSpicerackRound(
   ctx: MutationCtx,
   tournamentId: Id<"tournaments">,
+  spicerackTournamentDocId: Id<"spicerackTournaments">,
   spicerackNewRoundId: number,
   spicerackNewRoundNumber: number,
   newRoundDisplayName: string | undefined,
@@ -68,10 +80,10 @@ export async function handleNewSpicerackRound(
     spicerackNewRoundNumber,
   );
   // updates tournament round id and number in database with new values
-  await ctx.db.patch(tournamentId, {
-    spicerackCurrentRoundId: spicerackNewRoundId,
-    spicerackCurrentRoundNumber: spicerackNewRoundNumber,
-    currentRoundDisplayName: newRoundDisplayName ?? "",
+  await ctx.db.patch(spicerackTournamentDocId, {
+    currentRoundId: spicerackNewRoundId,
+    currentRoundNumber: spicerackNewRoundNumber,
+    currentRoundName: newRoundDisplayName ?? "",
   });
 
   // resets all match overlays for the tournament

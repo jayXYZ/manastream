@@ -136,3 +136,16 @@ export type PhaseStatus = "UPCOMING" | "IN_PROGRESS" | "COMPLETE";
  * Helper type for round status checks
  */
 export type RoundStatus = "UPCOMING" | "IN_PROGRESS" | "COMPLETE";
+
+/**
+ * Registered players response from Spicerack API
+ */
+export interface SpicerackRegisteredPlayersResponse {
+  id: number;
+  user_identifier: string;
+  registration_status: string;
+  decklist: {
+    id: number;
+    archetype: string;
+  };
+}

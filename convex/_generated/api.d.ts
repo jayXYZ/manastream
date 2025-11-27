@@ -32,6 +32,7 @@ import type * as lib_players from "../lib/players.js";
 import type * as lib_settings from "../lib/settings.js";
 import type * as lib_spicerack_api from "../lib/spicerack/api.js";
 import type * as lib_spicerack_rounds from "../lib/spicerack/rounds.js";
+import type * as lib_spicerack_tournament from "../lib/spicerack/tournament.js";
 import type * as lib_tournaments from "../lib/tournaments.js";
 import type * as lib_utils from "../lib/utils.js";
 import type * as lib_validation from "../lib/validation.js";
@@ -75,6 +76,7 @@ declare const fullApi: ApiFromModules<{
   "lib/settings": typeof lib_settings;
   "lib/spicerack/api": typeof lib_spicerack_api;
   "lib/spicerack/rounds": typeof lib_spicerack_rounds;
+  "lib/spicerack/tournament": typeof lib_spicerack_tournament;
   "lib/tournaments": typeof lib_tournaments;
   "lib/utils": typeof lib_utils;
   "lib/validation": typeof lib_validation;

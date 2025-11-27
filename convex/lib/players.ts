@@ -1,6 +1,6 @@
 import { Doc, Id } from "../_generated/dataModel";
 import { MutationCtx, QueryCtx } from "../_generated/server";
-import { Player } from "../types";
+import { NewPlayerEntry, Player } from "../types";
 
 /**
  * Helper function to get player data for a given spicerack match
@@ -28,28 +28,30 @@ export async function getPlayersForMatch(
   };
 }
 
-export async function getPlayerByExternalId(
+export async function getPlayerBySpicerackPlayerId(
   ctx: QueryCtx,
-  externalId: number,
+  spicerackPlayerId: number,
 ): Promise<Doc<"players"> | undefined> {
   const player = await ctx.db
     .query("players")
-    .withIndex("by_external_id", (q) => q.eq("externalId", externalId))
+    .withIndex("by_spicerack_player_id", (q) =>
+      q.eq("spicerackPlayerId", spicerackPlayerId),
+    )
     .first();
   return player ?? undefined;
 }
 
-export async function getPlayersByExternalIds(
+export async function getPlayersBySpicerackPlayerIds(
   ctx: QueryCtx,
-  player1ExternalId: number,
-  player2ExternalId: number,
+  player1SpicerackPlayerId: number,
+  player2SpicerackPlayerId: number,
 ): Promise<{
   player1Data?: Doc<"players">;
   player2Data?: Doc<"players">;
 }> {
   const [player1Data, player2Data] = await Promise.all([
-    getPlayerByExternalId(ctx, player1ExternalId),
-    getPlayerByExternalId(ctx, player2ExternalId),
+    getPlayerBySpicerackPlayerId(ctx, player1SpicerackPlayerId),
+    getPlayerBySpicerackPlayerId(ctx, player2SpicerackPlayerId),
   ]);
   return {
     player1Data: player1Data ?? undefined,
@@ -59,27 +61,66 @@ export async function getPlayersByExternalIds(
 
 export async function doesPlayerExist(
   ctx: QueryCtx,
-  externalId: number,
+  spicerackPlayerId: number,
 ): Promise<boolean> {
   const player = await ctx.db
     .query("players")
-    .withIndex("by_external_id", (q) => q.eq("externalId", externalId))
+    .withIndex("by_spicerack_player_id", (q) =>
+      q.eq("spicerackPlayerId", spicerackPlayerId),
+    )
     .first();
   return player !== null;
 }
 
 export async function createPlayer(
   ctx: MutationCtx,
-  tournamentId: Id<"tournaments">,
+  spicerackTournamentId: number,
   player: Pick<
     Player,
-    "name" | "externalId" | "deckId" | "deckName" | "deckList"
+    | "name"
+    | "spicerackPlayerId"
+    | "deckId"
+    | "deckName"
+    | "deckList"
+    | "spicerackTournamentId"
   >,
 ): Promise<Id<"players">> {
   const playerId = await ctx.db.insert("players", {
     ...player,
-    tournamentId,
-    createdAt: Date.now(),
+    spicerackTournamentId,
+    updatedAt: Date.now(),
   });
   return playerId;
+}
+
+const NO_DECK_INFO = "MISSING_DECKLIST" as const;
+const PENDING_DECK_INFO = "PENDING" as const;
+
+/**
+ * Creates a new player entry with pending deck information
+ */
+export function createPendingPlayerEntry(
+  id: number,
+  name: string,
+  spicerackTournamentId: number,
+  decklistId: number | null,
+): NewPlayerEntry {
+  if (!decklistId) {
+    return {
+      name,
+      spicerackPlayerId: id,
+      spicerackTournamentId,
+      deckId: -1,
+      deckName: NO_DECK_INFO,
+      deckList: NO_DECK_INFO,
+    };
+  }
+  return {
+    name,
+    spicerackPlayerId: id,
+    spicerackTournamentId,
+    deckId: decklistId,
+    deckName: PENDING_DECK_INFO,
+    deckList: PENDING_DECK_INFO,
+  };
 }

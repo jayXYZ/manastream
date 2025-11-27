@@ -1,6 +1,7 @@
 import {
   Decklist,
   SpicerackEventResponse,
+  SpicerackRegisteredPlayersResponse,
   SpicerackTournamentPhase,
 } from "../../types/spicerack";
 import { withRetry } from "../utils";
@@ -95,6 +96,8 @@ export async function fetchSpicerackEventOverviewData(
 ): Promise<{
   id: number;
   event_status: string;
+  current_round_id: number;
+  current_round_number: number;
 }> {
   return withRetry(async () => {
     const response = await fetch(
@@ -131,6 +134,29 @@ export async function fetchSpicerackEventOverviewData(
     return {
       id: jsonData.id,
       event_status,
+      current_round_id: jsonData.current_round.id,
+      current_round_number: jsonData.current_round.round_number,
     };
+  });
+}
+
+export async function fetchSpicerackRegisteredPlayers(
+  spicerackTournamentId: number,
+  spicerackApiKey: string,
+): Promise<SpicerackRegisteredPlayersResponse[]> {
+  return withRetry(async () => {
+    const response = await fetch(
+      `https://api.spicerack.gg/api/v1/magic-events/${spicerackTournamentId}/registrations`,
+      {
+        headers: {
+          "X-API-Key": spicerackApiKey,
+        },
+      },
+    );
+    if (!response.ok) {
+      throw new Error(`Failed to fetch registered players: ${response.status}`);
+    }
+    const jsonData = await response.json();
+    return jsonData;
   });
 }

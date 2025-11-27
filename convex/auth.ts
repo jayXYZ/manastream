@@ -115,8 +115,6 @@ async function initializeNewUser(ctx: MutationCtx, userId: Id<"users">) {
   const tournamentId = await ctx.db.insert("tournaments", {
     userId,
     mode: "manual",
-    spicerackCurrentRoundId: -1,
-    spicerackCurrentRoundNumber: -1,
     manualTimerRunning: false,
     manualTimerCountDirection: "down",
     createdAt: Date.now(),

@@ -9,6 +9,7 @@ import {
   featureMatchValidator,
   templateValidator,
   spicerackLogValidator,
+  spicerackTournamentValidator,
 } from "./validators";
 
 // The schema is normally optional, but Convex Auth
@@ -25,6 +26,12 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_spicerack_id", ["spicerackTournamentId"])
     .index("by_mode_and_status", ["mode", "spicerackTournamentStatus"]),
+
+  // Spicerack tournaments table
+  spicerackTournaments: defineTable(spicerackTournamentValidator).index(
+    "by_spicerack_tournament_id",
+    ["spicerackTournamentId"],
+  ),
 
   // Unified Overlays Table with discriminated union and direct UUID
   overlays: defineTable(overlayValidator)
@@ -49,13 +56,14 @@ export default defineSchema({
   // Feature Matches table - enhanced for better API/manual integration
   featureMatches: defineTable(featureMatchValidator)
     .index("by_tournament_and_round", ["tournamentId", "roundNumber"])
-    .index("by_external_id", ["externalId"]),
+    .index("by_external_id", ["externalId"])
+    .index("by_spicerack_tournament_id", ["spicerackTournamentId"]),
 
   // Players table
   players: defineTable(playerValidator)
-    .index("by_name", ["name"])
+    .index("by_spicerack_tournament_id", ["spicerackTournamentId"])
     .index("by_tournament", ["tournamentId"])
-    .index("by_external_id", ["externalId"]),
+    .index("by_spicerack_player_id", ["spicerackPlayerId"]),
 
   // Spicerack Debug Logs table
   spicerackLogs: defineTable(spicerackLogValidator)

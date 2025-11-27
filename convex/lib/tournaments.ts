@@ -34,6 +34,28 @@ export async function requireUserTournament(
   return tournament;
 }
 
+export async function requireSpicerackTournament(
+  ctx: QueryCtx | MutationCtx,
+): Promise<Doc<"spicerackTournaments">> {
+  const tournament = await getOwnTournament(ctx);
+  if (!tournament.spicerackTournamentId) {
+    throw new Error(
+      "No Spicerack tournament ID found for this user tournament",
+    );
+  }
+  const spicerackTournamentId = tournament.spicerackTournamentId;
+  const spicerackTournament = await ctx.db
+    .query("spicerackTournaments")
+    .withIndex("by_spicerack_tournament_id", (q) =>
+      q.eq("spicerackTournamentId", spicerackTournamentId),
+    )
+    .unique();
+  if (!spicerackTournament) {
+    throw new Error("No tournament found for this Spicerack tournament ID");
+  }
+  return spicerackTournament;
+}
+
 // unauthorized
 export async function getTournamentTimerAndRoundInfo(
   ctx: QueryCtx,
@@ -51,7 +73,7 @@ export async function getTournamentTimerAndRoundInfo(
   return {
     manualTimerExpiry: tournament.manualTimerExpiry ?? 0,
     manualTimerRunning: tournament.manualTimerRunning ?? false,
-    currentRound: tournament.spicerackCurrentRoundNumber ?? 0,
+    currentRound: tournament.currentRound ?? 0,
     currentRoundDisplayName: tournament.currentRoundDisplayName ?? "",
   };
 }
