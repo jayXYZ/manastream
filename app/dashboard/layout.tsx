@@ -23,6 +23,7 @@ import {
   SidebarProvider,
   SidebarFooter,
   useSidebar,
+  SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { NavUser } from "@/components/auth/nav-user";
 
@@ -47,12 +48,13 @@ const navigationItems = [
     href: "/lifetracker",
     icon: HeartPlus,
   },
-  {
-    name: "Settings",
-    href: "/dashboard/settings",
-    icon: Settings,
-  },
 ];
+
+const settingsNavigationItem = {
+  name: "Settings",
+  href: "/dashboard/settings",
+  icon: Settings,
+};
 
 function DashboardSidebar() {
   const pathname = usePathname();
@@ -70,7 +72,11 @@ function DashboardSidebar() {
 
                 return (
                   <SidebarMenuItem key={item.name}>
-                    <SidebarMenuButton asChild isActive={isActive}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive}
+                      tooltip={item.name}
+                    >
                       <Link href={item.href}>
                         <Icon className="h-4 w-4" />
                         <span>{item.name}</span>
@@ -79,6 +85,27 @@ function DashboardSidebar() {
                   </SidebarMenuItem>
                 );
               })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        <div className="px-2">
+          <SidebarSeparator className="mx-0" />
+        </div>
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname === settingsNavigationItem.href}
+                  tooltip={settingsNavigationItem.name}
+                >
+                  <Link href={settingsNavigationItem.href}>
+                    <Settings className="h-4 w-4" />
+                    <span>{settingsNavigationItem.name}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
