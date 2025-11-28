@@ -355,7 +355,7 @@ export const validateAndStartPolling = internalAction({
               spicerackPlayerId: player.id,
               spicerackTournamentId: spicerackTournament.spicerackTournamentId,
               deckId: player.decklist?.id ?? -1,
-              deckName: player.decklist?.archetype ?? "MISSING_ARCHETYPE",
+              deckName: player.decklist?.id ? "PENDING" : "MISSING_DECKLIST",
               deckList: player.decklist?.id ? "PENDING" : "MISSING_DECKLIST",
             })),
           },

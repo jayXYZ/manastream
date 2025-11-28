@@ -4,7 +4,10 @@ import { DEFAULT_MATCH } from "../constants";
 import { parseCurrentSpicerackRound } from "../../models/spicerack";
 import { SpicerackEventResponse } from "../../types/spicerack";
 import { logSpicerackEvent } from "../logging";
-import { getCurrentRoundDisplayName } from "../../models/spicerack";
+import {
+  getCurrentRoundDisplayName,
+  parseCompletedRounds,
+} from "../../models/spicerack";
 
 /**
  * Checks for a new Spicerack round and handles it if found.
@@ -48,6 +51,7 @@ export async function checkForNewSpicerackRound(
   ) {
     console.log("New round detected, handling new round");
     const newRoundDisplayName = getCurrentRoundDisplayName(jsonData);
+    const completedRounds = parseCompletedRounds(jsonData);
     await handleNewSpicerackRound(
       ctx,
       tournamentId,
@@ -55,6 +59,7 @@ export async function checkForNewSpicerackRound(
       currentRound.id,
       currentRound.round_number,
       newRoundDisplayName ?? "",
+      completedRounds,
     );
   }
 }
@@ -63,8 +68,12 @@ export async function checkForNewSpicerackRound(
  * Handle a new Spicerack round
  * @param ctx - The mutation context
  * @param tournamentId - The ID of the tournament
+ * @param spicerackTournamentDocId - The ID of the Spicerack tournament document
  * @param spicerackNewRoundId - The ID of the new round
  * @param spicerackNewRoundNumber - The number of the new round
+ * @param newRoundDisplayName - The display name of the new round
+ * @param completedRounds - The completed rounds
+ * @throws Error if the Spicerack tournament document is not found
  */
 export async function handleNewSpicerackRound(
   ctx: MutationCtx,
@@ -73,6 +82,7 @@ export async function handleNewSpicerackRound(
   spicerackNewRoundId: number,
   spicerackNewRoundNumber: number,
   newRoundDisplayName: string | undefined,
+  completedRounds: { roundId: number; roundName: string }[],
 ) {
   console.log(
     "Handling new round",
@@ -84,6 +94,7 @@ export async function handleNewSpicerackRound(
     currentRoundId: spicerackNewRoundId,
     currentRoundNumber: spicerackNewRoundNumber,
     currentRoundName: newRoundDisplayName ?? "",
+    completedRounds: completedRounds,
   });
 
   // resets all match overlays for the tournament

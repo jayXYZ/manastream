@@ -303,7 +303,7 @@ export const getOverlayByIdValidator = v.union(
   matchOverlayWithPlayersValidator,
   cardOverlayValidator,
   deckOverlayWithMatchAndPlayersValidator,
-  standingsOverlayValidator,
+  standingsOverlayWithPlayersValidator,
   commentaryOverlayValidator,
 );
 
@@ -311,7 +311,7 @@ export const getOverlayByUuidValidator = v.union(
   matchOverlayWithPlayersValidator,
   cardOverlayValidator,
   deckOverlayWithMatchAndPlayersValidator,
-  standingsOverlayValidator,
+  standingsOverlayWithPlayersValidator,
   commentaryOverlayValidator,
   v.null(),
 );
