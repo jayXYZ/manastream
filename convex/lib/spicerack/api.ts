@@ -3,6 +3,7 @@ import {
   SpicerackEventResponse,
   SpicerackRegisteredPlayersResponse,
   SpicerackTournamentPhase,
+  SpicerackRoundStandings,
 } from "../../types/spicerack";
 import { withRetry } from "../utils";
 
@@ -158,5 +159,43 @@ export async function fetchSpicerackRegisteredPlayers(
     }
     const jsonData = await response.json();
     return jsonData;
+  });
+}
+
+/**
+ * Fetch Spicerack round standings data with retry logic
+ * @param spicerackRoundId - The ID of the Spicerack round
+ * @param spicerackApiKey - The API key for the Spicerack API
+ * @returns The round number
+ * @returns The round standings data
+ * @throws Error if the API request fails or the response is invalid
+ */
+export async function fetchSpicerackRoundStandingsData(
+  spicerackRoundId: number,
+  spicerackApiKey: string,
+): Promise<SpicerackRoundStandings> {
+  return withRetry(async () => {
+    const response = await fetch(
+      `https://api.spicerack.gg/api/v1/tournament-rounds/${spicerackRoundId}/standings`,
+      {
+        headers: {
+          "X-API-Key": spicerackApiKey,
+        },
+      },
+    );
+    if (!response.ok) {
+      throw new Error(
+        `Failed to fetch round standings data: ${response.status}`,
+      );
+    }
+    const jsonData = await response.json();
+
+    if (!jsonData.round_number || !jsonData.standings) {
+      throw new Error("Invalid API response structure");
+    }
+    return {
+      round_number: jsonData.round_number,
+      standings: jsonData.standings,
+    };
   });
 }

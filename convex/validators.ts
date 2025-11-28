@@ -74,6 +74,43 @@ export const featureMatchValidator = v.object({
   createdAt: v.number(),
 });
 
+export const playerInStandingsValidator = v.object({
+  rank: v.number(),
+  player_id: v.number(),
+  name: v.string(),
+  match_points: v.number(),
+  record: v.string(),
+  match_win_percentage: v.number(),
+  opponent_match_win_percentage: v.number(),
+  game_win_percentage: v.number(),
+  opponent_game_win_percentage: v.number(),
+  opponent_average_match_points: v.number(),
+  wins: v.number(),
+  losses: v.number(),
+  draws: v.number(),
+  games_won: v.number(),
+  games_lost: v.number(),
+  games_drawn: v.number(),
+  playoff_wins: v.number(),
+  playoff_losses: v.number(),
+  user_event_status_ids: v.array(v.number()),
+});
+
+export const roundStandingsValidator = v.object({
+  _id: v.id("roundStandings"),
+  _creationTime: v.number(),
+  spicerackRoundId: v.number(),
+  spicerackTournamentId: v.number(),
+  roundNumber: v.union(v.number(), v.literal("PENDING")),
+  standings: v.union(v.array(playerInStandingsValidator), v.literal("PENDING")),
+  updatedAt: v.number(),
+});
+
+export const spicerackRoundStandingsDataValidator = v.object({
+  round_number: v.number(),
+  standings: v.array(playerInStandingsValidator),
+});
+
 // Overlay Type Validators
 export const overlayTypeValidator = v.union(
   v.literal("match"),
@@ -142,16 +179,10 @@ export const standingsOverlayValidator = v.object({
   name: v.string(),
   overlayType: v.literal("standings"),
   tournamentId: v.id("tournaments"),
+
   publicUuid: v.string(), // Direct UUID string for public access
-  roundNumber: v.number(),
-  topPlayers: v.array(
-    v.object({
-      playerId: v.id("players"),
-      rank: v.number(),
-      record: v.string(),
-      points: v.number(),
-    }),
-  ),
+  roundStandingsId: v.optional(v.id("roundStandings")), // Reference to the round standings
+  spicerackRoundId: v.optional(v.number()),
   createdAt: v.number(),
 });
 
@@ -253,6 +284,18 @@ export const featureMatchWithPlayersValidator = v.union(
 export const deckOverlayWithMatchAndPlayersValidator = v.object({
   ...deckOverlayValidator.fields,
   matchData: featureMatchWithPlayersValidator,
+});
+
+export const standingsOverlayWithPlayersValidator = v.object({
+  ...standingsOverlayValidator.fields,
+  standingsDataWithPlayers: v.optional(
+    v.array(
+      v.object({
+        ...playerInStandingsValidator.fields,
+        playerData: v.optional(playerValidator),
+      }),
+    ),
+  ),
 });
 
 // Getters

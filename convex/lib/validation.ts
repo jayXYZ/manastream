@@ -31,3 +31,11 @@ export function requireDeckOverlay(
     throw new Error("Deck overlay not found");
   }
 }
+
+export function requireStandingsOverlay(
+  overlay: Doc<"overlays">,
+): asserts overlay is Doc<"overlays"> & { overlayType: "standings" } {
+  if (overlay.overlayType !== "standings") {
+    throw new Error("Standings overlay not found");
+  }
+}

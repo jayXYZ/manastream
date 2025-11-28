@@ -10,6 +10,7 @@ import {
   templateValidator,
   spicerackLogValidator,
   spicerackTournamentValidator,
+  roundStandingsValidator,
 } from "./validators";
 
 // The schema is normally optional, but Convex Auth
@@ -32,6 +33,10 @@ export default defineSchema({
     "by_spicerack_tournament_id",
     ["spicerackTournamentId"],
   ),
+  // Round Standings table
+  roundStandings: defineTable(roundStandingsValidator)
+    .index("by_spicerackRoundId", ["spicerackRoundId"])
+    .index("by_spicerackTournamentId", ["spicerackTournamentId"]),
 
   // Unified Overlays Table with discriminated union and direct UUID
   overlays: defineTable(overlayValidator)

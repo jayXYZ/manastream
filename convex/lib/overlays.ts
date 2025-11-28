@@ -111,6 +111,26 @@ export async function createMatchOverlayHelper(
   return { overlayId, publicUuid };
 }
 
+export async function createStandingsOverlayHelper(
+  ctx: MutationCtx,
+  tournamentId: Id<"tournaments">,
+  name: string,
+): Promise<{ overlayId: Id<"overlays">; publicUuid: string }> {
+  const publicUuid = generatePublicUuid();
+
+  const overlayId = await ctx.db.insert("overlays", {
+    name,
+    overlayType: "standings",
+    tournamentId,
+    publicUuid,
+    roundStandingsId: undefined,
+    spicerackRoundId: undefined,
+    createdAt: Date.now(),
+  });
+
+  return { overlayId, publicUuid };
+}
+
 // Enrichment functions
 
 /**

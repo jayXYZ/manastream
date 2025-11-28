@@ -20,6 +20,7 @@ import {
   DeckOverlay,
   Overlay,
   Tournament,
+  StandingsOverlay,
 } from "@/convex/types";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -46,6 +47,9 @@ export function TournamentPreviewController() {
   const deckOverlay = userOverlays?.find(
     (overlay) => overlay.overlayType === "deck",
   ) as DeckOverlay;
+  const standingsOverlay = userOverlays?.find(
+    (overlay) => overlay.overlayType === "standings",
+  ) as StandingsOverlay;
 
   const deckOverlayMatch = useQuery(
     api.featurematches.getFeatureMatchPlayersAndDecks,

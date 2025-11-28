@@ -1,3 +1,9 @@
+import { Infer } from "convex/values";
+import {
+  playerInStandingsValidator,
+  spicerackRoundStandingsDataValidator,
+} from "../validators";
+
 /**
  * Spicerack API Types
  *
@@ -121,6 +127,18 @@ export interface SpicerackPlayerMatchRelationship {
   points_gained: number; // -1 if none
   player_order: number; // -1 or order (0 = player 1, 1 = player 2)
 }
+
+/**
+ * Player in standings
+ */
+export type PlayerInStandings = Infer<typeof playerInStandingsValidator>;
+
+/**
+ * Standings for a round
+ */
+export type SpicerackRoundStandings = Infer<
+  typeof spicerackRoundStandingsDataValidator
+>;
 
 /**
  * Helper type for match status checks

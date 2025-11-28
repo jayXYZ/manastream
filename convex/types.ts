@@ -8,6 +8,7 @@ import {
   matchOverlayValidator,
   matchOverlayWithPlayersValidator,
   standingsOverlayValidator,
+  standingsOverlayWithPlayersValidator,
 } from "./validators";
 import { Doc } from "./_generated/dataModel";
 
@@ -15,13 +16,16 @@ export type Overlay = Doc<"overlays">;
 export type Player = Doc<"players">;
 export type Tournament = Doc<"tournaments">;
 export type SpicerackTournament = Doc<"spicerackTournaments">;
+export type RoundStandings = Doc<"roundStandings">;
 export type Settings = Doc<"settings">;
 
 export type MatchOverlay = Infer<typeof matchOverlayValidator>;
 export type CardOverlay = Infer<typeof cardOverlayValidator>;
 export type DeckOverlay = Infer<typeof deckOverlayValidator>;
-export type StandingsOverlay = Infer<typeof standingsOverlayValidator>;
 export type CommentaryOverlay = Infer<typeof commentaryOverlayValidator>;
+export type StandingsOverlay = Infer<
+  typeof standingsOverlayWithPlayersValidator
+>;
 
 export type MatchOverlayWithPlayers = Infer<
   typeof matchOverlayWithPlayersValidator
