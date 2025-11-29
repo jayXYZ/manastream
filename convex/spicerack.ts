@@ -2,6 +2,7 @@ import {
   internalAction,
   internalMutation,
   internalQuery,
+  query,
 } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
@@ -614,5 +615,31 @@ export const pollTournamentAndScheduleNext = internalAction({
         logMetadata: { error: String(error) },
       });
     }
+  },
+});
+
+export const getSpicerackCompletedRounds = query({
+  args: {
+    spicerackTournamentId: v.number(),
+  },
+  returns: v.array(
+    v.object({
+      roundId: v.number(),
+      roundName: v.string(),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const spicerackTournament = await ctx.db
+      .query("spicerackTournaments")
+      .withIndex("by_spicerack_tournament_id", (q) =>
+        q.eq("spicerackTournamentId", args.spicerackTournamentId),
+      )
+      .unique();
+    if (!spicerackTournament) {
+      throw new Error(
+        `Spicerack tournament ${args.spicerackTournamentId} not found`,
+      );
+    }
+    return spicerackTournament.completedRounds ?? [];
   },
 });

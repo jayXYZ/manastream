@@ -195,6 +195,51 @@ export async function enrichDeckOverlay(
   };
 }
 
+export async function enrichStandingsOverlay(
+  ctx: QueryCtx,
+  overlay: Doc<"overlays"> & { overlayType: "standings" },
+) {
+  // If no roundStandingsId is set, return overlay without standings data
+  if (!overlay.roundStandingsId) {
+    return {
+      ...overlay,
+      standingsDataWithPlayers: undefined,
+    };
+  }
+
+  // Read the existing standings (created by updateStandingsOverlay mutation)
+  const roundStandings = await ctx.db.get(overlay.roundStandingsId);
+  if (!roundStandings || roundStandings.standings === "PENDING") {
+    return {
+      ...overlay,
+      standingsDataWithPlayers: undefined,
+    };
+  }
+
+  // Enrich standings with player data
+  const standingsDataWithPlayers = await Promise.all(
+    roundStandings.standings.map(async (standing) => {
+      // Try to find matching player by spicerackPlayerId
+      const player = await ctx.db
+        .query("players")
+        .withIndex("by_spicerack_player_id", (q) =>
+          q.eq("spicerackPlayerId", standing.player_id),
+        )
+        .first();
+
+      return {
+        ...standing,
+        playerData: player ?? undefined,
+      };
+    }),
+  );
+
+  return {
+    ...overlay,
+    standingsDataWithPlayers,
+  };
+}
+
 /**
  * Helper function to enrich an overlay based on its type.
  * Returns the enriched overlay if it needs enrichment, otherwise returns the original overlay.
@@ -209,6 +254,10 @@ export async function enrichOverlay(
 
   if (overlay.overlayType === "deck") {
     return await enrichDeckOverlay(ctx, overlay);
+  }
+
+  if (overlay.overlayType === "standings") {
+    return await enrichStandingsOverlay(ctx, overlay);
   }
 
   return overlay;
@@ -236,6 +285,9 @@ export async function initializeNewUserOverlays(
 
   // Create a deck overlay
   await createDeckOverlayHelper(ctx, tournamentId, "Deck Overlay");
+
+  // Create a standings overlay
+  await createStandingsOverlayHelper(ctx, tournamentId, "Standings Overlay");
 
   // Create default settings for the new user
   await ctx.db.insert("settings", {

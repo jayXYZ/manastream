@@ -125,7 +125,9 @@ export function TournamentPreviewController() {
               </div>
               <div className="flex flex-row justify-between">
                 <div className="text-sm text-white/60">Standings Overlay</div>
-                <div className="text-sm text-white/60">N/A</div>
+                <div className="text-sm text-white/60">
+                  {standingsOverlay?.name ?? "N/A"}
+                </div>
               </div>
               <div className="flex flex-row justify-between">
                 <div className="text-sm text-white/60">Commentator Right</div>
@@ -170,7 +172,13 @@ function TournamentOverlayPreviewDialog({
   const deckOverlay = userOverlays.find(
     (overlay) => overlay.overlayType === "deck",
   ) as DeckOverlay;
+  const standingsOverlay = userOverlays.find(
+    (overlay) => overlay.overlayType === "standings",
+  ) as StandingsOverlay;
   const allFeatureMatches = useQuery(api.featurematches.getAllFeatureMatches);
+  const completedRounds = useQuery(api.spicerack.getSpicerackCompletedRounds, {
+    spicerackTournamentId: tournament.spicerackTournamentId ?? -1,
+  });
   const [inputs, setInputs] = useState({
     eventName: tournament.eventName ?? "",
     currentRoundDisplayName: tournament.currentRoundDisplayName ?? "",
@@ -179,13 +187,16 @@ function TournamentOverlayPreviewDialog({
     commentatorRight: commentaryOverlay.commentatorRight ?? "",
     commentatorRightSubText: commentaryOverlay.commentatorRightSubText ?? "",
     deckOverlayMatchId: deckOverlay?.matchId,
+    standingsOverlayRoundId: standingsOverlay?.spicerackRoundId ?? -1,
   });
   const updateDeckOverlay = useMutation(api.overlays.updateDeckOverlay);
   const updateTournament = useMutation(api.tournaments.updateTournamentInfo);
   const updateCommentaryOverlay = useMutation(
     api.overlays.updateCommentaryOverlay,
   );
-
+  const updateStandingsOverlay = useMutation(
+    api.overlays.updateStandingsOverlay,
+  );
   const handleUpdate = () => {
     if (deckOverlay) {
       updateDeckOverlay({
@@ -205,6 +216,12 @@ function TournamentOverlayPreviewDialog({
       eventName: inputs.eventName,
       currentRoundDisplayName: inputs.currentRoundDisplayName,
     });
+    if (standingsOverlay) {
+      updateStandingsOverlay({
+        overlayId: standingsOverlay._id,
+        spicerackRoundId: inputs.standingsOverlayRoundId,
+      });
+    }
   };
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -267,11 +284,32 @@ function TournamentOverlayPreviewDialog({
             </div>
             <div className="flex flex-col gap-2">
               <Label>Standings Overlay Round</Label>
-              <Select disabled>
+              <Select
+                value={
+                  inputs.standingsOverlayRoundId === -1
+                    ? ""
+                    : inputs.standingsOverlayRoundId.toString()
+                }
+                onValueChange={(value) =>
+                  setInputs({
+                    ...inputs,
+                    standingsOverlayRoundId: value ? Number(value) : -1,
+                  })
+                }
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select a round" />
                 </SelectTrigger>
-                <SelectContent></SelectContent>
+                <SelectContent>
+                  {completedRounds?.map((round) => (
+                    <SelectItem
+                      key={round.roundId}
+                      value={round.roundId.toString()}
+                    >
+                      {round.roundName}
+                    </SelectItem>
+                  )) ?? <SelectItem value="N/A">N/A</SelectItem>}
+                </SelectContent>
               </Select>
             </div>
           </div>
