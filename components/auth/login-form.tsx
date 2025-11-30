@@ -98,7 +98,7 @@ export function LoginForm({
                   Continue with Google
                 </Button>
               </Field>
-              <FieldSeparator className="*:data-[slot=field-separator-content]:bg-card">
+              <FieldSeparator className="*:data-[slot=field-separator-content]:bg-background">
                 Or
               </FieldSeparator>
               <Field>

@@ -8,9 +8,18 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "../theme-toggle";
+import { useRouter } from "next/navigation";
 
 export function NavUser() {
   const { signOut } = useAuthActions();
+  const router = useRouter();
+
+  const handleSignOut = () => {
+    void signOut().then(() => {
+      router.push("/");
+    });
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -26,7 +35,7 @@ export function NavUser() {
           <ThemeToggle />
         </DropdownMenuItem>
         <DropdownMenuItem>
-          <Button variant="ghost" onClick={() => signOut()}>
+          <Button variant="ghost" onClick={handleSignOut}>
             Sign out
           </Button>
         </DropdownMenuItem>
