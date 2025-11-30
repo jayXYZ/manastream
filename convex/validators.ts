@@ -34,6 +34,11 @@ export const tournamentValidator = v.object({
   manualTimerCountDirection: v.optional(
     v.union(v.literal("up"), v.literal("down")),
   ),
+  // Commentator info (broadcast-level, shared across overlays)
+  commentatorLeft: v.optional(v.string()),
+  commentatorLeftSubText: v.optional(v.string()),
+  commentatorRight: v.optional(v.string()),
+  commentatorRightSubText: v.optional(v.string()),
   createdAt: v.number(),
   updatedAt: v.number(),
 });
@@ -325,6 +330,11 @@ export const getTournamentInfoValidator = v.object({
     v.union(v.literal("up"), v.literal("down")),
   ),
   manualTimerPausedAt: v.optional(v.number()),
+  // Commentator info for overlays
+  commentatorLeft: v.optional(v.string()),
+  commentatorLeftSubText: v.optional(v.string()),
+  commentatorRight: v.optional(v.string()),
+  commentatorRightSubText: v.optional(v.string()),
 });
 
 // Validator for updateMatchOverlay arguments

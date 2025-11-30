@@ -16,7 +16,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  CommentaryOverlay,
   DeckOverlay,
   Overlay,
   Tournament,
@@ -41,9 +40,6 @@ export function TournamentPreviewController() {
   const tournament = useQuery(api.tournaments.getUserTournament);
   const userOverlays = useQuery(api.overlays.getUserOverlays);
 
-  const commentaryOverlay = userOverlays?.find(
-    (overlay) => overlay.overlayType === "commentary",
-  );
   const deckOverlay = userOverlays?.find(
     (overlay) => overlay.overlayType === "deck",
   ) as DeckOverlay;
@@ -58,7 +54,7 @@ export function TournamentPreviewController() {
       : "skip",
   );
 
-  if (!tournament || !userOverlays || !commentaryOverlay || !deckOverlay) {
+  if (!tournament || !userOverlays || !deckOverlay) {
     return null;
   }
 
@@ -105,13 +101,13 @@ export function TournamentPreviewController() {
               <div className="flex flex-row justify-between">
                 <div className="text-sm text-white/60">Commentator Left</div>
                 <div className="text-sm text-white/60">
-                  {commentaryOverlay.commentatorLeft}
+                  {tournament.commentatorLeft}
                 </div>
               </div>
               <div className="flex flex-row justify-between">
                 <div className="text-sm text-white/60">Subtext Left</div>
                 <div className="text-sm text-white/60">
-                  {commentaryOverlay.commentatorLeftSubText}
+                  {tournament.commentatorLeftSubText}
                 </div>
               </div>
             </div>
@@ -132,13 +128,13 @@ export function TournamentPreviewController() {
               <div className="flex flex-row justify-between">
                 <div className="text-sm text-white/60">Commentator Right</div>
                 <div className="text-sm text-white/60">
-                  {commentaryOverlay.commentatorRight}
+                  {tournament.commentatorRight}
                 </div>
               </div>
               <div className="flex flex-row justify-between">
                 <div className="text-sm text-white/60">Subtext Right</div>
                 <div className="text-sm text-white/60">
-                  {commentaryOverlay.commentatorRightSubText}
+                  {tournament.commentatorRightSubText}
                 </div>
               </div>
             </div>
@@ -166,9 +162,6 @@ function TournamentOverlayPreviewDialog({
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
 }) {
-  const commentaryOverlay = userOverlays?.find(
-    (overlay) => overlay.overlayType === "commentary",
-  ) as CommentaryOverlay;
   const deckOverlay = userOverlays.find(
     (overlay) => overlay.overlayType === "deck",
   ) as DeckOverlay;
@@ -182,18 +175,16 @@ function TournamentOverlayPreviewDialog({
   const [inputs, setInputs] = useState({
     eventName: tournament.eventName ?? "",
     currentRoundDisplayName: tournament.currentRoundDisplayName ?? "",
-    commentatorLeft: commentaryOverlay.commentatorLeft ?? "",
-    commentatorLeftSubText: commentaryOverlay.commentatorLeftSubText ?? "",
-    commentatorRight: commentaryOverlay.commentatorRight ?? "",
-    commentatorRightSubText: commentaryOverlay.commentatorRightSubText ?? "",
+    // Commentator info now comes from tournament
+    commentatorLeft: tournament.commentatorLeft ?? "",
+    commentatorLeftSubText: tournament.commentatorLeftSubText ?? "",
+    commentatorRight: tournament.commentatorRight ?? "",
+    commentatorRightSubText: tournament.commentatorRightSubText ?? "",
     deckOverlayMatchId: deckOverlay?.matchId,
     standingsOverlayRoundId: standingsOverlay?.spicerackRoundId ?? -1,
   });
   const updateDeckOverlay = useMutation(api.overlays.updateDeckOverlay);
   const updateTournament = useMutation(api.tournaments.updateTournamentInfo);
-  const updateCommentaryOverlay = useMutation(
-    api.overlays.updateCommentaryOverlay,
-  );
   const updateStandingsOverlay = useMutation(
     api.overlays.updateStandingsOverlay,
   );
@@ -204,17 +195,15 @@ function TournamentOverlayPreviewDialog({
         matchId: inputs.deckOverlayMatchId,
       });
     }
-    updateCommentaryOverlay({
-      overlayId: commentaryOverlay._id,
-      commentatorLeft: inputs.commentatorLeft,
-      commentatorLeftSubText: inputs.commentatorLeftSubText,
-      commentatorRight: inputs.commentatorRight,
-      commentatorRightSubText: inputs.commentatorRightSubText,
-    });
+    // Update tournament with event info AND commentator info
     updateTournament({
       tournamentId: tournament._id,
       eventName: inputs.eventName,
       currentRoundDisplayName: inputs.currentRoundDisplayName,
+      commentatorLeft: inputs.commentatorLeft,
+      commentatorLeftSubText: inputs.commentatorLeftSubText,
+      commentatorRight: inputs.commentatorRight,
+      commentatorRightSubText: inputs.commentatorRightSubText,
     });
     if (standingsOverlay) {
       updateStandingsOverlay({
