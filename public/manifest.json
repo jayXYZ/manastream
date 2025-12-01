@@ -9,7 +9,7 @@
   "background_color": "#000000",
   "icons": [
     {
-      "src": "/swamp-white.svg",
+      "src": "/images/icons/swamp-white.svg",
       "sizes": "367x381",
       "type": "image/svg+xml",
       "purpose": "any"

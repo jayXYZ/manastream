@@ -132,7 +132,7 @@ function MatchDefaultOverlayFooter({
   tournamentInfo: TournamentInfo;
 }) {
   return (
-    <div className="w-full h-[60px] absolute bottom-0">
+    <div className="w-full h-[70px] items-center flex absolute bottom-0 z-10">
       {/* Commentators */}
       {(tournamentInfo.commentatorLeft || tournamentInfo.commentatorRight) && (
         <div className="flex items-center gap-2 text-[24px] text-white/80 ml-[40px]">

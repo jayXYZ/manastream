@@ -24,7 +24,7 @@ export const metadata: Metadata = {
   title: "Manastream",
   description: "Manastream",
   icons: {
-    icon: "/swamp-white.svg",
+    icon: "/images/icons/swamp-white.svg",
   },
   manifest: "/manifest.json",
   appleWebApp: {
