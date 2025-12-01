@@ -2,12 +2,12 @@
 
 import { ReactNode } from "react";
 import {
-  HeartPlus,
   Monitor,
   Settings,
   Trophy,
   Timer as TimerIcon,
   ChevronsRight,
+  User,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -44,9 +44,9 @@ const navigationItems = [
     icon: TimerIcon,
   },
   {
-    name: "Life Tracker",
-    href: "/lifetracker",
-    icon: HeartPlus,
+    name: "Players",
+    href: "/dashboard/players",
+    icon: User,
   },
 ];
 
