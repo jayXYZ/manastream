@@ -620,7 +620,7 @@ export const pollTournamentAndScheduleNext = internalAction({
 
 export const getSpicerackCompletedRounds = query({
   args: {
-    spicerackTournamentId: v.number(),
+    spicerackTournamentId: v.optional(v.number()),
   },
   returns: v.array(
     v.object({
@@ -629,10 +629,13 @@ export const getSpicerackCompletedRounds = query({
     }),
   ),
   handler: async (ctx, args) => {
+    if (!args.spicerackTournamentId || args.spicerackTournamentId === -1) {
+      return [];
+    }
     const spicerackTournament = await ctx.db
       .query("spicerackTournaments")
       .withIndex("by_spicerack_tournament_id", (q) =>
-        q.eq("spicerackTournamentId", args.spicerackTournamentId),
+        q.eq("spicerackTournamentId", args.spicerackTournamentId!),
       )
       .unique();
     if (!spicerackTournament) {

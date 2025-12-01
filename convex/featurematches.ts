@@ -45,6 +45,9 @@ export const getCurrentRoundFeatureMatches = query({
   returns: v.array(featureMatchWithPlayersValidator),
   handler: async (ctx) => {
     const tournament = await requireSpicerackTournament(ctx);
+    if (!tournament) {
+      return [];
+    }
     const currentRoundNumber = tournament.currentRoundNumber;
     if (!currentRoundNumber) {
       return [];
@@ -63,6 +66,9 @@ export const getAllFeatureMatches = query({
   returns: v.array(featureMatchWithPlayersValidator),
   handler: async (ctx) => {
     const tournament = await requireSpicerackTournament(ctx);
+    if (!tournament) {
+      return [];
+    }
     const featureMatchesWithPlayerData = await getFeatureMatchesWithPlayerData(
       ctx,
       tournament.spicerackTournamentId,

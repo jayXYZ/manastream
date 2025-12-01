@@ -36,12 +36,10 @@ export async function requireUserTournament(
 
 export async function requireSpicerackTournament(
   ctx: QueryCtx | MutationCtx,
-): Promise<Doc<"spicerackTournaments">> {
+): Promise<Doc<"spicerackTournaments"> | null> {
   const tournament = await getOwnTournament(ctx);
   if (!tournament.spicerackTournamentId) {
-    throw new Error(
-      "No Spicerack tournament ID found for this user tournament",
-    );
+    return null;
   }
   const spicerackTournamentId = tournament.spicerackTournamentId;
   const spicerackTournament = await ctx.db
