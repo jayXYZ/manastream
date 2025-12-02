@@ -4,7 +4,8 @@ import { useConvexAuth } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { ArrowRightIcon } from "lucide-react";
+import { ArrowRightIcon, BookIcon } from "lucide-react";
+import Link from "next/link";
 
 export default function Home() {
   return (
@@ -60,29 +61,42 @@ function Content() {
       </div>
       <div className="relative z-10 flex flex-col h-full items-center justify-center gap-8">
         <div className="flex flex-col items-center justify-center gap-2">
-          {!isAuthenticated && (
-            <h1 className="text-2xl font-bold">
-              Sign in above to get started :)
-            </h1>
-          )}
-          {isAuthenticated && (
-            <h1 className="text-2xl font-bold">Welcome to ManaStream!</h1>
-          )}
+          <h1 className="text-2xl font-bold">Welcome to ManaStream!</h1>
+
           <p className="text-sm text-muted-foreground">
-            ManaStream is a tool for creating and managing your own Magic: The
-            Gathering streams.
+            ManaStream is a tool for creating and managing your own TCG
+            overlays.
           </p>
         </div>
-        {isAuthenticated && (
-          <div className="flex flex-row gap-8">
-            <Button onClick={() => router.push("/dashboard")}>
-              Go to dashboard <ArrowRightIcon className="h-4 w-4" />
-            </Button>
-            <Button onClick={() => router.push("/lifetracker")}>
-              Go to lifetracker <ArrowRightIcon className="h-4 w-4" />
-            </Button>
-          </div>
-        )}
+        <div className="flex flex-col gap-8">
+          {isAuthenticated && (
+            <div className="flex flex-col gap-8">
+              <div className="flex flex-row gap-8">
+                <Button onClick={() => router.push("/dashboard")}>
+                  Go to dashboard <ArrowRightIcon className="h-4 w-4" />
+                </Button>
+                <Button onClick={() => router.push("/lifetracker")}>
+                  Go to lifetracker <ArrowRightIcon className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="flex flex-row justify-center gap-8">
+                <Link href="https://docs.manastream.app/docs" target="_blank">
+                  <Button variant="secondary">
+                    <BookIcon className="h-4 w-4" />
+                    Read the docs
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          )}
+          {!isAuthenticated && (
+            <div className="flex flex-row gap-8">
+              <Button onClick={() => router.push("/login")}>
+                Get started <ArrowRightIcon className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
