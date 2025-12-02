@@ -3,16 +3,24 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "../theme-toggle";
 import { useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
+import Link from "next/link";
+import { HelpCircleIcon, LogOutIcon } from "lucide-react";
 
 export function NavUser() {
   const { signOut } = useAuthActions();
   const router = useRouter();
+  const { theme, setTheme } = useTheme();
 
   const handleSignOut = () => {
     void signOut().then(() => {
@@ -30,14 +38,32 @@ export function NavUser() {
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent>
+      <DropdownMenuContent align="end">
         <DropdownMenuItem>
-          <ThemeToggle />
+          <Link href="https://docs.manastream.app/docs" target="_blank">
+            <span className="flex items-center gap-2">
+              <HelpCircleIcon className="size-4" />
+              Read the docs
+            </span>
+          </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem>
-          <Button variant="ghost" onClick={handleSignOut}>
-            Sign out
-          </Button>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="text-xs text-muted-foreground">
+            Theme
+          </DropdownMenuLabel>
+          <DropdownMenuRadioGroup value={theme} onValueChange={setTheme}>
+            <DropdownMenuRadioItem value="system">System</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="light">Light</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="dark">Dark</DropdownMenuRadioItem>
+          </DropdownMenuRadioGroup>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={handleSignOut}>
+          <span className="flex items-center gap-2">
+            <LogOutIcon className="size-4" />
+            Logout
+          </span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
