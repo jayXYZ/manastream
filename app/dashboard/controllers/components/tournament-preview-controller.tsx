@@ -213,7 +213,7 @@ function TournamentOverlayPreviewDialog({
       commentatorRight: inputs.commentatorRight,
       commentatorRightSubText: inputs.commentatorRightSubText,
     });
-    if (standingsOverlay) {
+    if (standingsOverlay && inputs.standingsOverlayRoundId !== -1) {
       updateStandingsOverlay({
         overlayId: standingsOverlay._id,
         spicerackRoundId: inputs.standingsOverlayRoundId,
