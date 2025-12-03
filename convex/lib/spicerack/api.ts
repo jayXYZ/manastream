@@ -1,7 +1,9 @@
 import {
   Decklist,
   SpicerackEventResponse,
+  SpicerackRegisteredPlayersResponse,
   SpicerackTournamentPhase,
+  SpicerackRoundStandings,
 } from "../../types/spicerack";
 import { withRetry } from "../utils";
 
@@ -95,6 +97,8 @@ export async function fetchSpicerackEventOverviewData(
 ): Promise<{
   id: number;
   event_status: string;
+  current_round_id: number;
+  current_round_number: number;
 }> {
   return withRetry(async () => {
     const response = await fetch(
@@ -131,6 +135,67 @@ export async function fetchSpicerackEventOverviewData(
     return {
       id: jsonData.id,
       event_status,
+      current_round_id: jsonData.current_round.id,
+      current_round_number: jsonData.current_round.round_number,
+    };
+  });
+}
+
+export async function fetchSpicerackRegisteredPlayers(
+  spicerackTournamentId: number,
+  spicerackApiKey: string,
+): Promise<SpicerackRegisteredPlayersResponse[]> {
+  return withRetry(async () => {
+    const response = await fetch(
+      `https://api.spicerack.gg/api/v1/magic-events/${spicerackTournamentId}/registrations`,
+      {
+        headers: {
+          "X-API-Key": spicerackApiKey,
+        },
+      },
+    );
+    if (!response.ok) {
+      throw new Error(`Failed to fetch registered players: ${response.status}`);
+    }
+    const jsonData = await response.json();
+    return jsonData;
+  });
+}
+
+/**
+ * Fetch Spicerack round standings data with retry logic
+ * @param spicerackRoundId - The ID of the Spicerack round
+ * @param spicerackApiKey - The API key for the Spicerack API
+ * @returns The round number
+ * @returns The round standings data
+ * @throws Error if the API request fails or the response is invalid
+ */
+export async function fetchSpicerackRoundStandingsData(
+  spicerackRoundId: number,
+  spicerackApiKey: string,
+): Promise<SpicerackRoundStandings> {
+  return withRetry(async () => {
+    const response = await fetch(
+      `https://api.spicerack.gg/api/v1/tournament-rounds/${spicerackRoundId}/standings`,
+      {
+        headers: {
+          "X-API-Key": spicerackApiKey,
+        },
+      },
+    );
+    if (!response.ok) {
+      throw new Error(
+        `Failed to fetch round standings data: ${response.status}`,
+      );
+    }
+    const jsonData = await response.json();
+
+    if (!jsonData.round_number || !jsonData.standings) {
+      throw new Error("Invalid API response structure");
+    }
+    return {
+      round_number: jsonData.round_number,
+      standings: jsonData.standings,
     };
   });
 }

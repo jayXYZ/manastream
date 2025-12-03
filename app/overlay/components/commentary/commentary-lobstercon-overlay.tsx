@@ -1,15 +1,16 @@
-// import { api } from "@/convex/_generated/api";
+import { api } from "@/convex/_generated/api";
 import { CommentaryOverlay as CommentaryOverlayType } from "@/convex/types";
-// import { useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 
 export default function CommentaryLobsterconOverlay({
   data,
 }: {
   data: CommentaryOverlayType;
 }) {
-  // const tournamentInfo = useQuery(api.tournaments.getTournamentInfo, {
-  //   tournamentId: data.tournamentId,
-  // });
+  // Fetch commentator info from tournament (source of truth)
+  const tournamentInfo = useQuery(api.tournaments.getTournamentInfo, {
+    tournamentId: data.tournamentId,
+  });
   // const twitter = (
   //   <svg
   //     viewBox="0 0 256 209"
@@ -42,10 +43,25 @@ export default function CommentaryLobsterconOverlay({
   //   </svg>
   // );
 
+  // Use tournament info for commentator names (source of truth)
+  // Fall back to overlay data for backwards compatibility
+  const commentatorLeft =
+    tournamentInfo?.commentatorLeft ?? data?.commentatorLeft ?? "N/A";
+  const commentatorLeftSubText =
+    tournamentInfo?.commentatorLeftSubText ??
+    data?.commentatorLeftSubText ??
+    "N/A";
+  const commentatorRight =
+    tournamentInfo?.commentatorRight ?? data?.commentatorRight ?? "N/A";
+  const commentatorRightSubText =
+    tournamentInfo?.commentatorRightSubText ??
+    data?.commentatorRightSubText ??
+    "N/A";
+
   return (
     <div className="text-[#fff] w-[1920px] h-[1080px]">
       <div className="absolute top-[940px] right-[1135px] text-right">
-        <div className="text-[36px]">{data?.commentatorLeft ?? "N/A"}</div>
+        <div className="text-[36px]">{commentatorLeft}</div>
         <div className="mt-[-16px]">
           {/* <span>
             {data.commentatorLeftSocialMedia === "twitter"
@@ -55,12 +71,12 @@ export default function CommentaryLobsterconOverlay({
                 : ""}
           </span> */}
           <span className="text-[28px] ml-[10px]">
-            {data?.commentatorLeftSubText ?? "N/A"}
+            {commentatorLeftSubText}
           </span>
         </div>
       </div>
       <div className="absolute top-[940px] left-[1135px] text-left">
-        <div className="text-[36px]">{data?.commentatorRight ?? "N/A"}</div>
+        <div className="text-[36px]">{commentatorRight}</div>
         <div className="mt-[-16px]">
           {/* <span>
             {data.commentatorRightSocialMedia === "twitter"
@@ -70,7 +86,7 @@ export default function CommentaryLobsterconOverlay({
                 : ""}
           </span> */}
           <span className="text-[28px] ml-[10px]">
-            {data?.commentatorRightSubText ?? "N/A"}
+            {commentatorRightSubText}
           </span>
         </div>
       </div>

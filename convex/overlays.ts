@@ -40,3 +40,10 @@ export {
 
 // Shared operations
 export { setOverlayTemplate, deleteOverlay } from "./_overlays/shared";
+
+// Standings overlay operations
+export {
+  updateSpicerackRoundStandings,
+  fetchAndUpdateSpicerackRoundStandings,
+  updateStandingsOverlay,
+} from "./_overlays/standings";

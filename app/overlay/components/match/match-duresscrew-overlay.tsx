@@ -2,6 +2,8 @@ import { api } from "@/convex/_generated/api";
 import { MatchOverlayWithPlayers } from "@/convex/types";
 import { useQuery } from "convex/react";
 import Timer from "@/components/timer";
+import { MicIcon } from "lucide-react";
+import Image from "next/image";
 
 export default function MatchDuressCrewOverlay({
   data,
@@ -11,9 +13,20 @@ export default function MatchDuressCrewOverlay({
   const tournamentInfo = useQuery(api.tournaments.getTournamentInfo, {
     tournamentId: data.tournamentId,
   });
+  if (!tournamentInfo) {
+    return null;
+  }
   return (
-    <div className="text-[#fff]">
-      <div className="h-[130px] absolute top-0 min-w-full">
+    <div className="text-[#fff] w-[1920px] h-[1080px]">
+      <Image
+        src="/images/overlays/duresscrew/overlay-top-final.jpg"
+        alt="Duress Crew Overlay Background"
+        width={1920}
+        height={130}
+        className="absolute top-0 left-0"
+      />
+
+      <div className="h-[130px] absolute top-0 min-w-full z-10">
         <div className="absolute left-[40px] text-[100px] text-center font-bold mt-[-20px]">
           {data.player1Life}
         </div>
@@ -51,7 +64,7 @@ export default function MatchDuressCrewOverlay({
           {tournamentInfo?.currentRoundDisplayName || "N/A"}
         </div>
         <div className="absolute left-0 right-0 mt-auto mb-auto text-center font-bold text-[60px] pt-[28px]">
-          {tournamentInfo && <Timer tournamentInfo={tournamentInfo} />}
+          <Timer tournamentInfo={tournamentInfo} />
         </div>
 
         <div
@@ -98,6 +111,34 @@ export default function MatchDuressCrewOverlay({
               {typeof data.format === "string" ? data.format : "N/A"} |{" "}
               {typeof data.event === "string" ? data.event : "N/A"}
             </div> */}
+      </div>
+      <Image
+        src="/images/overlays/duresscrew/footer-bg.png"
+        alt="Duress Crew Overlay Footer Background"
+        width={1920}
+        height={70}
+        className="absolute bottom-0 left-0"
+      />
+      <div className="w-full h-[70px] items-center flex absolute bottom-0 z-10">
+        {/* Commentators */}
+        {(tournamentInfo.commentatorLeft ||
+          tournamentInfo.commentatorRight) && (
+          <div className="flex items-center gap-2 text-[24px] text-white/80 ml-[40px]">
+            <span>
+              <MicIcon className="size-6" />
+            </span>
+            {tournamentInfo.commentatorLeft && (
+              <span>{tournamentInfo.commentatorLeft}</span>
+            )}
+            {tournamentInfo.commentatorLeft &&
+              tournamentInfo.commentatorRight && (
+                <span className="text-white/40">&</span>
+              )}
+            {tournamentInfo.commentatorRight && (
+              <span>{tournamentInfo.commentatorRight}</span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

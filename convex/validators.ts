@@ -21,13 +21,10 @@ export const tournamentValidator = v.object({
   spicerackTournamentStatus: v.optional(
     v.union(v.literal("active"), v.literal("completed")),
   ),
-  spicerackLastPolledAt: v.optional(v.number()),
   spicerackPollingStatus: v.optional(
     v.union(v.literal("active"), v.literal("inactive"), v.literal("error")),
   ),
   spicerackErrorMessage: v.optional(v.string()),
-  spicerackCurrentRoundId: v.number(),
-  spicerackCurrentRoundNumber: v.number(),
   currentRound: v.optional(v.number()),
   currentRoundDisplayName: v.optional(v.string()),
   manualTimerExpiry: v.optional(v.number()),
@@ -37,7 +34,31 @@ export const tournamentValidator = v.object({
   manualTimerCountDirection: v.optional(
     v.union(v.literal("up"), v.literal("down")),
   ),
+  // Commentator info (broadcast-level, shared across overlays)
+  commentatorLeft: v.optional(v.string()),
+  commentatorLeftSubText: v.optional(v.string()),
+  commentatorRight: v.optional(v.string()),
+  commentatorRightSubText: v.optional(v.string()),
   createdAt: v.number(),
+  updatedAt: v.number(),
+});
+
+export const spicerackTournamentValidator = v.object({
+  _id: v.id("spicerackTournaments"),
+  _creationTime: v.number(),
+  spicerackTournamentId: v.number(),
+  name: v.optional(v.string()),
+  currentRoundId: v.optional(v.number()),
+  currentRoundNumber: v.optional(v.number()),
+  currentRoundName: v.optional(v.string()),
+  completedRounds: v.optional(
+    v.array(
+      v.object({
+        roundId: v.number(),
+        roundName: v.string(),
+      }),
+    ),
+  ),
   updatedAt: v.number(),
 });
 
@@ -45,7 +66,8 @@ export const featureMatchValidator = v.object({
   _id: v.id("featureMatches"),
   _creationTime: v.number(),
   externalId: v.string(), // Spicerack Tournament ID + Round ID + Player 1 Name + Player 2 Name
-  tournamentId: v.id("tournaments"),
+  spicerackTournamentId: v.optional(v.number()),
+  tournamentId: v.optional(v.id("tournaments")),
   roundNumber: v.number(),
   player1: v.id("players"),
   player2: v.id("players"),
@@ -55,6 +77,43 @@ export const featureMatchValidator = v.object({
   spicerackTimerExpiry: v.optional(v.number()), // Unix timestamp
   spicerackTimerRunning: v.optional(v.boolean()),
   createdAt: v.number(),
+});
+
+export const playerInStandingsValidator = v.object({
+  rank: v.number(),
+  player_id: v.number(),
+  name: v.string(),
+  match_points: v.number(),
+  record: v.string(),
+  match_win_percentage: v.number(),
+  opponent_match_win_percentage: v.number(),
+  game_win_percentage: v.number(),
+  opponent_game_win_percentage: v.number(),
+  opponent_average_match_points: v.number(),
+  wins: v.number(),
+  losses: v.number(),
+  draws: v.number(),
+  games_won: v.number(),
+  games_lost: v.number(),
+  games_drawn: v.number(),
+  playoff_wins: v.number(),
+  playoff_losses: v.number(),
+  user_event_status_ids: v.array(v.number()),
+});
+
+export const roundStandingsValidator = v.object({
+  _id: v.id("roundStandings"),
+  _creationTime: v.number(),
+  spicerackRoundId: v.number(),
+  spicerackTournamentId: v.number(),
+  roundNumber: v.union(v.number(), v.literal("PENDING")),
+  standings: v.union(v.array(playerInStandingsValidator), v.literal("PENDING")),
+  updatedAt: v.number(),
+});
+
+export const spicerackRoundStandingsDataValidator = v.object({
+  round_number: v.number(),
+  standings: v.array(playerInStandingsValidator),
 });
 
 // Overlay Type Validators
@@ -125,16 +184,10 @@ export const standingsOverlayValidator = v.object({
   name: v.string(),
   overlayType: v.literal("standings"),
   tournamentId: v.id("tournaments"),
+
   publicUuid: v.string(), // Direct UUID string for public access
-  roundNumber: v.number(),
-  topPlayers: v.array(
-    v.object({
-      playerId: v.id("players"),
-      rank: v.number(),
-      record: v.string(),
-      points: v.number(),
-    }),
-  ),
+  roundStandingsId: v.optional(v.id("roundStandings")), // Reference to the round standings
+  spicerackRoundId: v.optional(v.number()),
   createdAt: v.number(),
 });
 
@@ -189,12 +242,13 @@ export const playerValidator = v.object({
   _id: v.id("players"),
   _creationTime: v.number(),
   name: v.string(),
-  externalId: v.number(),
-  tournamentId: v.id("tournaments"),
+  spicerackPlayerId: v.number(),
+  tournamentId: v.optional(v.id("tournaments")),
+  spicerackTournamentId: v.optional(v.number()),
   deckId: v.number(),
   deckName: v.string(), // Archetype name
   deckList: v.string(), // Plaintext deck list
-  createdAt: v.number(),
+  updatedAt: v.number(),
 });
 
 export const spicerackLogValidator = v.object({
@@ -237,12 +291,24 @@ export const deckOverlayWithMatchAndPlayersValidator = v.object({
   matchData: featureMatchWithPlayersValidator,
 });
 
+export const standingsOverlayWithPlayersValidator = v.object({
+  ...standingsOverlayValidator.fields,
+  standingsDataWithPlayers: v.optional(
+    v.array(
+      v.object({
+        ...playerInStandingsValidator.fields,
+        playerData: v.optional(playerValidator),
+      }),
+    ),
+  ),
+});
+
 // Getters
 export const getOverlayByIdValidator = v.union(
   matchOverlayWithPlayersValidator,
   cardOverlayValidator,
   deckOverlayWithMatchAndPlayersValidator,
-  standingsOverlayValidator,
+  standingsOverlayWithPlayersValidator,
   commentaryOverlayValidator,
 );
 
@@ -250,7 +316,7 @@ export const getOverlayByUuidValidator = v.union(
   matchOverlayWithPlayersValidator,
   cardOverlayValidator,
   deckOverlayWithMatchAndPlayersValidator,
-  standingsOverlayValidator,
+  standingsOverlayWithPlayersValidator,
   commentaryOverlayValidator,
   v.null(),
 );
@@ -264,6 +330,11 @@ export const getTournamentInfoValidator = v.object({
     v.union(v.literal("up"), v.literal("down")),
   ),
   manualTimerPausedAt: v.optional(v.number()),
+  // Commentator info for overlays
+  commentatorLeft: v.optional(v.string()),
+  commentatorLeftSubText: v.optional(v.string()),
+  commentatorRight: v.optional(v.string()),
+  commentatorRightSubText: v.optional(v.string()),
 });
 
 // Validator for updateMatchOverlay arguments

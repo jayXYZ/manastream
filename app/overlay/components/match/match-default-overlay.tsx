@@ -1,21 +1,10 @@
 import { api } from "@/convex/_generated/api";
-import { MatchOverlayWithPlayers } from "@/convex/types";
+import { MatchOverlayWithPlayers, TournamentInfo } from "@/convex/types";
 import { useQuery } from "convex/react";
 import Timer from "@/components/timer";
+import { MicIcon } from "lucide-react";
 
 export default function MatchDefaultOverlay({
-  data,
-}: {
-  data: MatchOverlayWithPlayers;
-}) {
-  return (
-    <div className="w-[1920px] h-[1080px]">
-      <MatchDefaultOverlayHeader data={data} />
-    </div>
-  );
-}
-
-export function MatchDefaultOverlayHeader({
   data,
 }: {
   data: MatchOverlayWithPlayers;
@@ -26,6 +15,21 @@ export function MatchDefaultOverlayHeader({
   if (!tournamentInfo) {
     return null;
   }
+  return (
+    <div className="w-[1920px] h-[1080px]">
+      <MatchDefaultOverlayHeader data={data} tournamentInfo={tournamentInfo} />
+      <MatchDefaultOverlayFooter tournamentInfo={tournamentInfo} />
+    </div>
+  );
+}
+
+export function MatchDefaultOverlayHeader({
+  data,
+  tournamentInfo,
+}: {
+  data: MatchOverlayWithPlayers;
+  tournamentInfo: TournamentInfo;
+}) {
   return (
     <div className="w-full h-[130px] absolute top-0">
       {/* Player 1 Life Total */}
@@ -69,13 +73,11 @@ export function MatchDefaultOverlayHeader({
       </div>
 
       {/* Center Text */}
-      <div className="absolute left-0 right-0 pt-[8px] text-center text-[24px]">
-        <div className="flex items-center justify-center gap-2">
-          {tournamentInfo.currentRoundDisplayName || "N/A"}
-          <div className="text-[24px] font-bold">
-            <Timer tournamentInfo={tournamentInfo} />
-          </div>
-        </div>
+      <div className="absolute left-0 right-0 text-center text-[24px] pt-[8px]">
+        {tournamentInfo?.currentRoundDisplayName || "N/A"}
+      </div>
+      <div className="absolute left-0 right-0 mt-auto mb-auto text-center font-bold text-[60px] pt-[28px]">
+        <Timer tournamentInfo={tournamentInfo} />
       </div>
 
       {/* Player 2 Info */}
@@ -118,6 +120,35 @@ export function MatchDefaultOverlayHeader({
       <div className="absolute right-[40px] mt-[-25px] text-center text-[110px] font-bold">
         {data.player2Life}
       </div>
+    </div>
+  );
+}
+
+function MatchDefaultOverlayFooter({
+  tournamentInfo,
+}: {
+  tournamentInfo: TournamentInfo;
+}) {
+  return (
+    <div className="w-full h-[70px] items-center flex absolute bottom-0 z-10">
+      {/* Commentators */}
+      {(tournamentInfo.commentatorLeft || tournamentInfo.commentatorRight) && (
+        <div className="flex items-center gap-2 text-[24px] text-white/80 ml-[40px]">
+          <span>
+            <MicIcon className="size-6" />
+          </span>
+          {tournamentInfo.commentatorLeft && (
+            <span>{tournamentInfo.commentatorLeft}</span>
+          )}
+          {tournamentInfo.commentatorLeft &&
+            tournamentInfo.commentatorRight && (
+              <span className="text-white/40">&</span>
+            )}
+          {tournamentInfo.commentatorRight && (
+            <span>{tournamentInfo.commentatorRight}</span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

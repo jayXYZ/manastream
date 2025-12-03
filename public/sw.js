@@ -1,5 +1,5 @@
 const CACHE_NAME = "dxc-overlay-lifetracker-v1";
-const urlsToCache = ["/lifetracker", "/swamp-white.svg"];
+const urlsToCache = ["/lifetracker", "/images/icons/swamp-white.svg"];
 
 // Install event - cache resources
 self.addEventListener("install", (event) => {

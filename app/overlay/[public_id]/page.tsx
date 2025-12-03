@@ -5,9 +5,10 @@ import {
   CardOverlay as CardOverlayType,
   MatchOverlayWithPlayers,
   DeckOverlay as DeckOverlayType,
-  StandingsOverlay,
+  StandingsOverlay as StandingsOverlayType,
   CommentaryOverlay as CommentaryOverlayType,
   Overlay as OverlayType,
+  FeatureMatchWithPlayers,
 } from "@/convex/types";
 import { useQuery } from "convex/react";
 import { use } from "react";
@@ -15,6 +16,7 @@ import CardOverlay from "../components/card-overlay";
 import MatchOverlay from "../components/match/match-overlay";
 import CommentaryOverlay from "../components/commentary/commentary-overlay";
 import DeckOverlay from "../components/deck/deck-overlay";
+import StandingsOverlay from "../components/standings-overlay";
 
 // Type guard functions for better type safety
 const isMatchOverlay = (
@@ -27,13 +29,17 @@ const isCardOverlay = (overlay: OverlayType): overlay is CardOverlayType => {
   return overlay.overlayType === "card";
 };
 
-const isDeckOverlay = (overlay: OverlayType): overlay is DeckOverlayType => {
+const isDeckOverlay = (
+  overlay: OverlayType,
+): overlay is DeckOverlayType & {
+  matchData: FeatureMatchWithPlayers | null;
+} => {
   return overlay.overlayType === "deck";
 };
 
 const isStandingsOverlay = (
   overlay: OverlayType,
-): overlay is StandingsOverlay => {
+): overlay is StandingsOverlayType => {
   return overlay.overlayType === "standings";
 };
 
@@ -58,7 +64,7 @@ const renderOverlay = (overlay: OverlayType) => {
   }
 
   if (isStandingsOverlay(overlay)) {
-    return <div>Standings overlay not yet implemented</div>;
+    return <StandingsOverlay data={overlay} />;
   }
 
   if (isCommentaryOverlay(overlay)) {

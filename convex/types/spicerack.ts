@@ -1,3 +1,9 @@
+import { Infer } from "convex/values";
+import {
+  playerInStandingsValidator,
+  spicerackRoundStandingsDataValidator,
+} from "../validators";
+
 /**
  * Spicerack API Types
  *
@@ -123,6 +129,18 @@ export interface SpicerackPlayerMatchRelationship {
 }
 
 /**
+ * Player in standings
+ */
+export type PlayerInStandings = Infer<typeof playerInStandingsValidator>;
+
+/**
+ * Standings for a round
+ */
+export type SpicerackRoundStandings = Infer<
+  typeof spicerackRoundStandingsDataValidator
+>;
+
+/**
  * Helper type for match status checks
  */
 export type MatchStatus = "UPCOMING" | "IN_PROGRESS" | "COMPLETE";
@@ -136,3 +154,16 @@ export type PhaseStatus = "UPCOMING" | "IN_PROGRESS" | "COMPLETE";
  * Helper type for round status checks
  */
 export type RoundStatus = "UPCOMING" | "IN_PROGRESS" | "COMPLETE";
+
+/**
+ * Registered players response from Spicerack API
+ */
+export interface SpicerackRegisteredPlayersResponse {
+  id: number;
+  user_identifier: string;
+  registration_status: string;
+  decklist: {
+    id: number;
+    archetype: string;
+  };
+}

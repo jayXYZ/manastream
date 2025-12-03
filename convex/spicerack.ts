@@ -2,30 +2,49 @@ import {
   internalAction,
   internalMutation,
   internalQuery,
+  query,
 } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { SpicerackTournamentPhase } from "./types/spicerack";
 import { logSpicerackEvent } from "./lib/logging";
 import { DEFAULT_MATCH, POLLING_INTERVAL } from "./lib/constants";
-import { settingsValidator, tournamentValidator } from "./validators";
+import {
+  settingsValidator,
+  spicerackTournamentValidator,
+  tournamentValidator,
+} from "./validators";
 import { checkForNewSpicerackRound } from "./lib/spicerack/rounds";
 import {
   fetchSpicerackEventData,
   fetchSpicerackEventOverviewData,
   fetchSpicerackDecklistData,
+  fetchSpicerackRegisteredPlayers,
 } from "./lib/spicerack/api";
+import { createSpicerackTournamentHelper } from "./lib/spicerack/tournament";
 
 export const updateNewSpicerackRound = internalMutation({
   args: {
     tournamentId: v.id("tournaments"),
+    spicerackTournamentId: v.number(),
     spicerackNewRoundId: v.number(),
     spicerackNewRoundNumber: v.number(),
   },
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.tournamentId, {
-      spicerackCurrentRoundId: args.spicerackNewRoundId,
-      spicerackCurrentRoundNumber: args.spicerackNewRoundNumber,
+    const spicerackTournament = await ctx.db
+      .query("spicerackTournaments")
+      .withIndex("by_spicerack_tournament_id", (q) =>
+        q.eq("spicerackTournamentId", args.spicerackTournamentId),
+      )
+      .unique();
+    if (!spicerackTournament) {
+      throw new Error(
+        `Spicerack tournament ${args.spicerackTournamentId} not found`,
+      );
+    }
+    await ctx.db.patch(spicerackTournament._id, {
+      currentRoundId: args.spicerackNewRoundId,
+      currentRoundNumber: args.spicerackNewRoundNumber,
     });
 
     const tournamentOverlays = await ctx.db
@@ -45,42 +64,75 @@ export const updateNewSpicerackRound = internalMutation({
   },
 });
 
+export const updateSpicerackTournament = internalMutation({
+  args: {
+    spicerackTournamentId: v.number(),
+    currentRoundId: v.optional(v.number()),
+    currentRoundNumber: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const spicerackTournament = await ctx.db
+      .query("spicerackTournaments")
+      .withIndex("by_spicerack_tournament_id", (q) =>
+        q.eq("spicerackTournamentId", args.spicerackTournamentId),
+      )
+      .unique();
+    if (!spicerackTournament) {
+      throw new Error(
+        `Spicerack tournament ${args.spicerackTournamentId} not found`,
+      );
+    }
+    await ctx.db.patch(spicerackTournament._id, {
+      currentRoundId: args.currentRoundId,
+      currentRoundNumber: args.currentRoundNumber,
+    });
+  },
+});
+
 /**
  * Internal query to get tournament data needed for polling
- * Returns tournament info with userId for fetching settings
+ * Returns user and spicerack tournament info along with user settings
  */
 export const getTournamentPollingData = internalQuery({
-  args: { tournamentId: v.id("tournaments") },
+  args: { userId: v.id("users") },
   returns: v.object({
     tournament: tournamentValidator,
+    spicerackTournament: v.optional(spicerackTournamentValidator),
     settings: settingsValidator,
   }),
   handler: async (ctx, args) => {
-    const tournament = await ctx.db.get(args.tournamentId);
-
+    const tournament = await ctx.db
+      .query("tournaments")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .unique();
     if (!tournament) {
-      throw new Error(`Tournament ${args.tournamentId} not found`);
+      throw new Error(`User ${args.userId} has no user tournament`);
     }
-    if (!tournament.spicerackTournamentId) {
-      throw new Error(
-        `Tournament ${args.tournamentId} has no spicerackTournamentId`,
-      );
+
+    let spicerackTournament = undefined;
+    if (tournament.spicerackTournamentId) {
+      spicerackTournament =
+        (await ctx.db
+          .query("spicerackTournaments")
+          .withIndex("by_spicerack_tournament_id", (q) =>
+            q.eq("spicerackTournamentId", tournament.spicerackTournamentId!),
+          )
+          .unique()) || undefined;
     }
 
     // Get user settings to retrieve API key
     const settings = await ctx.db
       .query("settings")
-      .withIndex("by_user", (q) => q.eq("userId", tournament.userId))
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .unique();
 
     if (!settings || !settings.spicerackApiKey) {
-      throw new Error(
-        `No settings or API key found for user ${tournament.userId}`,
-      );
+      throw new Error(`No settings or API key found for user ${args.userId}`);
     }
 
     return {
       tournament,
+      spicerackTournament,
       settings,
     };
   },
@@ -120,7 +172,6 @@ export const updateTournamentPollingStatus = internalMutation({
     spicerackPollingStatus: v.optional(
       v.union(v.literal("active"), v.literal("inactive"), v.literal("error")),
     ),
-    spicerackLastPolledAt: v.optional(v.number()),
     spicerackErrorMessage: v.optional(v.string()),
     // Logging parameters
     logAction: v.optional(v.string()),
@@ -163,6 +214,19 @@ export const updateTournamentPollingStatus = internalMutation({
   },
 });
 
+export const createNewSpicerackTournament = internalMutation({
+  args: {
+    spicerackTournamentId: v.number(),
+  },
+  returns: spicerackTournamentValidator,
+  handler: async (ctx, args) => {
+    return await createSpicerackTournamentHelper(
+      ctx,
+      args.spicerackTournamentId,
+    );
+  },
+});
+
 /**
  * Internal action to validate tournament and start polling
  * Called immediately when user enables auto mode
@@ -170,17 +234,16 @@ export const updateTournamentPollingStatus = internalMutation({
 export const validateAndStartPolling = internalAction({
   args: {
     userId: v.id("users"),
-    tournamentId: v.id("tournaments"),
   },
   handler: async (ctx, args) => {
-    const { tournament, settings } = await ctx.runQuery(
+    let { tournament, spicerackTournament, settings } = await ctx.runQuery(
       internal.spicerack.getTournamentPollingData,
-      { tournamentId: args.tournamentId },
+      { userId: args.userId },
     );
     if (
       !tournament ||
-      !settings ||
       !tournament.spicerackTournamentId ||
+      !settings ||
       !settings.spicerackApiKey
     ) {
       throw new Error(
@@ -188,10 +251,22 @@ export const validateAndStartPolling = internalAction({
       );
     }
 
+    if (!spicerackTournament) {
+      spicerackTournament = await ctx.runMutation(
+        internal.spicerack.createNewSpicerackTournament,
+        {
+          spicerackTournamentId: tournament.spicerackTournamentId,
+        },
+      );
+      if (!spicerackTournament) {
+        throw new Error(`Failed to create new Spicerack tournament`);
+      }
+    }
+
     // Check if polling is already active to prevent duplicate polling sessions
     if (tournament.spicerackPollingStatus === "active") {
       console.log(
-        `Polling already active for tournament ${args.tournamentId}. Skipping validation.`,
+        `Polling already active for tournament ${spicerackTournament.spicerackTournamentId}. Skipping validation.`,
       );
       return;
     }
@@ -199,14 +274,14 @@ export const validateAndStartPolling = internalAction({
     // Verify tournament is still in auto mode before starting polling
     if (tournament.mode !== "auto") {
       console.log(
-        `Tournament ${args.tournamentId} is not in auto mode. Skipping validation.`,
+        `Tournament ${spicerackTournament.spicerackTournamentId} is not in auto mode. Skipping validation.`,
       );
       return;
     }
 
     try {
       const overviewData = await fetchSpicerackEventOverviewData(
-        tournament.spicerackTournamentId,
+        spicerackTournament.spicerackTournamentId,
         settings.spicerackApiKey,
       );
 
@@ -215,7 +290,7 @@ export const validateAndStartPolling = internalAction({
         await ctx.runMutation(
           internal.spicerack.updateTournamentPollingStatus,
           {
-            tournamentId: args.tournamentId,
+            tournamentId: tournament._id,
             userId: args.userId,
             mode: "manual",
             spicerackPollingStatus: "error",
@@ -236,7 +311,7 @@ export const validateAndStartPolling = internalAction({
         await ctx.runMutation(
           internal.spicerack.updateTournamentPollingStatus,
           {
-            tournamentId: args.tournamentId,
+            tournamentId: tournament._id,
             userId: args.userId,
             mode: "manual",
             spicerackPollingStatus: "inactive",
@@ -250,13 +325,88 @@ export const validateAndStartPolling = internalAction({
         return;
       }
 
+      await ctx.runMutation(internal.spicerack.updateSpicerackTournament, {
+        spicerackTournamentId: spicerackTournament.spicerackTournamentId,
+        currentRoundId: overviewData.current_round_id,
+        currentRoundNumber: overviewData.current_round_number,
+      });
+
       console.log(
-        `Tournament ${args.tournamentId} validated. Status: ${overviewData.event_status}`,
+        `Tournament ${spicerackTournament.spicerackTournamentId} validated. Status: ${overviewData.event_status}`,
       );
+
+      const spicerackRegisteredPlayers = await fetchSpicerackRegisteredPlayers(
+        spicerackTournament.spicerackTournamentId,
+        settings.spicerackApiKey,
+      );
+      const cachedSpicerackPlayers = await ctx.runQuery(
+        internal.player.getAllSpicerackTournamentPlayerSpicerackIds,
+        { spicerackTournamentId: spicerackTournament.spicerackTournamentId },
+      );
+      const newPlayers = spicerackRegisteredPlayers.filter(
+        (player) => !cachedSpicerackPlayers.some((id) => id === player.id),
+      );
+
+      if (newPlayers.length > 0) {
+        const newPlayerAndDeckIds = await ctx.runMutation(
+          internal.player.createPlayers,
+          {
+            players: newPlayers.map((player) => ({
+              name: player.user_identifier,
+              spicerackPlayerId: player.id,
+              spicerackTournamentId: spicerackTournament.spicerackTournamentId,
+              deckId: player.decklist?.id ?? -1,
+              deckName: player.decklist?.id ? "PENDING" : "MISSING_DECKLIST",
+              deckList: player.decklist?.id ? "PENDING" : "MISSING_DECKLIST",
+            })),
+          },
+        );
+        // enqueue action batch to fetch decklists
+        // Filter for valid deck IDs before enqueueing
+        const playersWithDecks = newPlayerAndDeckIds.filter(
+          (id) => id.deckId > 0,
+        );
+
+        if (playersWithDecks.length > 0) {
+          const decklistPromises = playersWithDecks.map((playerWithDeck) => {
+            return fetchSpicerackDecklistData(
+              playerWithDeck.deckId,
+              settings.spicerackApiKey!,
+            )
+              .then((decklist) => ({
+                playerId: playerWithDeck.playerId,
+                deckName: decklist.deckname,
+                deckList: decklist.decklist,
+              }))
+              .catch((error) => {
+                console.error(
+                  `Failed to fetch decklist for player ${playerWithDeck.playerId}:`,
+                  error,
+                );
+                return {
+                  playerId: playerWithDeck.playerId,
+                  deckName: "Unknown",
+                  deckList: "Unknown",
+                };
+              });
+          });
+
+          const results = await Promise.allSettled(decklistPromises);
+          const newPlayerDecklists = results
+            .filter((result) => result.status === "fulfilled")
+            .map((result) => result.value);
+
+          if (newPlayerDecklists.length > 0) {
+            await ctx.runMutation(internal.player.updatePlayerDecklists, {
+              players: newPlayerDecklists,
+            });
+          }
+        }
+      }
 
       // Log success
       await ctx.runMutation(internal.spicerack.updateTournamentPollingStatus, {
-        tournamentId: args.tournamentId,
+        tournamentId: tournament._id,
         userId: args.userId,
         logAction: "VALIDATION_SUCCESS",
         logStatus: "success",
@@ -273,7 +423,7 @@ export const validateAndStartPolling = internalAction({
     } catch (error) {
       // Reset to manual mode and log error in one mutation
       await ctx.runMutation(internal.spicerack.updateTournamentPollingStatus, {
-        tournamentId: args.tournamentId,
+        tournamentId: tournament._id,
         userId: args.userId,
         mode: "manual",
         spicerackPollingStatus: "error",
@@ -305,27 +455,26 @@ export const detectNewRound = internalMutation({
 export const pollTournamentAndScheduleNext = internalAction({
   args: {
     userId: v.id("users"),
-    tournamentId: v.id("tournaments"),
   },
   handler: async (ctx, args) => {
-    const { tournament, settings } = await ctx.runQuery(
+    const { tournament, spicerackTournament, settings } = await ctx.runQuery(
       internal.spicerack.getTournamentPollingData,
-      { tournamentId: args.tournamentId },
+      { userId: args.userId },
     );
     if (
       !tournament ||
+      !spicerackTournament ||
       !settings ||
-      !tournament.spicerackTournamentId ||
       !settings.spicerackApiKey
     ) {
-      throw new Error(`Tournament ${args.tournamentId} not found`);
+      throw new Error(`Tournament ${args.userId} not found`);
     }
     // Extract API key to ensure TypeScript knows it's defined
     const spicerackApiKey = settings.spicerackApiKey;
     // Stop polling if tournament not found or not in auto mode
     if (tournament.mode !== "auto") {
       await ctx.runMutation(internal.spicerack.updateTournamentPollingStatus, {
-        tournamentId: args.tournamentId,
+        tournamentId: tournament._id,
         userId: args.userId,
         mode: "manual",
         spicerackPollingStatus: "inactive",
@@ -341,20 +490,19 @@ export const pollTournamentAndScheduleNext = internalAction({
     try {
       // Poll the Spicerack API
       const spicerackData = await fetchSpicerackEventData(
-        tournament.spicerackTournamentId,
+        spicerackTournament.spicerackTournamentId,
         spicerackApiKey,
       );
 
       console.log(
-        `Polled tournament ${args.tournamentId} - Status: ${spicerackData.settings.event_lifecycle_status}, Round: ${spicerackData.current_round_number}`,
+        `Polled tournament ${spicerackTournament.spicerackTournamentId} - Status: ${spicerackData.settings.event_lifecycle_status}, Round: ${spicerackData.current_round_number}`,
       );
 
       // Update tournament status and log successful fetch in one mutation
       await ctx.runMutation(internal.spicerack.updateTournamentPollingStatus, {
-        tournamentId: args.tournamentId,
+        tournamentId: tournament._id,
         userId: args.userId,
         spicerackPollingStatus: "active",
-        spicerackLastPolledAt: Date.now(),
         logAction: "FETCH_EVENT_SUCCESS",
         logStatus: "success",
         logMessage: `Successfully fetched event data. Status: ${spicerackData.settings.event_lifecycle_status}, Round: ${spicerackData.current_round_number}`,
@@ -366,7 +514,7 @@ export const pollTournamentAndScheduleNext = internalAction({
 
       // Check if current round has changed
       await ctx.runMutation(internal.spicerack.detectNewRound, {
-        tournamentId: args.tournamentId,
+        tournamentId: tournament._id,
         jsonData: spicerackData,
       });
 
@@ -374,14 +522,20 @@ export const pollTournamentAndScheduleNext = internalAction({
       const newPlayerAndDeckIds = await ctx.runMutation(
         internal.featurematches.createNewFeatureMatches,
         {
-          tournamentId: args.tournamentId,
+          spicerackTournamentId: spicerackTournament.spicerackTournamentId,
           jsonData: spicerackData,
         },
       );
       console.log(`New player and deck ids: ${newPlayerAndDeckIds}`);
 
-      if (newPlayerAndDeckIds.length > 0) {
-        const decklistPromises = newPlayerAndDeckIds.map((playerAndDeckId) => {
+      // Filter for valid deck IDs before fetching decklists
+      // (players without decklists have deckId: -1)
+      const playersWithDecks = newPlayerAndDeckIds.filter(
+        (id) => id.deckId > 0,
+      );
+
+      if (playersWithDecks.length > 0) {
+        const decklistPromises = playersWithDecks.map((playerAndDeckId) => {
           return fetchSpicerackDecklistData(
             playerAndDeckId.deckId,
             spicerackApiKey,
@@ -424,13 +578,13 @@ export const pollTournamentAndScheduleNext = internalAction({
         )
       ) {
         console.log(
-          `Tournament ${args.tournamentId} is complete. Stopping polling.`,
+          `Tournament ${spicerackTournament.spicerackTournamentId} is complete. Stopping polling.`,
         );
         // Update status and log completion in one mutation
         await ctx.runMutation(
           internal.spicerack.updateTournamentPollingStatus,
           {
-            tournamentId: args.tournamentId,
+            tournamentId: tournament._id,
             userId: args.userId,
             mode: "manual",
             spicerackPollingStatus: "inactive",
@@ -450,10 +604,13 @@ export const pollTournamentAndScheduleNext = internalAction({
         { ...args },
       );
     } catch (error) {
-      console.error(`Error polling tournament ${args.tournamentId}:`, error);
+      console.error(
+        `Error polling tournament ${spicerackTournament.spicerackTournamentId}:`,
+        error,
+      );
       // Update status and log error in one mutation
       await ctx.runMutation(internal.spicerack.updateTournamentPollingStatus, {
-        tournamentId: args.tournamentId,
+        tournamentId: tournament._id,
         userId: args.userId,
         mode: "manual",
         spicerackPollingStatus: "error",
@@ -464,5 +621,34 @@ export const pollTournamentAndScheduleNext = internalAction({
         logMetadata: { error: String(error) },
       });
     }
+  },
+});
+
+export const getSpicerackCompletedRounds = query({
+  args: {
+    spicerackTournamentId: v.optional(v.number()),
+  },
+  returns: v.array(
+    v.object({
+      roundId: v.number(),
+      roundName: v.string(),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    if (!args.spicerackTournamentId || args.spicerackTournamentId === -1) {
+      return [];
+    }
+    const spicerackTournament = await ctx.db
+      .query("spicerackTournaments")
+      .withIndex("by_spicerack_tournament_id", (q) =>
+        q.eq("spicerackTournamentId", args.spicerackTournamentId!),
+      )
+      .unique();
+    // Return empty array if the spicerackTournaments record doesn't exist yet
+    // (e.g., when a user sets spicerackTournamentId in manual mode before enabling auto mode)
+    if (!spicerackTournament) {
+      return [];
+    }
+    return spicerackTournament.completedRounds ?? [];
   },
 });

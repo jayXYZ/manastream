@@ -115,8 +115,6 @@ async function initializeNewUser(ctx: MutationCtx, userId: Id<"users">) {
   const tournamentId = await ctx.db.insert("tournaments", {
     userId,
     mode: "manual",
-    spicerackCurrentRoundId: -1,
-    spicerackCurrentRoundNumber: -1,
     manualTimerRunning: false,
     manualTimerCountDirection: "down",
     createdAt: Date.now(),
@@ -167,5 +165,19 @@ export const getUserAvatar = query({
     }
     const user = await ctx.db.get(userId);
     return user?.image;
+  },
+});
+
+export const getUserEmail = query({
+  args: {},
+  returns: v.union(v.string(), v.null()),
+  handler: async (ctx: QueryCtx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      // This should never happen?
+      throw new Error("User not authenticated");
+    }
+    const user = await ctx.db.get(userId);
+    return user?.email;
   },
 });

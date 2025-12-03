@@ -4,7 +4,10 @@ import { DEFAULT_MATCH } from "../constants";
 import { parseCurrentSpicerackRound } from "../../models/spicerack";
 import { SpicerackEventResponse } from "../../types/spicerack";
 import { logSpicerackEvent } from "../logging";
-import { getCurrentRoundDisplayName } from "../../models/spicerack";
+import {
+  getCurrentRoundDisplayName,
+  parseCompletedRounds,
+} from "../../models/spicerack";
 
 /**
  * Checks for a new Spicerack round and handles it if found.
@@ -18,8 +21,18 @@ export async function checkForNewSpicerackRound(
   jsonData: SpicerackEventResponse,
 ) {
   const tournament = await ctx.db.get(tournamentId);
-  if (!tournament) {
-    throw new Error("Tournament not found");
+  if (!tournament || !tournament.spicerackTournamentId) {
+    throw new Error("Tournament not found or missing Spicerack tournament ID");
+  }
+  const spicerackTournamentId = tournament.spicerackTournamentId;
+  const spicerackTournament = await ctx.db
+    .query("spicerackTournaments")
+    .withIndex("by_spicerack_tournament_id", (q) =>
+      q.eq("spicerackTournamentId", spicerackTournamentId),
+    )
+    .unique();
+  if (!spicerackTournament) {
+    throw new Error("Spicerack tournament not found");
   }
   const currentRound = parseCurrentSpicerackRound(jsonData);
   if (!currentRound) {
@@ -33,17 +46,20 @@ export async function checkForNewSpicerackRound(
     return;
   }
   if (
-    currentRound.id !== tournament.spicerackCurrentRoundId ||
-    currentRound.round_number !== tournament.spicerackCurrentRoundNumber
+    currentRound.id !== spicerackTournament.currentRoundId ||
+    currentRound.round_number !== spicerackTournament.currentRoundNumber
   ) {
     console.log("New round detected, handling new round");
     const newRoundDisplayName = getCurrentRoundDisplayName(jsonData);
+    const completedRounds = parseCompletedRounds(jsonData);
     await handleNewSpicerackRound(
       ctx,
       tournamentId,
+      spicerackTournament._id,
       currentRound.id,
       currentRound.round_number,
       newRoundDisplayName ?? "",
+      completedRounds,
     );
   }
 }
@@ -52,25 +68,38 @@ export async function checkForNewSpicerackRound(
  * Handle a new Spicerack round
  * @param ctx - The mutation context
  * @param tournamentId - The ID of the tournament
+ * @param spicerackTournamentDocId - The ID of the Spicerack tournament document
  * @param spicerackNewRoundId - The ID of the new round
  * @param spicerackNewRoundNumber - The number of the new round
+ * @param newRoundDisplayName - The display name of the new round
+ * @param completedRounds - The completed rounds
+ * @throws Error if the Spicerack tournament document is not found
  */
 export async function handleNewSpicerackRound(
   ctx: MutationCtx,
   tournamentId: Id<"tournaments">,
+  spicerackTournamentDocId: Id<"spicerackTournaments">,
   spicerackNewRoundId: number,
   spicerackNewRoundNumber: number,
   newRoundDisplayName: string | undefined,
+  completedRounds: { roundId: number; roundName: string }[],
 ) {
   console.log(
     "Handling new round",
     spicerackNewRoundId,
     spicerackNewRoundNumber,
   );
-  // updates tournament round id and number in database with new values
+  // updates spicerack tournament round id and number in database with new values
+  await ctx.db.patch(spicerackTournamentDocId, {
+    currentRoundId: spicerackNewRoundId,
+    currentRoundNumber: spicerackNewRoundNumber,
+    currentRoundName: newRoundDisplayName ?? "",
+    completedRounds: completedRounds,
+  });
+
+  // updates tournament table with round info (used by overlays and dashboard)
   await ctx.db.patch(tournamentId, {
-    spicerackCurrentRoundId: spicerackNewRoundId,
-    spicerackCurrentRoundNumber: spicerackNewRoundNumber,
+    currentRound: spicerackNewRoundNumber,
     currentRoundDisplayName: newRoundDisplayName ?? "",
   });
 

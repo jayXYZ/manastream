@@ -23,8 +23,6 @@ export const createTournament = internalMutation({
       userId: userId,
       mode: "manual",
       spicerackTournamentId: args.spicerackTournamentId,
-      spicerackCurrentRoundId: -1,
-      spicerackCurrentRoundNumber: -1,
       manualTimerRunning: false,
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -50,7 +48,7 @@ export const getTournament = query({
   },
 });
 
-// unauthenticated for overlays to access timer and round info
+// unauthenticated for overlays to access timer, round, and commentator info
 // This is a duplicate function to the /lib/tournaments.ts function getTournamentTimerAndRoundInfo
 export const getTournamentInfo = query({
   args: { tournamentId: v.id("tournaments") },
@@ -62,11 +60,16 @@ export const getTournamentInfo = query({
     }
 
     return {
-      currentRound: tournament.spicerackCurrentRoundNumber,
+      currentRound: tournament.currentRound,
       currentRoundDisplayName: tournament.currentRoundDisplayName,
       manualTimerExpiry: tournament.manualTimerExpiry,
       manualTimerRunning: tournament.manualTimerRunning,
       manualTimerCountDirection: tournament.manualTimerCountDirection,
+      // Commentator info for overlays
+      commentatorLeft: tournament.commentatorLeft,
+      commentatorLeftSubText: tournament.commentatorLeftSubText,
+      commentatorRight: tournament.commentatorRight,
+      commentatorRightSubText: tournament.commentatorRightSubText,
     };
   },
 });
@@ -110,14 +113,19 @@ export const updateTournamentInfo = mutation({
     tournamentId: v.id("tournaments"),
     eventName: v.optional(v.string()),
     currentRoundDisplayName: v.optional(v.string()),
+    // Commentator info
+    commentatorLeft: v.optional(v.string()),
+    commentatorLeftSubText: v.optional(v.string()),
+    commentatorRight: v.optional(v.string()),
+    commentatorRightSubText: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const tournament = await requireTournamentAccess(ctx, args.tournamentId);
 
-    await ctx.db.patch(args.tournamentId, {
-      eventName: args.eventName,
-      currentRoundDisplayName: args.currentRoundDisplayName,
-    });
+    const { tournamentId, ...updateFields } = args;
+    const updates = filterUndefined(updateFields);
+
+    await ctx.db.patch(args.tournamentId, updates);
   },
 });
 
@@ -171,7 +179,7 @@ export const updateTournamentMode = mutation({
       await ctx.scheduler.runAfter(
         0,
         internal.spicerack.validateAndStartPolling,
-        { tournamentId: args.tournamentId, userId },
+        { userId: userId },
       );
     }
   },
@@ -183,6 +191,7 @@ export const updateTournamentSettings = mutation({
     mode: v.optional(v.union(v.literal("manual"), v.literal("auto"))),
   },
   handler: async (ctx, args) => {
+    const userId = await requireAuth(ctx);
     const tournament = await getOwnTournament(ctx);
     const updates = filterUndefined(args);
 
@@ -209,7 +218,7 @@ export const updateTournamentSettings = mutation({
       await ctx.scheduler.runAfter(
         0,
         internal.spicerack.validateAndStartPolling,
-        { tournamentId: tournament._id, userId: tournament.userId },
+        { userId: userId },
       );
     } else {
       await ctx.db.patch(tournament._id, updates);

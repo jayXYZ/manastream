@@ -1,7 +1,10 @@
 import { internalMutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { featureMatchWithPlayersValidator } from "./validators";
-import { getOwnTournament } from "./lib/tournaments";
+import {
+  getOwnTournament,
+  requireSpicerackTournament,
+} from "./lib/tournaments";
 import {
   createFeatureMatches,
   getFeatureMatchesWithPlayerData,
@@ -41,14 +44,17 @@ export const getCurrentRoundFeatureMatches = query({
   args: {},
   returns: v.array(featureMatchWithPlayersValidator),
   handler: async (ctx) => {
-    const tournament = await getOwnTournament(ctx);
-    const currentRoundNumber = tournament.spicerackCurrentRoundNumber;
+    const tournament = await requireSpicerackTournament(ctx);
+    if (!tournament) {
+      return [];
+    }
+    const currentRoundNumber = tournament.currentRoundNumber;
     if (!currentRoundNumber) {
       return [];
     }
     const featureMatchesWithPlayerData = await getFeatureMatchesWithPlayerData(
       ctx,
-      tournament._id,
+      tournament.spicerackTournamentId,
       currentRoundNumber,
     );
     return featureMatchesWithPlayerData;
@@ -59,10 +65,13 @@ export const getAllFeatureMatches = query({
   args: {},
   returns: v.array(featureMatchWithPlayersValidator),
   handler: async (ctx) => {
-    const tournament = await getOwnTournament(ctx);
+    const tournament = await requireSpicerackTournament(ctx);
+    if (!tournament) {
+      return [];
+    }
     const featureMatchesWithPlayerData = await getFeatureMatchesWithPlayerData(
       ctx,
-      tournament._id,
+      tournament.spicerackTournamentId,
     );
     return featureMatchesWithPlayerData;
   },
@@ -71,18 +80,18 @@ export const getAllFeatureMatches = query({
 export const createNewFeatureMatches = internalMutation({
   args: {
     jsonData: v.any(),
-    tournamentId: v.id("tournaments"),
+    spicerackTournamentId: v.number(),
   },
   returns: v.array(v.object({ playerId: v.id("players"), deckId: v.number() })),
   handler: async (ctx, args) => {
     const { newFeatureMatches, newPlayers } = await compareSpicerackToDatabase(
       ctx,
-      args.tournamentId,
+      args.spicerackTournamentId,
       args.jsonData,
     );
     const playerAndDeckIds = await createFeatureMatches(
       ctx,
-      args.tournamentId,
+      args.spicerackTournamentId,
       newFeatureMatches,
       newPlayers,
     );
