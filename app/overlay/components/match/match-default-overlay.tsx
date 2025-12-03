@@ -73,13 +73,11 @@ export function MatchDefaultOverlayHeader({
       </div>
 
       {/* Center Text */}
-      <div className="absolute left-0 right-0 pt-[8px] text-center text-[24px]">
-        <div className="flex items-center justify-center gap-2">
-          {tournamentInfo.currentRoundDisplayName || "N/A"}
-          <div className="text-[24px] font-bold">
-            <Timer tournamentInfo={tournamentInfo} />
-          </div>
-        </div>
+      <div className="absolute left-0 right-0 text-center text-[24px] pt-[8px]">
+        {tournamentInfo?.currentRoundDisplayName || "N/A"}
+      </div>
+      <div className="absolute left-0 right-0 mt-auto mb-auto text-center font-bold text-[60px] pt-[28px]">
+        <Timer tournamentInfo={tournamentInfo} />
       </div>
 
       {/* Player 2 Info */}
