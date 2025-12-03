@@ -15,15 +15,7 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import {
-  Save,
-  Monitor,
-  Layers,
-  ExternalLink,
-  Copy,
-  Check,
-  Proportions,
-} from "lucide-react";
+import { Save, ExternalLink, Copy, Check, Proportions } from "lucide-react";
 import {
   getAllTemplateNames,
   getAvailableTemplates,
@@ -204,9 +196,6 @@ function OverlayDetailsPanel({
 
   const hasTemplates =
     getAvailableTemplates(selectedOverlay.overlayType).length > 0;
-  const overlayTypeLabel =
-    selectedOverlay.overlayType.charAt(0).toUpperCase() +
-    selectedOverlay.overlayType.slice(1);
   const resolution =
     selectedOverlay.overlayType === "card" ? "745×1040" : "1920×1080";
 
