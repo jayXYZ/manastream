@@ -528,8 +528,14 @@ export const pollTournamentAndScheduleNext = internalAction({
       );
       console.log(`New player and deck ids: ${newPlayerAndDeckIds}`);
 
-      if (newPlayerAndDeckIds.length > 0) {
-        const decklistPromises = newPlayerAndDeckIds.map((playerAndDeckId) => {
+      // Filter for valid deck IDs before fetching decklists
+      // (players without decklists have deckId: -1)
+      const playersWithDecks = newPlayerAndDeckIds.filter(
+        (id) => id.deckId > 0,
+      );
+
+      if (playersWithDecks.length > 0) {
+        const decklistPromises = playersWithDecks.map((playerAndDeckId) => {
           return fetchSpicerackDecklistData(
             playerAndDeckId.deckId,
             spicerackApiKey,

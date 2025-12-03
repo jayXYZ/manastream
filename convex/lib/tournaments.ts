@@ -48,9 +48,6 @@ export async function requireSpicerackTournament(
       q.eq("spicerackTournamentId", spicerackTournamentId),
     )
     .unique();
-  if (!spicerackTournament) {
-    throw new Error("No tournament found for this Spicerack tournament ID");
-  }
   return spicerackTournament;
 }
 
