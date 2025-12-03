@@ -140,15 +140,25 @@ export const updatePlayerInfo = mutation({
     deckList: v.string(),
   },
   handler: async (ctx, args) => {
+    // Get the authenticated user's tournament to verify authorization
+    const tournament = await getOwnTournament(ctx);
+    if (!tournament.spicerackTournamentId) {
+      throw new Error("No Spicerack tournament linked");
+    }
+
+    // Query for the player, ensuring they belong to the user's tournament
     const player = await ctx.db
       .query("players")
-      .withIndex("by_spicerack_player_id", (q) =>
-        q.eq("spicerackPlayerId", args.spicerackPlayerId),
+      .withIndex("by_spicerack_tournament_id", (q) =>
+        q.eq("spicerackTournamentId", tournament.spicerackTournamentId!),
       )
+      .filter((q) => q.eq(q.field("spicerackPlayerId"), args.spicerackPlayerId))
       .first();
+
     if (!player) {
-      throw new Error("Player not found");
+      throw new Error("Player not found in your tournament");
     }
+
     await ctx.db.patch(player._id, {
       name: args.name,
       deckName: args.deckName,

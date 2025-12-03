@@ -89,12 +89,18 @@ export async function handleNewSpicerackRound(
     spicerackNewRoundId,
     spicerackNewRoundNumber,
   );
-  // updates tournament round id and number in database with new values
+  // updates spicerack tournament round id and number in database with new values
   await ctx.db.patch(spicerackTournamentDocId, {
     currentRoundId: spicerackNewRoundId,
     currentRoundNumber: spicerackNewRoundNumber,
     currentRoundName: newRoundDisplayName ?? "",
     completedRounds: completedRounds,
+  });
+
+  // updates tournament table with round info (used by overlays and dashboard)
+  await ctx.db.patch(tournamentId, {
+    currentRound: spicerackNewRoundNumber,
+    currentRoundDisplayName: newRoundDisplayName ?? "",
   });
 
   // resets all match overlays for the tournament
