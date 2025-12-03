@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Tooltip,
   TooltipContent,
@@ -191,6 +191,33 @@ function TournamentOverlayPreviewDialog({
     deckOverlayMatchId: deckOverlay?.matchId,
     standingsOverlayRoundId: standingsOverlay?.spicerackRoundId ?? -1,
   });
+
+  // Reset inputs when dialog opens or when props change to ensure fresh data
+  useEffect(() => {
+    if (isOpen) {
+      setInputs({
+        eventName: tournament.eventName ?? "",
+        currentRoundDisplayName: tournament.currentRoundDisplayName ?? "",
+        commentatorLeft: tournament.commentatorLeft ?? "",
+        commentatorLeftSubText: tournament.commentatorLeftSubText ?? "",
+        commentatorRight: tournament.commentatorRight ?? "",
+        commentatorRightSubText: tournament.commentatorRightSubText ?? "",
+        deckOverlayMatchId: deckOverlay?.matchId,
+        standingsOverlayRoundId: standingsOverlay?.spicerackRoundId ?? -1,
+      });
+    }
+  }, [
+    isOpen,
+    tournament.eventName,
+    tournament.currentRoundDisplayName,
+    tournament.commentatorLeft,
+    tournament.commentatorLeftSubText,
+    tournament.commentatorRight,
+    tournament.commentatorRightSubText,
+    deckOverlay?.matchId,
+    standingsOverlay?.spicerackRoundId,
+  ]);
+
   const updateDeckOverlay = useMutation(api.overlays.updateDeckOverlay);
   const updateTournament = useMutation(api.tournaments.updateTournamentInfo);
   const updateStandingsOverlay = useMutation(
@@ -308,7 +335,7 @@ function TournamentOverlayPreviewDialog({
                       </SelectItem>
                     ))
                   ) : (
-                    <SelectItem value="N/A">N/A</SelectItem>
+                    <SelectItem value="-1">N/A</SelectItem>
                   )}
                 </SelectContent>
               </Select>
