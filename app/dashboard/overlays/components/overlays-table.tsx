@@ -1,17 +1,24 @@
 "use client";
 
-import {
-  Table,
-  TableHeader,
-  TableRow,
-  TableHead,
-  TableBody,
-  TableCell,
-} from "@/components/ui/table";
 import { Overlay } from "@/convex/types";
-import CopyButton from "@/components/copy-button";
 import { cn } from "@/lib/utils";
-import React, { useEffect, useState } from "react";
+import React from "react";
+import {
+  MessageSquare,
+  ListOrdered,
+  Swords,
+  RectangleVertical,
+  GalleryVerticalEnd,
+} from "lucide-react";
+
+// Icon mapping for overlay types
+const overlayTypeIcons: Record<Overlay["overlayType"], React.ElementType> = {
+  match: Swords,
+  commentary: MessageSquare,
+  card: RectangleVertical,
+  deck: GalleryVerticalEnd,
+  standings: ListOrdered,
+};
 
 export default function OverlaysTable({
   overlays,
@@ -24,79 +31,75 @@ export default function OverlaysTable({
   selectedPlayerNumber: 1 | 2 | null;
   setSelectedOverlay: (overlay: Overlay, playerNumber?: 1 | 2) => void;
 }) {
-  const [origin, setOrigin] = useState<string>("");
-
-  useEffect(() => {
-    // Get the current origin (works for localhost, production, and preview branches)
-    setOrigin(window.location.origin);
-  }, []);
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Name</TableHead>
-          <TableHead>URL</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {overlays?.map((overlay) =>
-          overlay.overlayType !== "deck" ? (
-            <TableRow
-              key={overlay._id}
-              className={cn(
-                "group cursor-pointer",
-                selectedOverlay?._id === overlay._id && "bg-accent/10",
-              )}
-              onClick={() => setSelectedOverlay(overlay, undefined)}
-            >
-              <TableCell>{overlay.name}</TableCell>
-              <TableCell>
-                <CopyButton
-                  displayText={overlay.publicUuid}
-                  textToCopy={`${origin}/overlay/${overlay.publicUuid}`}
-                />
-              </TableCell>
-            </TableRow>
-          ) : (
-            <React.Fragment key={overlay._id}>
-              <TableRow
-                className={cn(
-                  "group cursor-pointer",
-                  selectedOverlay?._id === overlay._id &&
-                    selectedPlayerNumber === 1 &&
-                    "bg-accent/10",
-                )}
-                onClick={() => setSelectedOverlay(overlay, 1)}
-              >
-                <TableCell>{overlay.name + " - Player 1"}</TableCell>
-                <TableCell>
-                  <CopyButton
-                    displayText={overlay.publicUuid + "?player=1"}
-                    textToCopy={`${origin}/overlay/${overlay.publicUuid}?player=1`}
-                  />
-                </TableCell>
-              </TableRow>
-              <TableRow
-                className={cn(
-                  "group cursor-pointer",
-                  selectedOverlay?._id === overlay._id &&
-                    selectedPlayerNumber === 2 &&
-                    "bg-accent/10",
-                )}
-                onClick={() => setSelectedOverlay(overlay, 2)}
-              >
-                <TableCell>{overlay.name + " - Player 2"}</TableCell>
-                <TableCell>
-                  <CopyButton
-                    displayText={overlay.publicUuid + "?player=2"}
-                    textToCopy={`${origin}/overlay/${overlay.publicUuid}?player=2`}
-                  />
-                </TableCell>
-              </TableRow>
-            </React.Fragment>
-          ),
+    <div className="divide-y divide-border">
+      {overlays?.map((overlay) =>
+        overlay.overlayType !== "deck" ? (
+          <OverlayListItem
+            key={overlay._id}
+            overlay={overlay}
+            isSelected={selectedOverlay?._id === overlay._id}
+            onClick={() => setSelectedOverlay(overlay, undefined)}
+          />
+        ) : (
+          <React.Fragment key={overlay._id}>
+            <OverlayListItem
+              overlay={overlay}
+              label="Player 1"
+              isSelected={
+                selectedOverlay?._id === overlay._id &&
+                selectedPlayerNumber === 1
+              }
+              onClick={() => setSelectedOverlay(overlay, 1)}
+            />
+            <OverlayListItem
+              overlay={overlay}
+              label="Player 2"
+              isSelected={
+                selectedOverlay?._id === overlay._id &&
+                selectedPlayerNumber === 2
+              }
+              onClick={() => setSelectedOverlay(overlay, 2)}
+            />
+          </React.Fragment>
+        ),
+      )}
+    </div>
+  );
+}
+
+function OverlayListItem({
+  overlay,
+  label,
+  isSelected,
+  onClick,
+}: {
+  overlay: Overlay;
+  label?: string;
+  isSelected: boolean;
+  onClick: () => void;
+}) {
+  const Icon = overlayTypeIcons[overlay.overlayType];
+  const displayName = label ? `${overlay.name} — ${label}` : overlay.name;
+
+  return (
+    <button
+      className={cn(
+        "w-full flex items-center gap-3 px-4 py-3 text-left transition-colors",
+        "hover:bg-accent/5",
+        isSelected && "bg-primary/10 border-l-2 border-l-primary",
+      )}
+      onClick={onClick}
+    >
+      <Icon
+        className={cn(
+          "size-4 shrink-0",
+          isSelected ? "text-primary" : "text-muted-foreground",
         )}
-      </TableBody>
-    </Table>
+      />
+      <span className={cn("truncate text-sm", isSelected && "font-medium")}>
+        {displayName}
+      </span>
+    </button>
   );
 }

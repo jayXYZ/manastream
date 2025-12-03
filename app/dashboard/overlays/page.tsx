@@ -15,13 +15,26 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Save } from "lucide-react";
+import {
+  Save,
+  Monitor,
+  Layers,
+  ExternalLink,
+  Copy,
+  Check,
+  Proportions,
+} from "lucide-react";
 import {
   getAllTemplateNames,
   getAvailableTemplates,
   isTemplateAvailable,
 } from "@/lib/overlay-templates";
 import { Id } from "@/convex/_generated/dataModel";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export default function OverlaysPage() {
   const tournament = useQuery(api.tournaments.getUserTournament);
@@ -103,34 +116,197 @@ export default function OverlaysPage() {
   }
 
   return (
-    <div className="flex flex-col lg:flex-row gap-4 h-full">
-      <div className="flex-1 min-w-0 min-h-0">
-        <OverlaysTable
-          overlays={overlays}
-          selectedOverlay={selectedOverlay}
-          selectedPlayerNumber={selectedPlayerNumber}
-          setSelectedOverlay={(overlay, playerNumber) => {
-            setSelectedOverlay(overlay);
-            setSelectedPlayerNumber(playerNumber ?? null);
-          }}
-        />
+    <div className="flex flex-col lg:flex-row h-full">
+      {/* Left Panel - Overlay List */}
+      <div className="lg:w-72 xl:w-80 flex-shrink-0 flex flex-col border-r">
+        <div className="px-4 py-3 border-b bg-muted/30">
+          <h2 className="text-sm font-semibold text-foreground">Overlays</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {overlays.length} overlay{overlays.length !== 1 ? "s" : ""}{" "}
+            available
+          </p>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          <OverlaysTable
+            overlays={overlays}
+            selectedOverlay={selectedOverlay}
+            selectedPlayerNumber={selectedPlayerNumber}
+            setSelectedOverlay={(overlay, playerNumber) => {
+              setSelectedOverlay(overlay);
+              setSelectedPlayerNumber(playerNumber ?? null);
+            }}
+          />
+        </div>
       </div>
 
-      <div className="flex-shrink-0 flex flex-col gap-2">
-        <OverlayPreview
-          overlayUrl={selectedOverlayUrl ?? ""}
-          overlayType={selectedOverlay?.overlayType ?? null}
-        />
-        {selectedOverlay &&
-          getAvailableTemplates(selectedOverlay.overlayType).length > 0 && (
-            <>
+      {/* Right Panel - Preview & Details */}
+      <div className="flex-1 flex flex-col min-h-0 min-w-0 bg-muted/20 p-4 gap-4 overflow-auto">
+        {/* Preview Area - sized by content with max constraints */}
+        <div className="flex-shrink-0 w-full max-w-4xl mx-auto">
+          <OverlayPreview
+            overlayUrl={selectedOverlayUrl ?? ""}
+            overlayType={selectedOverlay?.overlayType ?? null}
+            className="w-full"
+          />
+        </div>
+
+        {/* Details Panel */}
+        <div className="flex-shrink-0 w-full max-w-4xl mx-auto">
+          <OverlayDetailsPanel
+            selectedOverlay={selectedOverlay}
+            selectedOverlayUrl={selectedOverlayUrl}
+            selectedTemplate={selectedTemplate}
+            setSelectedTemplate={setSelectedTemplate}
+            handleSaveTemplate={handleSaveTemplate}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Overlay Details Panel Component
+function OverlayDetailsPanel({
+  selectedOverlay,
+  selectedOverlayUrl,
+  selectedTemplate,
+  setSelectedTemplate,
+  handleSaveTemplate,
+}: {
+  selectedOverlay: Overlay | null;
+  selectedOverlayUrl: string | null;
+  selectedTemplate: TemplateType | undefined;
+  setSelectedTemplate: (template: TemplateType) => void;
+  handleSaveTemplate: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyUrl = async () => {
+    if (!selectedOverlayUrl || copied) return;
+    try {
+      await navigator.clipboard.writeText(selectedOverlayUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy:", err);
+    }
+  };
+
+  if (!selectedOverlay) {
+    return (
+      <div className="sunken-subtle rounded-lg px-3 py-4 text-center">
+        <p className="text-muted-foreground text-sm">
+          Select an overlay to view details
+        </p>
+      </div>
+    );
+  }
+
+  const hasTemplates =
+    getAvailableTemplates(selectedOverlay.overlayType).length > 0;
+  const overlayTypeLabel =
+    selectedOverlay.overlayType.charAt(0).toUpperCase() +
+    selectedOverlay.overlayType.slice(1);
+  const resolution =
+    selectedOverlay.overlayType === "card" ? "745×1040" : "1920×1080";
+
+  return (
+    <div className="sunken-subtle rounded-lg overflow-hidden">
+      {/* Header with overlay name */}
+      <div className="bg-primary/10 border-b border-primary/20 px-3 py-2">
+        <h3 className="font-semibold text-sm truncate">
+          {selectedOverlay.name}
+        </h3>
+      </div>
+
+      <div className="p-3 space-y-3">
+        {/* Info Grid */}
+        <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm">
+          {/* Type */}
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Layers className="size-3.5" />
+            <span>Type</span>
+          </div>
+          <div className="font-medium">{overlayTypeLabel}</div>
+
+          {/* Resolution */}
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Proportions className="size-3.5" />
+            <span>Resolution</span>
+          </div>
+          <div className="font-mono text-xs bg-muted/50 px-1.5 py-0.5 rounded w-fit">
+            {resolution}
+          </div>
+        </div>
+
+        {/* URL Copy Section */}
+        {selectedOverlayUrl && (
+          <div className="space-y-1">
+            <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
+              Overlay URL
+            </span>
+            <div className="flex items-center gap-1.5">
+              <div className="flex-1 min-w-0 bg-background border rounded px-2 py-1">
+                <p className="text-xs font-mono text-muted-foreground truncate">
+                  {selectedOverlayUrl}
+                </p>
+              </div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0 h-7 w-7 p-0"
+                    onClick={handleCopyUrl}
+                  >
+                    {copied ? (
+                      <Check className="size-3 text-green-500" />
+                    ) : (
+                      <Copy className="size-3" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  {copied ? "Copied!" : "Copy URL"}
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0 h-7 w-7 p-0"
+                    asChild
+                  >
+                    <a
+                      href={selectedOverlayUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <ExternalLink className="size-3" />
+                    </a>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">Open in new tab</TooltipContent>
+              </Tooltip>
+            </div>
+          </div>
+        )}
+
+        {/* Template Selection */}
+        {hasTemplates && (
+          <div className="space-y-1.5 pt-2.5 border-t border-border/50">
+            <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
+              Template
+            </span>
+            <div className="flex items-center gap-1.5">
               <Select
                 value={selectedTemplate ?? ""}
                 onValueChange={(value) =>
                   setSelectedTemplate(value as TemplateType)
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger className="flex-1 h-8 text-sm">
                   <SelectValue placeholder="Select a template" />
                 </SelectTrigger>
                 <SelectContent>
@@ -146,7 +322,7 @@ export default function OverlaysPage() {
                         disabled={!isAvailable}
                       >
                         {template}
-                        {!isAvailable && " (Not available)"}
+                        {!isAvailable && " (N/A)"}
                       </SelectItem>
                     );
                   })}
@@ -154,14 +330,15 @@ export default function OverlaysPage() {
               </Select>
               <Button
                 size="sm"
-                variant="outline"
-                onClick={() => handleSaveTemplate()}
+                className="shrink-0 h-8"
+                onClick={handleSaveTemplate}
               >
-                <Save className="size-4" />
-                Change Template
+                <Save className="size-3 mr-1" />
+                Save
               </Button>
-            </>
-          )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

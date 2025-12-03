@@ -1,25 +1,26 @@
 "use client";
 
 import { Overlay } from "@/convex/types";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Spinner } from "@/components/ui/spinner";
 
 interface OverlayPreviewProps {
   overlayUrl: string;
   overlayType: Overlay["overlayType"] | null;
-  scale?: number; // Default 0.25 (25% of original size for standard overlays)
+  className?: string;
 }
 
 export default function OverlayPreview({
   overlayUrl,
   overlayType,
-  scale = 0.25,
+  className = "",
 }: OverlayPreviewProps) {
   const [isLoading, setIsLoading] = useState(!!overlayUrl);
+  const [containerSize, setContainerSize] = useState({ width: 480, height: 270 });
+  const containerRef = useRef<HTMLDivElement>(null);
   const prevOverlayUrlRef = useRef(overlayUrl);
 
   // Synchronously detect overlay change and set loading state during render
-  // This prevents the flash by updating state before the render completes
   if (prevOverlayUrlRef.current !== overlayUrl) {
     prevOverlayUrlRef.current = overlayUrl;
     if (overlayUrl && !isLoading) {
@@ -32,9 +33,28 @@ export default function OverlayPreview({
   const originalWidth = isCardOverlay ? 745 : 1920;
   const originalHeight = isCardOverlay ? 1040 : 1080;
 
-  // Container always maintains 16:9 aspect ratio (1920x1080 scaled down)
-  const containerWidth = 1920 * scale;
-  const containerHeight = 1080 * scale;
+  // Measure container and calculate scale
+  const updateSize = useCallback(() => {
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      setContainerSize({ width: rect.width, height: rect.height });
+    }
+  }, []);
+
+  useEffect(() => {
+    updateSize();
+    const resizeObserver = new ResizeObserver(updateSize);
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
+    return () => resizeObserver.disconnect();
+  }, [updateSize]);
+
+  // Calculate scale based on container size (fit within container maintaining 16:9)
+  const scale = Math.min(
+    containerSize.width / 1920,
+    containerSize.height / 1080
+  );
 
   // For card overlays, calculate scale to fit height and center horizontally
   let iframeScale = scale;
@@ -42,26 +62,31 @@ export default function OverlayPreview({
 
   if (isCardOverlay) {
     // Scale to fit the full height within the container
-    iframeScale = containerHeight / originalHeight;
+    iframeScale = (1080 * scale) / originalHeight;
     // Center horizontally
     const scaledIframeWidth = originalWidth * iframeScale;
-    leftOffset = (containerWidth - scaledIframeWidth) / 2;
+    leftOffset = (1920 * scale - scaledIframeWidth) / 2;
   }
 
   return (
-    <div className="border rounded-lg overflow-hidden bg-black flex-shrink-0">
-      {/* Container sized to maintain 16:9 aspect ratio */}
+    <div
+      ref={containerRef}
+      className={`border rounded-lg overflow-hidden bg-black ${className}`}
+      style={{ aspectRatio: "16/9" }}
+    >
+      {/* Inner container for the scaled content */}
       <div
         style={{
-          width: `${containerWidth}px`,
-          height: `${containerHeight}px`,
+          width: `${1920 * scale}px`,
+          height: `${1080 * scale}px`,
           position: "relative",
           overflow: "hidden",
+          margin: "auto",
         }}
       >
         {!overlayUrl && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <p>No overlay selected</p>
+            <p className="text-muted-foreground text-sm">No overlay selected</p>
           </div>
         )}
         {/* Loading spinner */}
@@ -74,7 +99,7 @@ export default function OverlayPreview({
         {/* Iframe at full size, then scaled down */}
         {overlayUrl && (
           <iframe
-            key={overlayUrl} // Force remount on overlay change
+            key={overlayUrl}
             src={overlayUrl}
             onLoad={() => setIsLoading(false)}
             style={{
