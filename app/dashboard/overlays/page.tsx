@@ -221,14 +221,7 @@ function OverlayDetailsPanel({
 
       <div className="p-3 space-y-3">
         {/* Info Grid */}
-        <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm">
-          {/* Type */}
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Layers className="size-3.5" />
-            <span>Type</span>
-          </div>
-          <div className="font-medium">{overlayTypeLabel}</div>
-
+        <div className="space-y-1.5 text-sm">
           {/* Resolution */}
           <div className="flex items-center gap-2 text-muted-foreground">
             <Proportions className="size-3.5" />
