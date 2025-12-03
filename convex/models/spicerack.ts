@@ -114,9 +114,15 @@ export function getCurrentRoundDisplayName(
     currentPhase.round_type === "RANKED_SINGLE_ELIMINATION"
   ) {
     // TODO: Make this more adaptable to single elim cuts that aren't just top 8's
+    const swissPhase = jsonData.tournament_phases.find(
+      (phase) => phase.round_type === "SWISS",
+    ) || { rounds: [] };
+    // Use the round_number of the last round, not the array length
+    // This correctly handles the player meeting (round 0) being in the array
     const swissLength =
-      jsonData.tournament_phases.find((phase) => phase.round_type === "SWISS")
-        ?.rounds.length || 0;
+      swissPhase.rounds.length > 0
+        ? swissPhase.rounds[swissPhase.rounds.length - 1].round_number
+        : 0;
     switch (currentRound.round_number - swissLength) {
       case 1:
         return "Quarterfinals";

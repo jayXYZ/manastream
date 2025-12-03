@@ -298,14 +298,18 @@ function TournamentOverlayPreviewDialog({
                   <SelectValue placeholder="Select a round" />
                 </SelectTrigger>
                 <SelectContent>
-                  {completedRounds?.map((round) => (
-                    <SelectItem
-                      key={round.roundId}
-                      value={round.roundId.toString()}
-                    >
-                      {round.roundName}
-                    </SelectItem>
-                  )) ?? <SelectItem value="N/A">N/A</SelectItem>}
+                  {completedRounds && completedRounds.length > 0 ? (
+                    completedRounds.map((round) => (
+                      <SelectItem
+                        key={round.roundId}
+                        value={round.roundId.toString()}
+                      >
+                        {round.roundName}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="N/A">N/A</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
