@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Tooltip,
   TooltipContent,
@@ -192,9 +192,15 @@ function TournamentOverlayPreviewDialog({
     standingsOverlayRoundId: standingsOverlay?.spicerackRoundId ?? -1,
   });
 
-  // Reset inputs when dialog opens or when props change to ensure fresh data
+  // Track previous isOpen state to detect dialog open transition
+  const prevIsOpenRef = useRef(false);
+
+  // Reset inputs only when dialog opens (transitions from closed to open)
   useEffect(() => {
-    if (isOpen) {
+    const justOpened = isOpen && !prevIsOpenRef.current;
+    prevIsOpenRef.current = isOpen;
+
+    if (justOpened) {
       setInputs({
         eventName: tournament.eventName ?? "",
         currentRoundDisplayName: tournament.currentRoundDisplayName ?? "",

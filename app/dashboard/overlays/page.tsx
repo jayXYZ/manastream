@@ -173,6 +173,11 @@ function OverlayDetailsPanel({
 }) {
   const [copied, setCopied] = useState(false);
 
+  // Reset copied state when the selected overlay URL changes
+  useEffect(() => {
+    setCopied(false);
+  }, [selectedOverlayUrl]);
+
   const handleCopyUrl = async () => {
     if (!selectedOverlayUrl || copied) return;
     try {
