@@ -73,9 +73,12 @@ export function getRoundDisplayName(
     const swissPhase = jsonData.tournament_phases.find(
       (phase) => phase.round_type === "SWISS",
     ) || { rounds: [] };
-    // This should get the correct round number, regardless of whether there was a player meeting or not (round 0)
+    // Use the round_number of the last round, not the array length
+    // This correctly handles the player meeting (round 0) being in the array
     const swissLength =
-      swissPhase.rounds[swissPhase.rounds.length - 1].round_number;
+      swissPhase.rounds.length > 0
+        ? swissPhase.rounds[swissPhase.rounds.length - 1].round_number
+        : 0;
 
     switch (round.round_number - swissLength) {
       case 1:

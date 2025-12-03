@@ -315,15 +315,11 @@ function TournamentOverlayPreviewDialog({
             <div className="flex flex-col gap-2">
               <Label>Standings Overlay Round</Label>
               <Select
-                value={
-                  inputs.standingsOverlayRoundId === -1
-                    ? ""
-                    : inputs.standingsOverlayRoundId.toString()
-                }
+                value={inputs.standingsOverlayRoundId.toString()}
                 onValueChange={(value) =>
                   setInputs({
                     ...inputs,
-                    standingsOverlayRoundId: value ? Number(value) : -1,
+                    standingsOverlayRoundId: Number(value),
                   })
                 }
               >
