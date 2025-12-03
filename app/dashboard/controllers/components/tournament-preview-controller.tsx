@@ -34,6 +34,26 @@ import { Separator } from "@/components/ui/separator";
 import { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 
+function PreviewRow({
+  label,
+  value,
+}: {
+  label: string;
+  value?: string | null;
+}) {
+  return (
+    <div className="flex flex-row justify-between gap-2 min-w-0">
+      <div className="text-sm text-white/60 shrink-0">{label}</div>
+      <div
+        className="text-sm text-white/60 truncate text-right"
+        title={value ?? "N/A"}
+      >
+        {value || "N/A"}
+      </div>
+    </div>
+  );
+}
+
 export function TournamentPreviewController() {
   const [isOpen, setIsOpen] = useState(false);
   const [tooltipOpen, setTooltipOpen] = useState(false);
@@ -84,59 +104,47 @@ export function TournamentPreviewController() {
           <CardTitle>Tournament Preview</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-4 font-mono sunken rounded-lg p-4">
-            <div className="flex flex-col gap-2">
-              <div className="flex flex-row justify-between">
-                <div className="text-sm text-white/60">Tournament Name</div>
-                <div className="text-sm text-white/60">
-                  {tournament.eventName}
-                </div>
-              </div>
-              <div className="flex flex-row justify-between">
-                <div className="text-sm text-white/60">Current Round</div>
-                <div className="text-sm text-white/60">
-                  {tournament.currentRoundDisplayName}
-                </div>
-              </div>
-              <div className="flex flex-row justify-between">
-                <div className="text-sm text-white/60">Commentator Left</div>
-                <div className="text-sm text-white/60">
-                  {tournament.commentatorLeft}
-                </div>
-              </div>
-              <div className="flex flex-row justify-between">
-                <div className="text-sm text-white/60">Subtext Left</div>
-                <div className="text-sm text-white/60">
-                  {tournament.commentatorLeftSubText}
-                </div>
-              </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-mono sunken rounded-lg p-4">
+            <div className="flex flex-col gap-2 min-w-0">
+              <PreviewRow
+                label="Tournament Name"
+                value={tournament.eventName}
+              />
+              <PreviewRow
+                label="Current Round"
+                value={tournament.currentRoundDisplayName}
+              />
+              <PreviewRow
+                label="Commentator Left"
+                value={tournament.commentatorLeft}
+              />
+              <PreviewRow
+                label="Subtext Left"
+                value={tournament.commentatorLeftSubText}
+              />
             </div>
-            <div className="flex flex-col gap-2">
-              <div className="flex flex-row justify-between">
-                <div className="text-sm text-white/60">Deck Overlay</div>
-                <div className="text-sm text-white/60">
-                  {deckOverlayMatch?.player1Data?.name} vs{" "}
-                  {deckOverlayMatch?.player2Data?.name}
-                </div>
-              </div>
-              <div className="flex flex-row justify-between">
-                <div className="text-sm text-white/60">Standings Overlay</div>
-                <div className="text-sm text-white/60">
-                  {standingsOverlay?.name ?? "N/A"}
-                </div>
-              </div>
-              <div className="flex flex-row justify-between">
-                <div className="text-sm text-white/60">Commentator Right</div>
-                <div className="text-sm text-white/60">
-                  {tournament.commentatorRight}
-                </div>
-              </div>
-              <div className="flex flex-row justify-between">
-                <div className="text-sm text-white/60">Subtext Right</div>
-                <div className="text-sm text-white/60">
-                  {tournament.commentatorRightSubText}
-                </div>
-              </div>
+            <div className="flex flex-col gap-2 min-w-0">
+              <PreviewRow
+                label="Deck Overlay"
+                value={
+                  deckOverlayMatch?.player1Data?.name &&
+                  deckOverlayMatch?.player2Data?.name
+                    ? `${deckOverlayMatch.player1Data.name} vs ${deckOverlayMatch.player2Data.name}`
+                    : undefined
+                }
+              />
+              <PreviewRow
+                label="Standings Overlay"
+                value={standingsOverlay?.name}
+              />
+              <PreviewRow
+                label="Commentator Right"
+                value={tournament.commentatorRight}
+              />
+              <PreviewRow
+                label="Subtext Right"
+                value={tournament.commentatorRightSubText}
+              />
             </div>
           </div>
         </CardContent>
@@ -220,7 +228,7 @@ function TournamentOverlayPreviewDialog({
         </DialogHeader>
         <div className="flex flex-col gap-4">
           {/* First 2x2 grid */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="flex flex-col gap-2">
               <Label htmlFor="eventName">Event Name</Label>
               <Input
@@ -306,7 +314,7 @@ function TournamentOverlayPreviewDialog({
           <Separator />
 
           {/* Second 2x2 grid */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="flex flex-col gap-2">
               <Label htmlFor="commentatorLeft">Commentator Left</Label>
               <Input
