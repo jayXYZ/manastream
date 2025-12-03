@@ -34,6 +34,18 @@ export async function createSpicerackTournamentHelper(
   ctx: MutationCtx,
   spicerackTournamentId: number,
 ) {
+  // Check again in case another concurrent call created it
+  // (this mutation may be called from an action where the existence check was non-atomic)
+  const existingTournament = await ctx.db
+    .query("spicerackTournaments")
+    .withIndex("by_spicerack_tournament_id", (q) =>
+      q.eq("spicerackTournamentId", spicerackTournamentId),
+    )
+    .unique();
+  if (existingTournament) {
+    return existingTournament;
+  }
+
   const newSpicerackTournamentId = await ctx.db.insert("spicerackTournaments", {
     spicerackTournamentId,
     updatedAt: Date.now(),

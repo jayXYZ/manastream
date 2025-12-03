@@ -18,7 +18,9 @@ export default function StandingsOverlay({
 }) {
   const standings = data.standingsDataWithPlayers ?? [];
   const searchParams = useSearchParams();
-  const pageNumber = parseInt(searchParams.get("page") ?? "1");
+  const parsedPage = parseInt(searchParams.get("page") ?? "1", 10);
+  const pageNumber =
+    Number.isNaN(parsedPage) || parsedPage < 1 ? 1 : parsedPage;
 
   const startIndex = (pageNumber - 1) * PAGE_SIZE;
   const endIndex = startIndex + PAGE_SIZE;

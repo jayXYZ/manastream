@@ -638,10 +638,10 @@ export const getSpicerackCompletedRounds = query({
         q.eq("spicerackTournamentId", args.spicerackTournamentId!),
       )
       .unique();
+    // Return empty array if the spicerackTournaments record doesn't exist yet
+    // (e.g., when a user sets spicerackTournamentId in manual mode before enabling auto mode)
     if (!spicerackTournament) {
-      throw new Error(
-        `Spicerack tournament ${args.spicerackTournamentId} not found`,
-      );
+      return [];
     }
     return spicerackTournament.completedRounds ?? [];
   },
