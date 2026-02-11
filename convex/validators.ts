@@ -136,6 +136,12 @@ export const matchOverlayValidator = v.object({
     v.literal("Lobstercon"),
     v.literal("Default"),
     v.literal("Custom"),
+    v.literal("Arcade"),
+    v.literal("VHS"),
+    v.literal("Braun"),
+    v.literal("Braun Dark"),
+    v.literal("Topographic"),
+    v.literal("Brutalist"),
   ),
   templateId: v.optional(v.id("templates")),
   tournamentId: v.id("tournaments"),
@@ -156,11 +162,17 @@ export const matchOverlayValidator = v.object({
   createdAt: v.number(),
 });
 
+export const cardTemplatesValidator = v.union(
+  v.literal("Default"),
+  v.literal("Braun Dark"),
+);
+
 export const cardOverlayValidator = v.object({
   _id: v.id("overlays"),
   _creationTime: v.number(),
   name: v.string(),
   overlayType: v.literal("card"),
+  template: v.optional(cardTemplatesValidator),
   tournamentId: v.id("tournaments"),
   publicUuid: v.string(), // Direct UUID string for public access
   cardUrl: v.string(),
@@ -234,6 +246,12 @@ export const matchTemplatesValidator = v.union(
   v.literal("Lobstercon"),
   v.literal("Default"),
   v.literal("Custom"),
+  v.literal("Arcade"),
+  v.literal("VHS"),
+  v.literal("Braun"),
+  v.literal("Braun Dark"),
+  v.literal("Topographic"),
+  v.literal("Brutalist"),
 );
 
 export const availableTemplatesValidator = v.union(matchTemplatesValidator);

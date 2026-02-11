@@ -3,17 +3,17 @@ import { OverlayType } from "@/convex/types";
 /**
  * Template names that can be used across overlay types
  */
-export type TemplateName = "Default" | "Duress Crew" | "Lobstercon" | "Custom";
+export type TemplateName = "Default" | "Duress Crew" | "Lobstercon" | "Custom" | "Arcade" | "VHS" | "Braun" | "Braun Dark" | "Topographic" | "Brutalist";
 
 /**
  * Configuration mapping overlay types to their available templates.
  * This is the source of truth for which templates are implemented for each overlay type.
  */
 export const OVERLAY_TEMPLATES: Record<OverlayType, TemplateName[]> = {
-  match: ["Default", "Duress Crew", "Lobstercon"],
+  match: ["Default", "Duress Crew", "Lobstercon", "Arcade", "VHS", "Braun", "Braun Dark", "Topographic", "Brutalist"],
   commentary: ["Duress Crew", "Lobstercon"],
   deck: ["Duress Crew"], // Currently hardcoded, but included for consistency
-  card: [], // Card overlays don't use templates
+  card: ["Default", "Braun Dark"],
   standings: [], // Not yet implemented
 };
 
@@ -40,5 +40,5 @@ export function isTemplateAvailable(
  * Get all possible template names (for use in selects, etc.)
  */
 export function getAllTemplateNames(): TemplateName[] {
-  return ["Default", "Duress Crew", "Lobstercon", "Custom"];
+  return ["Default", "Duress Crew", "Lobstercon", "Custom", "Arcade", "VHS", "Braun", "Braun Dark", "Topographic", "Brutalist"];
 }

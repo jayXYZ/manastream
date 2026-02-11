@@ -48,6 +48,9 @@ export default function OverlaysPage() {
   const setCommentaryOverlaySettings = useMutation(
     api.overlays.setCommentaryOverlaySettings,
   );
+  const setCardOverlaySettings = useMutation(
+    api.overlays.setCardOverlaySettings,
+  );
 
   const handleSaveTemplate = () => {
     if (selectedOverlay && selectedTemplate) {
@@ -61,6 +64,11 @@ export default function OverlaysPage() {
           overlayId: selectedOverlay._id as Id<"overlays">,
           template: selectedTemplate,
         });
+      } else if (selectedOverlay.overlayType === "card") {
+        setCardOverlaySettings({
+          overlayId: selectedOverlay._id as Id<"overlays">,
+          template: selectedTemplate as "Default" | "Braun Dark",
+        });
       }
     }
   };
@@ -73,6 +81,11 @@ export default function OverlaysPage() {
         selectedOverlay.overlayType === "commentary"
       ) {
         setSelectedTemplate(selectedOverlay.template as TemplateType);
+      } else if (selectedOverlay.overlayType === "card") {
+        setSelectedTemplate(
+          ((selectedOverlay as { template?: string }).template ??
+            "Default") as TemplateType,
+        );
       } else {
         setSelectedTemplate(undefined);
       }

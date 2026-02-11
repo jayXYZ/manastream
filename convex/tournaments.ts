@@ -60,6 +60,7 @@ export const getTournamentInfo = query({
     }
 
     return {
+      eventName: tournament.eventName,
       currentRound: tournament.currentRound,
       currentRoundDisplayName: tournament.currentRoundDisplayName,
       manualTimerExpiry: tournament.manualTimerExpiry,

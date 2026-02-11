@@ -2,6 +2,8 @@ import { mutation, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
 import { requireCardOverlayAccess, requireTournamentAccess } from "../lib/auth";
 import { createCardOverlayHelper } from "../lib/overlays";
+import { filterUndefined } from "../lib/utils";
+import { cardTemplatesValidator } from "../validators";
 
 /**
  * Internal mutation to create a card overlay.
@@ -55,5 +57,20 @@ export const updateCardOverlay = mutation({
     await ctx.db.patch(overlay._id, {
       cardUrl: args.cardUrl,
     });
+  },
+});
+
+export const setCardOverlaySettings = mutation({
+  args: {
+    overlayId: v.id("overlays"),
+    name: v.optional(v.string()),
+    template: v.optional(cardTemplatesValidator),
+  },
+  handler: async (ctx, args) => {
+    await requireCardOverlayAccess(ctx, args.overlayId);
+    const { overlayId, ...updateFields } = args;
+    const updates = filterUndefined(updateFields);
+
+    await ctx.db.patch(overlayId, updates);
   },
 });

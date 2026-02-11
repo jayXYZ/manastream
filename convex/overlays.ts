@@ -18,6 +18,7 @@ export {
   createCardOverlay,
   internalCreateCardOverlay,
   updateCardOverlay,
+  setCardOverlaySettings,
 } from "./_overlays/card";
 
 // Commentary overlay operations
