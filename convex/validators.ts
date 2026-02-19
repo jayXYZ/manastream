@@ -215,6 +215,8 @@ export const commentaryOverlayValidator = v.object({
     v.literal("Lobstercon"),
     v.literal("Default"),
     v.literal("Custom"),
+    v.literal("Braun Dark"),
+    v.literal("Braun Dark Duo"),
   ),
   templateId: v.optional(v.id("templates")),
   commentatorLeft: v.string(),
@@ -254,7 +256,20 @@ export const matchTemplatesValidator = v.union(
   v.literal("Brutalist"),
 );
 
-export const availableTemplatesValidator = v.union(matchTemplatesValidator);
+export const commentaryTemplatesValidator = v.union(
+  v.literal("Duress Crew"),
+  v.literal("Lobstercon"),
+  v.literal("Default"),
+  v.literal("Custom"),
+  v.literal("Braun Dark"),
+  v.literal("Braun Dark Duo"),
+);
+
+export const overlayTemplatesValidator = v.union(
+  matchTemplatesValidator,
+  commentaryTemplatesValidator,
+  cardTemplatesValidator,
+);
 
 export const playerValidator = v.object({
   _id: v.id("players"),

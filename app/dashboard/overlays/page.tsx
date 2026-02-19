@@ -3,7 +3,12 @@
 import { api } from "@/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import { useState, useEffect } from "react";
-import { Overlay, TemplateType } from "@/convex/types";
+import {
+  CommentaryOverlay,
+  MatchOverlay,
+  Overlay,
+  TemplateType,
+} from "@/convex/types";
 import OverlaysTable from "./components/overlays-table";
 import OverlayPreview from "./components/overlay-preview";
 import { Spinner } from "@/components/ui/spinner";
@@ -57,12 +62,12 @@ export default function OverlaysPage() {
       if (selectedOverlay.overlayType === "match") {
         setMatchOverlaySettings({
           overlayId: selectedOverlay._id as Id<"overlays">,
-          template: selectedTemplate,
+          template: selectedTemplate as MatchOverlay["template"],
         });
       } else if (selectedOverlay.overlayType === "commentary") {
         setCommentaryOverlaySettings({
           overlayId: selectedOverlay._id as Id<"overlays">,
-          template: selectedTemplate,
+          template: selectedTemplate as CommentaryOverlay["template"],
         });
       } else if (selectedOverlay.overlayType === "card") {
         setCardOverlaySettings({

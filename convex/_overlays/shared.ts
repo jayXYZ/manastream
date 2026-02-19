@@ -1,17 +1,57 @@
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { requireOverlayAccess } from "../lib/auth";
-import { availableTemplatesValidator } from "../validators";
+import { overlayTemplatesValidator } from "../validators";
 
-// This will need to be broken up as soon as the available templates
-// for different overlay types are not the same
+const MATCH_TEMPLATES = new Set([
+  "Duress Crew",
+  "Lobstercon",
+  "Default",
+  "Custom",
+  "Arcade",
+  "VHS",
+  "Braun",
+  "Braun Dark",
+  "Topographic",
+  "Brutalist",
+]);
+
+const COMMENTARY_TEMPLATES = new Set([
+  "Duress Crew",
+  "Lobstercon",
+  "Default",
+  "Custom",
+  "Braun Dark",
+  "Braun Dark Duo",
+]);
+
+const CARD_TEMPLATES = new Set(["Default", "Braun Dark"]);
+
 export const setOverlayTemplate = mutation({
   args: {
     overlayId: v.id("overlays"),
-    template: availableTemplatesValidator,
+    template: overlayTemplatesValidator,
   },
   handler: async (ctx, args) => {
-    await requireOverlayAccess(ctx, args.overlayId);
+    const { overlay } = await requireOverlayAccess(ctx, args.overlayId);
+
+    if (overlay.overlayType === "match" && !MATCH_TEMPLATES.has(args.template)) {
+      throw new Error("Template is not available for match overlays");
+    }
+    if (
+      overlay.overlayType === "commentary" &&
+      !COMMENTARY_TEMPLATES.has(args.template)
+    ) {
+      throw new Error("Template is not available for commentary overlays");
+    }
+    if (overlay.overlayType === "card" && !CARD_TEMPLATES.has(args.template)) {
+      throw new Error("Template is not available for card overlays");
+    }
+    if (overlay.overlayType === "deck" || overlay.overlayType === "standings") {
+      throw new Error(
+        `Template updates are not supported for ${overlay.overlayType} overlays`,
+      );
+    }
 
     await ctx.db.patch(args.overlayId, {
       template: args.template,

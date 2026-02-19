@@ -4,7 +4,7 @@ import {
   requireCommentaryOverlayAccess,
   requireTournamentAccess,
 } from "../lib/auth";
-import { availableTemplatesValidator } from "../validators";
+import { commentaryTemplatesValidator } from "../validators";
 import { filterUndefined } from "../lib/utils";
 import { createCommentaryOverlayHelper } from "../lib/overlays";
 
@@ -66,7 +66,7 @@ export const updateCommentaryOverlay = mutation({
     const { overlayId, ...updateFields } = args;
     const updates = filterUndefined(updateFields);
 
-    await ctx.db.patch(args.overlayId, updates);
+    await ctx.db.patch(overlayId, updates);
   },
 });
 
@@ -74,7 +74,7 @@ export const setCommentaryOverlaySettings = mutation({
   args: {
     overlayId: v.id("overlays"),
     name: v.optional(v.string()),
-    template: v.optional(availableTemplatesValidator),
+    template: v.optional(commentaryTemplatesValidator),
   },
   handler: async (ctx, args) => {
     await requireCommentaryOverlayAccess(ctx, args.overlayId);

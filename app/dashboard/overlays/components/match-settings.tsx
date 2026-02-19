@@ -5,7 +5,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { MatchOverlay, TemplateType } from "@/convex/types";
+import { MatchOverlay } from "@/convex/types";
 import { useEffect, useState, useRef } from "react";
 import {
   DialogTitle,
@@ -28,8 +28,8 @@ export default function MatchSettings({
   overlay,
   onOpenChange,
 }: MatchSettingsProps) {
-  const [selectedTemplate, setSelectedTemplate] = useState<TemplateType>(
-    overlay.template as TemplateType,
+  const [selectedTemplate, setSelectedTemplate] = useState<MatchOverlay["template"]>(
+    overlay.template,
   );
   const [editingName, setEditingName] = useState(false);
   const [overlayName, setOverlayName] = useState(overlay.name);
@@ -124,7 +124,9 @@ export default function MatchSettings({
         <label className="text-sm font-medium">Template</label>
         <Select
           value={selectedTemplate}
-          onValueChange={(value: TemplateType) => setSelectedTemplate(value)}
+          onValueChange={(value) =>
+            setSelectedTemplate(value as MatchOverlay["template"])
+          }
         >
           <SelectTrigger>
             <SelectValue placeholder="Select template" />
