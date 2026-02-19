@@ -189,6 +189,25 @@ function Placeholder({
           }}
         />
       )}
+      {/* Top-left coordinates */}
+      <div
+        style={{
+          position: "absolute",
+          top: 10,
+          left: 10,
+          padding: "4px 6px",
+          border: `1px solid ${THEME.placeholderCrosshair}`,
+          background: "rgba(0,0,0,0.35)",
+          borderRadius: 4,
+          fontFamily: "'Instrument Sans', 'Helvetica Neue', sans-serif",
+          fontSize: 10,
+          fontWeight: 500,
+          color: THEME.placeholderLabel,
+          letterSpacing: "0.05em",
+        }}
+      >
+        X:{zone.x} Y:{zone.y}
+      </div>
       {/* Label */}
       <div
         style={{
@@ -250,8 +269,8 @@ export default function MatchBraunDarkOverlay({
       <Placeholder zone={ZONES.main} label="Overhead Camera" />
       <Placeholder zone={ZONES.p1} label="Player 1 Cam" />
       <Placeholder zone={ZONES.p2} label="Player 2 Cam" />
-      <Placeholder zone={ZONES.p1Card} label="P1 Card" isCard />
-      <Placeholder zone={ZONES.p2Card} label="P2 Card" isCard />
+      {/* <Placeholder zone={ZONES.p1Card} label="P1 Card" isCard />
+      <Placeholder zone={ZONES.p2Card} label="P2 Card" isCard /> */}
 
       {/* ── CARD LOGOS ── */}
       <div
@@ -313,8 +332,8 @@ export default function MatchBraunDarkOverlay({
       <BezelFrame zone={ZONES.main} />
       <BezelFrame zone={ZONES.p1} />
       <BezelFrame zone={ZONES.p2} />
-      <BezelFrame zone={ZONES.p1Card} />
-      <BezelFrame zone={ZONES.p2Card} />
+      {/* <BezelFrame zone={ZONES.p1Card} />
+      <BezelFrame zone={ZONES.p2Card} /> */}
 
       {/* ── TOP BAR ── */}
       <div
