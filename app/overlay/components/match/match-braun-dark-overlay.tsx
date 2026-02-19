@@ -1,8 +1,9 @@
 import { api } from "@/convex/_generated/api";
-import { MatchOverlayWithPlayers, TournamentInfo } from "@/convex/types";
+import { MatchOverlayWithPlayers } from "@/convex/types";
 import { useQuery } from "convex/react";
 import Timer from "@/components/timer";
 import { Mic } from "lucide-react";
+import Image from "next/image";
 
 /**
  * Braun Dark — Camera Frame Overlay
@@ -39,6 +40,9 @@ const CARD_WIDTH = 300;
 const GUTTER = 32;
 const CARD_ASPECT_W = 745;
 const CARD_ASPECT_H = 1040;
+const P1_CARD_LOGO_MAX_WIDTH = "70%";
+const P2_CARD_LOGO_MAX_WIDTH = "55%";
+const CARD_LOGO_MAX_HEIGHT = "70%";
 
 // ── Bezel border tokens ──
 const BEZEL_BORDER = 1;
@@ -248,6 +252,62 @@ export default function MatchBraunDarkOverlay({
       <Placeholder zone={ZONES.p2} label="Player 2 Cam" />
       <Placeholder zone={ZONES.p1Card} label="P1 Card" isCard />
       <Placeholder zone={ZONES.p2Card} label="P2 Card" isCard />
+
+      {/* ── CARD LOGOS ── */}
+      <div
+        style={{
+          position: "absolute",
+          left: ZONES.p1Card.x,
+          top: ZONES.p1Card.y,
+          width: ZONES.p1Card.w,
+          height: ZONES.p1Card.h,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          pointerEvents: "none",
+        }}
+      >
+        <Image
+          src="/images/logos/swamp-logo-tight.svg"
+          alt=""
+          width={711}
+          height={545}
+          style={{
+            width: "auto",
+            height: "auto",
+            maxWidth: P1_CARD_LOGO_MAX_WIDTH,
+            maxHeight: CARD_LOGO_MAX_HEIGHT,
+            objectFit: "contain",
+          }}
+        />
+      </div>
+      <div
+        style={{
+          position: "absolute",
+          left: ZONES.p2Card.x,
+          top: ZONES.p2Card.y,
+          width: ZONES.p2Card.w,
+          height: ZONES.p2Card.h,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          pointerEvents: "none",
+        }}
+      >
+        <Image
+          src="/images/logos/great-stories-logo-tan.png"
+          alt=""
+          width={1639}
+          height={2048}
+          style={{
+            width: "auto",
+            height: "auto",
+            maxWidth: P2_CARD_LOGO_MAX_WIDTH,
+            maxHeight: CARD_LOGO_MAX_HEIGHT,
+            objectFit: "contain",
+          }}
+        />
+      </div>
 
       {/* ── BEZEL FRAMES (no labels) ── */}
       <BezelFrame zone={ZONES.main} />
