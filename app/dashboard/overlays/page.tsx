@@ -5,6 +5,7 @@ import { useMutation, useQuery } from "convex/react";
 import { useState, useEffect } from "react";
 import {
   CommentaryOverlay,
+  DeckOverlay,
   MatchOverlay,
   Overlay,
   TemplateType,
@@ -56,6 +57,9 @@ export default function OverlaysPage() {
   const setCardOverlaySettings = useMutation(
     api.overlays.setCardOverlaySettings,
   );
+  const setDeckOverlaySettings = useMutation(
+    api.overlays.setDeckOverlaySettings,
+  );
 
   const handleSaveTemplate = () => {
     if (selectedOverlay && selectedTemplate) {
@@ -74,6 +78,11 @@ export default function OverlaysPage() {
           overlayId: selectedOverlay._id as Id<"overlays">,
           template: selectedTemplate as "Default" | "Braun Dark",
         });
+      } else if (selectedOverlay.overlayType === "deck") {
+        setDeckOverlaySettings({
+          overlayId: selectedOverlay._id as Id<"overlays">,
+          template: selectedTemplate as DeckOverlay["template"],
+        });
       }
     }
   };
@@ -90,6 +99,11 @@ export default function OverlaysPage() {
         setSelectedTemplate(
           ((selectedOverlay as { template?: string }).template ??
             "Default") as TemplateType,
+        );
+      } else if (selectedOverlay.overlayType === "deck") {
+        setSelectedTemplate(
+          ((selectedOverlay as { template?: string }).template ??
+            "Duress Crew") as TemplateType,
         );
       } else {
         setSelectedTemplate(undefined);

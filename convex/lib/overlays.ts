@@ -72,6 +72,7 @@ export async function createDeckOverlayHelper(
   const overlayId = await ctx.db.insert("overlays", {
     name,
     overlayType: "deck",
+    template: "Duress Crew",
     tournamentId,
     publicUuid,
     matchId: undefined,

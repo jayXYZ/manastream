@@ -12,7 +12,7 @@ export type TemplateName = "Default" | "Duress Crew" | "Lobstercon" | "Custom" |
 export const OVERLAY_TEMPLATES: Record<OverlayType, TemplateName[]> = {
   match: ["Default", "Duress Crew", "Lobstercon", "Arcade", "VHS", "Braun", "Braun Dark", "Topographic", "Brutalist"],
   commentary: ["Duress Crew", "Lobstercon", "Braun Dark", "Braun Dark Duo"],
-  deck: ["Duress Crew"], // Currently hardcoded, but included for consistency
+  deck: ["Duress Crew", "Braun Dark"],
   card: ["Default", "Braun Dark"],
   standings: [], // Not yet implemented
 };

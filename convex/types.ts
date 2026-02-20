@@ -39,6 +39,7 @@ export type OverlayType = Overlay["overlayType"];
 // Template types from the validators
 export type TemplateType = "Default" | "Duress Crew" | "Lobstercon" | "Custom" | "Arcade" | "VHS" | "Braun" | "Braun Dark" | "Braun Dark Duo" | "Topographic" | "Brutalist";
 export type CardTemplateName = "Default" | "Braun Dark";
+export type DeckTemplateName = "Duress Crew" | "Braun Dark";
 
 // Tournament info types from the validators
 export type TournamentInfo = Infer<typeof getTournamentInfoValidator>;

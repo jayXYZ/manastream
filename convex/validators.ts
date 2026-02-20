@@ -167,6 +167,11 @@ export const cardTemplatesValidator = v.union(
   v.literal("Braun Dark"),
 );
 
+export const deckTemplatesValidator = v.union(
+  v.literal("Duress Crew"),
+  v.literal("Braun Dark"),
+);
+
 export const cardOverlayValidator = v.object({
   _id: v.id("overlays"),
   _creationTime: v.number(),
@@ -184,6 +189,7 @@ export const deckOverlayValidator = v.object({
   _creationTime: v.number(),
   name: v.string(),
   overlayType: v.literal("deck"),
+  template: v.optional(deckTemplatesValidator),
   tournamentId: v.id("tournaments"),
   publicUuid: v.string(), // Direct UUID string for public access
   matchId: v.optional(v.id("featureMatches")),
@@ -269,6 +275,7 @@ export const overlayTemplatesValidator = v.union(
   matchTemplatesValidator,
   commentaryTemplatesValidator,
   cardTemplatesValidator,
+  deckTemplatesValidator,
 );
 
 export const playerValidator = v.object({

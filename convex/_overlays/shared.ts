@@ -26,6 +26,7 @@ const COMMENTARY_TEMPLATES = new Set([
 ]);
 
 const CARD_TEMPLATES = new Set(["Default", "Braun Dark"]);
+const DECK_TEMPLATES = new Set(["Duress Crew", "Braun Dark"]);
 
 export const setOverlayTemplate = mutation({
   args: {
@@ -47,7 +48,10 @@ export const setOverlayTemplate = mutation({
     if (overlay.overlayType === "card" && !CARD_TEMPLATES.has(args.template)) {
       throw new Error("Template is not available for card overlays");
     }
-    if (overlay.overlayType === "deck" || overlay.overlayType === "standings") {
+    if (overlay.overlayType === "deck" && !DECK_TEMPLATES.has(args.template)) {
+      throw new Error("Template is not available for deck overlays");
+    }
+    if (overlay.overlayType === "standings") {
       throw new Error(
         `Template updates are not supported for ${overlay.overlayType} overlays`,
       );
