@@ -352,6 +352,7 @@ export const getOverlayByUuidValidator = v.union(
 );
 
 export const getTournamentInfoValidator = v.object({
+  eventName: v.optional(v.string()),
   currentRound: v.optional(v.number()),
   currentRoundDisplayName: v.optional(v.string()),
   manualTimerExpiry: v.optional(v.number()),
