@@ -1,7 +1,7 @@
 import { CardOverlay as CardOverlayType } from "@/convex/types";
 import Image from "next/image";
 
-function CardOverlay({ data }: { data: CardOverlayType }) {
+function CardDefaultOverlay({ data }: { data: CardOverlayType }) {
   return (
     <>
       <Image
@@ -16,4 +16,4 @@ function CardOverlay({ data }: { data: CardOverlayType }) {
   );
 }
 
-export default CardOverlay;
+export default CardDefaultOverlay;

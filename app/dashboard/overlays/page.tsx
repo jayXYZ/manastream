@@ -3,7 +3,13 @@
 import { api } from "@/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import { useState, useEffect } from "react";
-import { Overlay, TemplateType } from "@/convex/types";
+import {
+  CommentaryOverlay,
+  DeckOverlay,
+  MatchOverlay,
+  Overlay,
+  TemplateType,
+} from "@/convex/types";
 import OverlaysTable from "./components/overlays-table";
 import OverlayPreview from "./components/overlay-preview";
 import { Spinner } from "@/components/ui/spinner";
@@ -17,9 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Save, ExternalLink, Copy, Check, Proportions } from "lucide-react";
 import {
-  getAllTemplateNames,
   getAvailableTemplates,
-  isTemplateAvailable,
 } from "@/lib/overlay-templates";
 import { Id } from "@/convex/_generated/dataModel";
 import {
@@ -48,18 +52,34 @@ export default function OverlaysPage() {
   const setCommentaryOverlaySettings = useMutation(
     api.overlays.setCommentaryOverlaySettings,
   );
+  const setCardOverlaySettings = useMutation(
+    api.overlays.setCardOverlaySettings,
+  );
+  const setDeckOverlaySettings = useMutation(
+    api.overlays.setDeckOverlaySettings,
+  );
 
   const handleSaveTemplate = () => {
     if (selectedOverlay && selectedTemplate) {
       if (selectedOverlay.overlayType === "match") {
         setMatchOverlaySettings({
           overlayId: selectedOverlay._id as Id<"overlays">,
-          template: selectedTemplate,
+          template: selectedTemplate as MatchOverlay["template"],
         });
       } else if (selectedOverlay.overlayType === "commentary") {
         setCommentaryOverlaySettings({
           overlayId: selectedOverlay._id as Id<"overlays">,
-          template: selectedTemplate,
+          template: selectedTemplate as CommentaryOverlay["template"],
+        });
+      } else if (selectedOverlay.overlayType === "card") {
+        setCardOverlaySettings({
+          overlayId: selectedOverlay._id as Id<"overlays">,
+          template: selectedTemplate as "Default" | "Braun Dark",
+        });
+      } else if (selectedOverlay.overlayType === "deck") {
+        setDeckOverlaySettings({
+          overlayId: selectedOverlay._id as Id<"overlays">,
+          template: selectedTemplate as DeckOverlay["template"],
         });
       }
     }
@@ -73,6 +93,16 @@ export default function OverlaysPage() {
         selectedOverlay.overlayType === "commentary"
       ) {
         setSelectedTemplate(selectedOverlay.template as TemplateType);
+      } else if (selectedOverlay.overlayType === "card") {
+        setSelectedTemplate(
+          ((selectedOverlay as { template?: string }).template ??
+            "Default") as TemplateType,
+        );
+      } else if (selectedOverlay.overlayType === "deck") {
+        setSelectedTemplate(
+          ((selectedOverlay as { template?: string }).template ??
+            "Duress Crew") as TemplateType,
+        );
       } else {
         setSelectedTemplate(undefined);
       }
@@ -297,22 +327,13 @@ function OverlayDetailsPanel({
                   <SelectValue placeholder="Select a template" />
                 </SelectTrigger>
                 <SelectContent>
-                  {getAllTemplateNames().map((template) => {
-                    const isAvailable = isTemplateAvailable(
-                      selectedOverlay.overlayType,
-                      template,
-                    );
-                    return (
-                      <SelectItem
-                        key={template}
-                        value={template}
-                        disabled={!isAvailable}
-                      >
+                  {getAvailableTemplates(selectedOverlay.overlayType).map(
+                    (template) => (
+                      <SelectItem key={template} value={template}>
                         {template}
-                        {!isAvailable && " (N/A)"}
                       </SelectItem>
-                    );
-                  })}
+                    ),
+                  )}
                 </SelectContent>
               </Select>
               <Button

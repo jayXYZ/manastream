@@ -12,7 +12,7 @@ import {
 } from "@/convex/types";
 import { useQuery } from "convex/react";
 import { use } from "react";
-import CardOverlay from "../components/card-overlay";
+import CardOverlay from "../components/card/card-overlay";
 import MatchOverlay from "../components/match/match-overlay";
 import CommentaryOverlay from "../components/commentary/commentary-overlay";
 import DeckOverlay from "../components/deck/deck-overlay";

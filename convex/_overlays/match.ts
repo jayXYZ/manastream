@@ -2,7 +2,7 @@ import { mutation, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
 import { filterUndefined } from "../lib/utils";
 import {
-  availableTemplatesValidator,
+  matchTemplatesValidator,
   updateMatchOverlayArgsValidator,
 } from "../validators";
 import {
@@ -62,7 +62,7 @@ export const updateMatchOverlay = mutation({
     const { overlayId, ...updateFields } = args;
     const updates = filterUndefined(updateFields);
 
-    await ctx.db.patch(args.overlayId, updates);
+    await ctx.db.patch(overlayId, updates);
   },
 });
 
@@ -217,7 +217,7 @@ export const setMatchOverlaySettings = mutation({
   args: {
     overlayId: v.id("overlays"),
     name: v.optional(v.string()),
-    template: v.optional(availableTemplatesValidator),
+    template: v.optional(matchTemplatesValidator),
   },
   handler: async (ctx, args) => {
     await requireMatchOverlayAccess(ctx, args.overlayId);

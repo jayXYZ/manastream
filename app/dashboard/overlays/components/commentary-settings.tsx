@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CommentaryOverlay, TemplateType } from "@/convex/types";
+import { CommentaryOverlay } from "@/convex/types";
 import { useEffect, useState, useRef } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -28,8 +28,10 @@ export default function CommentarySettings({
   overlay,
   onOpenChange,
 }: CommentarySettingsProps) {
-  const [selectedTemplate, setSelectedTemplate] = useState<TemplateType>(
-    overlay.template as TemplateType,
+  const [selectedTemplate, setSelectedTemplate] = useState<
+    CommentaryOverlay["template"]
+  >(
+    overlay.template,
   );
   const [editingName, setEditingName] = useState(false);
   const [overlayName, setOverlayName] = useState(overlay.name);
@@ -125,7 +127,9 @@ export default function CommentarySettings({
           <label className="text-sm font-medium">Template</label>
           <Select
             value={selectedTemplate}
-            onValueChange={(value: TemplateType) => setSelectedTemplate(value)}
+            onValueChange={(value) =>
+              setSelectedTemplate(value as CommentaryOverlay["template"])
+            }
           >
             <SelectTrigger>
               <SelectValue placeholder="Select template" />
