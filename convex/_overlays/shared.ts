@@ -8,12 +8,7 @@ const MATCH_TEMPLATES = new Set([
   "Lobstercon",
   "Default",
   "Custom",
-  "Arcade",
-  "VHS",
-  "Braun",
   "Braun Dark",
-  "Topographic",
-  "Brutalist",
 ]);
 
 const COMMENTARY_TEMPLATES = new Set([

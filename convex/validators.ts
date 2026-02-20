@@ -136,12 +136,7 @@ export const matchOverlayValidator = v.object({
     v.literal("Lobstercon"),
     v.literal("Default"),
     v.literal("Custom"),
-    v.literal("Arcade"),
-    v.literal("VHS"),
-    v.literal("Braun"),
     v.literal("Braun Dark"),
-    v.literal("Topographic"),
-    v.literal("Brutalist"),
   ),
   templateId: v.optional(v.id("templates")),
   tournamentId: v.id("tournaments"),
@@ -254,12 +249,7 @@ export const matchTemplatesValidator = v.union(
   v.literal("Lobstercon"),
   v.literal("Default"),
   v.literal("Custom"),
-  v.literal("Arcade"),
-  v.literal("VHS"),
-  v.literal("Braun"),
   v.literal("Braun Dark"),
-  v.literal("Topographic"),
-  v.literal("Brutalist"),
 );
 
 export const commentaryTemplatesValidator = v.union(

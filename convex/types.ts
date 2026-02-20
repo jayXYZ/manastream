@@ -37,7 +37,13 @@ export type FeatureMatchWithPlayers = Infer<
 export type OverlayType = Overlay["overlayType"];
 
 // Template types from the validators
-export type TemplateType = "Default" | "Duress Crew" | "Lobstercon" | "Custom" | "Arcade" | "VHS" | "Braun" | "Braun Dark" | "Braun Dark Duo" | "Topographic" | "Brutalist";
+export type TemplateType =
+  | "Default"
+  | "Duress Crew"
+  | "Lobstercon"
+  | "Custom"
+  | "Braun Dark"
+  | "Braun Dark Duo";
 export type CardTemplateName = "Default" | "Braun Dark";
 export type DeckTemplateName = "Duress Crew" | "Braun Dark";
 

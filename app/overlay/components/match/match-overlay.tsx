@@ -19,11 +19,8 @@ export default function MatchOverlay({
 
   type TemplateName = keyof typeof TEMPLATE_COMPONENTS;
 
-  const TemplateComponent = TEMPLATE_COMPONENTS[data.template as TemplateName];
-
-  if (!TemplateComponent) {
-    return <div>Template &quot;{data.template}&quot; not supported</div>;
-  }
+  const TemplateComponent =
+    TEMPLATE_COMPONENTS[data.template as TemplateName] ?? MatchDefaultOverlay;
 
   return <TemplateComponent data={data} />;
 }

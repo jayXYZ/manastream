@@ -23,9 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Save, ExternalLink, Copy, Check, Proportions } from "lucide-react";
 import {
-  getAllTemplateNames,
   getAvailableTemplates,
-  isTemplateAvailable,
 } from "@/lib/overlay-templates";
 import { Id } from "@/convex/_generated/dataModel";
 import {
@@ -329,22 +327,13 @@ function OverlayDetailsPanel({
                   <SelectValue placeholder="Select a template" />
                 </SelectTrigger>
                 <SelectContent>
-                  {getAllTemplateNames().map((template) => {
-                    const isAvailable = isTemplateAvailable(
-                      selectedOverlay.overlayType,
-                      template,
-                    );
-                    return (
-                      <SelectItem
-                        key={template}
-                        value={template}
-                        disabled={!isAvailable}
-                      >
+                  {getAvailableTemplates(selectedOverlay.overlayType).map(
+                    (template) => (
+                      <SelectItem key={template} value={template}>
                         {template}
-                        {!isAvailable && " (N/A)"}
                       </SelectItem>
-                    );
-                  })}
+                    ),
+                  )}
                 </SelectContent>
               </Select>
               <Button
