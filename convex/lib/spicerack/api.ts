@@ -97,8 +97,8 @@ export async function fetchSpicerackEventOverviewData(
 ): Promise<{
   id: number;
   event_status: string;
-  current_round_id: number;
-  current_round_number: number;
+  current_round_id?: number;
+  current_round_number?: number;
 }> {
   return withRetry(async () => {
     const response = await fetch(
@@ -132,11 +132,19 @@ export async function fetchSpicerackEventOverviewData(
       )
         ? "COMPLETED"
         : "IN_PROGRESS";
+    const currentRoundId =
+      typeof jsonData.current_round?.id === "number"
+        ? jsonData.current_round.id
+        : undefined;
+    const currentRoundNumber =
+      typeof jsonData.current_round?.round_number === "number"
+        ? jsonData.current_round.round_number
+        : undefined;
     return {
       id: jsonData.id,
       event_status,
-      current_round_id: jsonData.current_round.id,
-      current_round_number: jsonData.current_round.round_number,
+      current_round_id: currentRoundId,
+      current_round_number: currentRoundNumber,
     };
   });
 }
