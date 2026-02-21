@@ -7,6 +7,7 @@ import {
 } from "./_generated/server";
 import { v } from "convex/values";
 import { getOwnTournament } from "./lib/tournaments";
+import { decklistStatusValidator } from "./validators";
 
 export const createPlayer = internalMutation({
   args: {
@@ -15,6 +16,7 @@ export const createPlayer = internalMutation({
       name: v.string(),
       spicerackPlayerId: v.number(),
       deckId: v.number(),
+      decklistStatus: v.optional(decklistStatusValidator),
       deckName: v.string(),
       deckList: v.string(),
     }),
@@ -26,6 +28,7 @@ export const createPlayer = internalMutation({
       spicerackTournamentId: args.spicerackTournamentId,
       spicerackPlayerId: args.player.spicerackPlayerId,
       deckId: args.player.deckId,
+      decklistStatus: args.player.decklistStatus,
       deckName: args.player.deckName,
       deckList: args.player.deckList,
       updatedAt: Date.now(),
@@ -41,6 +44,7 @@ export const createPlayers = internalMutation({
         name: v.string(),
         spicerackPlayerId: v.number(),
         deckId: v.number(),
+        decklistStatus: v.optional(decklistStatusValidator),
         deckName: v.string(),
         deckList: v.string(),
       }),
@@ -50,12 +54,13 @@ export const createPlayers = internalMutation({
   handler: async (ctx, args) => {
     const playerIdsAndDeckIds: { playerId: Id<"players">; deckId: number }[] =
       [];
-    for (let player of args.players) {
+    for (const player of args.players) {
       const playerId = await ctx.db.insert("players", {
         name: player.name,
         spicerackTournamentId: player.spicerackTournamentId,
         spicerackPlayerId: player.spicerackPlayerId,
         deckId: player.deckId,
+        decklistStatus: player.decklistStatus,
         deckName: player.deckName,
         deckList: player.deckList,
         updatedAt: Date.now(),
@@ -73,14 +78,20 @@ export const updatePlayerDecklists = internalMutation({
         playerId: v.id("players"),
         deckName: v.string(),
         deckList: v.string(),
+        deckId: v.optional(v.number()),
+        decklistStatus: v.optional(decklistStatusValidator),
       }),
     ),
   },
   handler: async (ctx, args) => {
-    for (let player of args.players) {
+    for (const player of args.players) {
       await ctx.db.patch(player.playerId, {
         deckName: player.deckName,
         deckList: player.deckList,
+        ...(player.deckId !== undefined && { deckId: player.deckId }),
+        ...(player.decklistStatus !== undefined && {
+          decklistStatus: player.decklistStatus,
+        }),
       });
     }
   },
@@ -113,6 +124,56 @@ export const getAllSpicerackTournamentPlayers = query({
       deckName: player.deckName,
       deckList: player.deckList,
     }));
+  },
+});
+
+export const getPlayersWithMissingDecklists = internalQuery({
+  args: {
+    spicerackTournamentId: v.number(),
+  },
+  returns: v.array(
+    v.object({
+      playerId: v.id("players"),
+      spicerackPlayerId: v.number(),
+      deckId: v.number(),
+      decklistStatus: v.optional(decklistStatusValidator),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const players = await ctx.db
+      .query("players")
+      .withIndex("by_spicerack_tournament_id", (q) =>
+        q.eq("spicerackTournamentId", args.spicerackTournamentId),
+      )
+      .collect();
+    return players
+      .filter((player) => {
+        if (
+          player.decklistStatus === "missing" ||
+          player.decklistStatus === "fetch_failed"
+        ) {
+          return true;
+        }
+        if (
+          player.decklistStatus === "manual" ||
+          player.decklistStatus === "ready" ||
+          player.decklistStatus === "pending"
+        ) {
+          return false;
+        }
+        // Fallback for older records that do not have decklistStatus yet.
+        return (
+          (player.deckName === "MISSING_DECKLIST" &&
+            player.deckList === "MISSING_DECKLIST") ||
+          (player.deckName === "Unknown" && player.deckList === "Unknown")
+        );
+      })
+      .map((player) => ({
+        playerId: player._id,
+        spicerackPlayerId: player.spicerackPlayerId,
+        deckId: player.deckId,
+        decklistStatus: player.decklistStatus,
+      }));
   },
 });
 
@@ -163,6 +224,7 @@ export const updatePlayerInfo = mutation({
       name: args.name,
       deckName: args.deckName,
       deckList: args.deckList,
+      decklistStatus: "manual",
       updatedAt: Date.now(),
     });
   },

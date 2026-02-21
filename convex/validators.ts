@@ -111,6 +111,14 @@ export const roundStandingsValidator = v.object({
   updatedAt: v.number(),
 });
 
+export const decklistStatusValidator = v.union(
+  v.literal("missing"),
+  v.literal("pending"),
+  v.literal("ready"),
+  v.literal("fetch_failed"),
+  v.literal("manual"),
+);
+
 export const spicerackRoundStandingsDataValidator = v.object({
   round_number: v.number(),
   standings: v.array(playerInStandingsValidator),
@@ -276,6 +284,7 @@ export const playerValidator = v.object({
   tournamentId: v.optional(v.id("tournaments")),
   spicerackTournamentId: v.optional(v.number()),
   deckId: v.number(),
+  decklistStatus: v.optional(decklistStatusValidator),
   deckName: v.string(), // Archetype name
   deckList: v.string(), // Plaintext deck list
   updatedAt: v.number(),

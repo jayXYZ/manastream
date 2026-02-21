@@ -80,6 +80,7 @@ export async function createPlayer(
     | "name"
     | "spicerackPlayerId"
     | "deckId"
+    | "decklistStatus"
     | "deckName"
     | "deckList"
     | "spicerackTournamentId"
@@ -111,6 +112,7 @@ export function createPendingPlayerEntry(
       spicerackPlayerId: id,
       spicerackTournamentId,
       deckId: -1,
+      decklistStatus: "missing",
       deckName: NO_DECK_INFO,
       deckList: NO_DECK_INFO,
     };
@@ -120,6 +122,7 @@ export function createPendingPlayerEntry(
     spicerackPlayerId: id,
     spicerackTournamentId,
     deckId: decklistId,
+    decklistStatus: "pending",
     deckName: PENDING_DECK_INFO,
     deckList: PENDING_DECK_INFO,
   };

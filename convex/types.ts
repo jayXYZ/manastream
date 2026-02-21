@@ -58,6 +58,7 @@ export type NewPlayerEntry = Pick<
   | "name"
   | "spicerackPlayerId"
   | "deckId"
+  | "decklistStatus"
   | "deckName"
   | "deckList"
   | "spicerackTournamentId"

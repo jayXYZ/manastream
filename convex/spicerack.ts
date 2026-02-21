@@ -23,6 +23,8 @@ import {
 } from "./lib/spicerack/api";
 import { createSpicerackTournamentHelper } from "./lib/spicerack/tournament";
 
+const DECKLIST_FETCH_CONCURRENCY = 8;
+
 export const updateNewSpicerackRound = internalMutation({
   args: {
     tournamentId: v.id("tournaments"),
@@ -58,7 +60,7 @@ export const updateNewSpicerackRound = internalMutation({
       (overlay) => overlay.overlayType === "match",
     );
 
-    for (let matchOverlay of matchOverlays) {
+    for (const matchOverlay of matchOverlays) {
       await ctx.db.patch(matchOverlay._id, DEFAULT_MATCH);
     }
   },
@@ -236,10 +238,12 @@ export const validateAndStartPolling = internalAction({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    let { tournament, spicerackTournament, settings } = await ctx.runQuery(
+    const pollingData = await ctx.runQuery(
       internal.spicerack.getTournamentPollingData,
       { userId: args.userId },
     );
+    const { tournament, settings } = pollingData;
+    let { spicerackTournament } = pollingData;
     if (
       !tournament ||
       !tournament.spicerackTournamentId ||
@@ -356,6 +360,9 @@ export const validateAndStartPolling = internalAction({
               spicerackPlayerId: player.id,
               spicerackTournamentId: spicerackTournament.spicerackTournamentId,
               deckId: player.decklist?.id ?? -1,
+              decklistStatus: player.decklist?.id
+                ? ("pending" as const)
+                : ("missing" as const),
               deckName: player.decklist?.id ? "PENDING" : "MISSING_DECKLIST",
               deckList: player.decklist?.id ? "PENDING" : "MISSING_DECKLIST",
             })),
@@ -368,37 +375,148 @@ export const validateAndStartPolling = internalAction({
         );
 
         if (playersWithDecks.length > 0) {
-          const decklistPromises = playersWithDecks.map((playerWithDeck) => {
-            return fetchSpicerackDecklistData(
-              playerWithDeck.deckId,
-              settings.spicerackApiKey!,
-            )
-              .then((decklist) => ({
-                playerId: playerWithDeck.playerId,
-                deckName: decklist.deckname,
-                deckList: decklist.decklist,
-              }))
-              .catch((error) => {
-                console.error(
-                  `Failed to fetch decklist for player ${playerWithDeck.playerId}:`,
-                  error,
-                );
-                return {
-                  playerId: playerWithDeck.playerId,
-                  deckName: "Unknown",
-                  deckList: "Unknown",
-                };
-              });
-          });
+          const newPlayerDecklists: {
+            playerId: (typeof playersWithDecks)[number]["playerId"];
+            deckName: string;
+            deckList: string;
+            decklistStatus: "ready" | "fetch_failed";
+          }[] = [];
 
-          const results = await Promise.allSettled(decklistPromises);
-          const newPlayerDecklists = results
-            .filter((result) => result.status === "fulfilled")
-            .map((result) => result.value);
+          for (
+            let index = 0;
+            index < playersWithDecks.length;
+            index += DECKLIST_FETCH_CONCURRENCY
+          ) {
+            const batch = playersWithDecks.slice(
+              index,
+              index + DECKLIST_FETCH_CONCURRENCY,
+            );
+            const batchResults = await Promise.all(
+              batch.map(async (playerWithDeck) => {
+                try {
+                  const decklist = await fetchSpicerackDecklistData(
+                    playerWithDeck.deckId,
+                    settings.spicerackApiKey!,
+                  );
+                  return {
+                    playerId: playerWithDeck.playerId,
+                    deckName: decklist.deckname,
+                    deckList: decklist.decklist,
+                    decklistStatus: "ready" as const,
+                  };
+                } catch (error) {
+                  console.error(
+                    `Failed to fetch decklist for player ${playerWithDeck.playerId}:`,
+                    error,
+                  );
+                  return {
+                    playerId: playerWithDeck.playerId,
+                    deckName: "Unknown",
+                    deckList: "Unknown",
+                    decklistStatus: "fetch_failed" as const,
+                  };
+                }
+              }),
+            );
+            newPlayerDecklists.push(...batchResults);
+          }
 
           if (newPlayerDecklists.length > 0) {
             await ctx.runMutation(internal.player.updatePlayerDecklists, {
               players: newPlayerDecklists,
+            });
+          }
+        }
+      }
+
+      // Re-check decklists for existing players that were cached without one
+      const playersWithMissingDecklists = await ctx.runQuery(
+        internal.player.getPlayersWithMissingDecklists,
+        { spicerackTournamentId: spicerackTournament.spicerackTournamentId },
+      );
+
+      if (playersWithMissingDecklists.length > 0) {
+        const registeredPlayersById = new Map(
+          spicerackRegisteredPlayers.map((registeredPlayer) => [
+            registeredPlayer.id,
+            registeredPlayer,
+          ]),
+        );
+        const playersToRefetch: {
+          playerId: (typeof playersWithMissingDecklists)[number]["playerId"];
+          deckId: number;
+        }[] = [];
+
+        for (const player of playersWithMissingDecklists) {
+          if (player.deckId > 0) {
+            playersToRefetch.push({
+              playerId: player.playerId,
+              deckId: player.deckId,
+            });
+          } else {
+            const apiPlayer = registeredPlayersById.get(player.spicerackPlayerId);
+            if (apiPlayer?.decklist?.id) {
+              playersToRefetch.push({
+                playerId: player.playerId,
+                deckId: apiPlayer.decklist.id,
+              });
+            }
+          }
+        }
+
+        if (playersToRefetch.length > 0) {
+          const updatedDecklists: {
+            playerId: (typeof playersToRefetch)[number]["playerId"];
+            deckName: string;
+            deckList: string;
+            deckId: number;
+            decklistStatus: "ready" | "fetch_failed";
+          }[] = [];
+
+          for (
+            let index = 0;
+            index < playersToRefetch.length;
+            index += DECKLIST_FETCH_CONCURRENCY
+          ) {
+            const batch = playersToRefetch.slice(
+              index,
+              index + DECKLIST_FETCH_CONCURRENCY,
+            );
+            const batchResults = await Promise.all(
+              batch.map(async (player) => {
+                try {
+                  const decklist = await fetchSpicerackDecklistData(
+                    player.deckId,
+                    settings.spicerackApiKey!,
+                  );
+                  return {
+                    playerId: player.playerId,
+                    deckName: decklist.deckname,
+                    deckList: decklist.decklist,
+                    deckId: player.deckId,
+                    decklistStatus: "ready" as const,
+                  };
+                } catch (error) {
+                  console.error(
+                    `Failed to re-fetch decklist for player ${player.playerId}:`,
+                    error,
+                  );
+                  return {
+                    playerId: player.playerId,
+                    deckName: "Unknown",
+                    deckList: "Unknown",
+                    deckId: player.deckId,
+                    decklistStatus: "fetch_failed" as const,
+                  };
+                }
+              }),
+            );
+            updatedDecklists.push(...batchResults);
+          }
+
+          if (updatedDecklists.length > 0) {
+            await ctx.runMutation(internal.player.updatePlayerDecklists, {
+              players: updatedDecklists,
             });
           }
         }
@@ -544,6 +662,7 @@ export const pollTournamentAndScheduleNext = internalAction({
               playerId: playerAndDeckId.playerId,
               deckName: decklist.deckname,
               deckList: decklist.decklist,
+              decklistStatus: "ready" as const,
             }))
             .catch((error) => {
               console.error(
@@ -554,6 +673,7 @@ export const pollTournamentAndScheduleNext = internalAction({
                 playerId: playerAndDeckId.playerId,
                 deckName: "Unknown",
                 deckList: "Unknown",
+                decklistStatus: "fetch_failed" as const,
               };
             });
         });
