@@ -224,7 +224,7 @@ export async function enrichStandingsOverlay(
       const player = await ctx.db
         .query("players")
         .withIndex("by_spicerack_player_id", (q) =>
-          q.eq("spicerackPlayerId", standing.player_id),
+          q.eq("spicerackPlayerId", standing.user_event_status_ids[0]),
         )
         .first();
 
