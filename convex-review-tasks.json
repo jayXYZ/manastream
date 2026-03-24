@@ -1,0 +1,11 @@
+[
+  {
+    "id": "weak-uuid-generation",
+    "title": "Weak UUID generation for public overlay access",
+    "priority": "high",
+    "completed": true,
+    "description": "generatePublicUuid() uses Math.random() which is not cryptographically secure. Since these UUIDs serve as the sole access control for unauthenticated overlay access, someone could potentially enumerate UUIDs to access other users' overlays. Should use crypto.randomUUID() or crypto.getRandomValues() and consider longer IDs (16+ chars).",
+    "file": "convex/lib/utils.ts",
+    "resolution": "Replaced Math.random() with crypto.getRandomValues() using a 64-char URL-safe alphabet. Increased UUID length from 12 to 18 characters (~107 bits of entropy). Added comprehensive tests."
+  }
+]

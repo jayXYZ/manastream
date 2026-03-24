@@ -7,14 +7,19 @@ export function filterUndefined<T extends Record<string, any>>(
   ) as Partial<T>;
 }
 
-// Utility function for generating short UUIDs (12 characters)
+// Utility function for generating cryptographically secure public UUIDs
+// Uses 18 URL-safe characters (~107 bits of entropy) for access control
+const URL_SAFE_ALPHABET =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+
 export function generatePublicUuid(): string {
-  // Generate a 12-character URL-safe ID
-  // Uses base36 (0-9, a-z) for URL friendliness
-  return (
-    Math.random().toString(36).substring(2, 8) +
-    Math.random().toString(36).substring(2, 8)
-  );
+  const bytes = new Uint8Array(18);
+  crypto.getRandomValues(bytes);
+  let result = "";
+  for (let i = 0; i < bytes.length; i++) {
+    result += URL_SAFE_ALPHABET[bytes[i] & 63]; // mask to 6 bits (0-63)
+  }
+  return result;
 }
 
 // Utility function for retrying a function with exponential backoff
