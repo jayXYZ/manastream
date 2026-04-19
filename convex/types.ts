@@ -43,7 +43,8 @@ export type TemplateType =
   | "Lobstercon"
   | "Custom"
   | "Braun Dark"
-  | "Braun Dark Duo";
+  | "Braun Dark Duo"
+  | "LC26";
 export type CardTemplateName = "Default" | "Braun Dark";
 export type DeckTemplateName = "Duress Crew" | "Braun Dark";
 

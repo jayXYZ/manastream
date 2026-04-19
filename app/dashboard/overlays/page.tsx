@@ -22,9 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Save, ExternalLink, Copy, Check, Proportions } from "lucide-react";
-import {
-  getAvailableTemplates,
-} from "@/lib/overlay-templates";
+import { getAvailableTemplates } from "@/lib/overlay-templates";
 import { Id } from "@/convex/_generated/dataModel";
 import {
   Tooltip,

@@ -3,6 +3,7 @@ import MatchDuressCrewOverlay from "./match-duresscrew-overlay";
 import MatchLobsterconOverlay from "./match-lobstercon-overlay";
 import MatchDefaultOverlay from "./match-default-overlay";
 import MatchBraunDarkOverlay from "./match-braun-dark-overlay";
+import MatchLC26Overlay from "./match-lc26-overlay";
 
 export default function MatchOverlay({
   data,
@@ -15,6 +16,7 @@ export default function MatchOverlay({
     Lobstercon: MatchLobsterconOverlay,
     Default: MatchDefaultOverlay,
     "Braun Dark": MatchBraunDarkOverlay,
+    LC26: MatchLC26Overlay,
   } as const;
 
   type TemplateName = keyof typeof TEMPLATE_COMPONENTS;

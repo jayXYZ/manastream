@@ -145,6 +145,7 @@ export const matchOverlayValidator = v.object({
     v.literal("Default"),
     v.literal("Custom"),
     v.literal("Braun Dark"),
+    v.literal("LC26"),
   ),
   templateId: v.optional(v.id("templates")),
   tournamentId: v.id("tournaments"),
@@ -258,6 +259,7 @@ export const matchTemplatesValidator = v.union(
   v.literal("Default"),
   v.literal("Custom"),
   v.literal("Braun Dark"),
+  v.literal("LC26"),
 );
 
 export const commentaryTemplatesValidator = v.union(
