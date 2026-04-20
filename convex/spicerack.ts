@@ -339,6 +339,20 @@ export const validateAndStartPolling = internalAction({
         `Tournament ${spicerackTournament.spicerackTournamentId} validated. Status: ${overviewData.event_status}`,
       );
 
+      let eventFormatForClassification: string | undefined;
+      try {
+        const eventData = await fetchSpicerackEventData(
+          spicerackTournament.spicerackTournamentId,
+          settings.spicerackApiKey,
+        );
+        eventFormatForClassification = eventData.event_format;
+      } catch (error) {
+        console.warn(
+          `Unable to fetch event format for deck classification for tournament ${spicerackTournament.spicerackTournamentId}:`,
+          error,
+        );
+      }
+
       const spicerackRegisteredPlayers = await fetchSpicerackRegisteredPlayers(
         spicerackTournament.spicerackTournamentId,
         settings.spicerackApiKey,
@@ -397,6 +411,7 @@ export const validateAndStartPolling = internalAction({
                   const decklist = await fetchSpicerackDecklistData(
                     playerWithDeck.deckId,
                     settings.spicerackApiKey!,
+                    eventFormatForClassification,
                   );
                   return {
                     playerId: playerWithDeck.playerId,
@@ -488,6 +503,7 @@ export const validateAndStartPolling = internalAction({
                   const decklist = await fetchSpicerackDecklistData(
                     player.deckId,
                     settings.spicerackApiKey!,
+                    eventFormatForClassification,
                   );
                   return {
                     playerId: player.playerId,
@@ -657,6 +673,7 @@ export const pollTournamentAndScheduleNext = internalAction({
           return fetchSpicerackDecklistData(
             playerAndDeckId.deckId,
             spicerackApiKey,
+            spicerackData.event_format,
           )
             .then((decklist) => ({
               playerId: playerAndDeckId.playerId,

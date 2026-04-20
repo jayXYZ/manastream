@@ -5,6 +5,7 @@ import {
   SpicerackTournamentPhase,
   SpicerackRoundStandings,
 } from "../../types/spicerack";
+import { classifyDecknameForFormat } from "./deckClassification";
 import { withRetry } from "../utils";
 
 /**
@@ -51,6 +52,7 @@ export async function fetchSpicerackEventData(
 export async function fetchSpicerackDecklistData(
   spicerackDecklistId: number,
   spicerackApiKey: string,
+  eventFormat?: string,
 ): Promise<Decklist> {
   return withRetry(async () => {
     if (spicerackDecklistId === -1) {
@@ -76,8 +78,14 @@ export async function fetchSpicerackDecklistData(
     if (!jsonData.archetype || !jsonData.plaintext_list) {
       throw new Error("Invalid API response structure");
     }
+    const deckname = classifyDecknameForFormat({
+      eventFormat,
+      existingArchetype: jsonData.archetype,
+      plaintextList: jsonData.plaintext_list,
+    });
+
     return {
-      deckname: jsonData.archetype,
+      deckname,
       decklist: jsonData.plaintext_list,
     };
   });

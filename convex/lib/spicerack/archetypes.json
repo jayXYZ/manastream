@@ -1,0 +1,422 @@
+{
+  "aluren": {
+    "deckname": "Aluren",
+    "required": ["Aluren", "Cavern Harpy"],
+    "conflicts": []
+  },
+  "angry_hermit": {
+    "deckname": "Angry Hermit",
+    "required": ["Hermit Druid", "Dragon Breath"],
+    "conflicts": []
+  },
+  "breakfast": {
+    "deckname": "Cephalid Breakfast",
+    "required": ["Cephalid Illusionist", "Nomads en-Kor"],
+    "conflicts": []
+  },
+  "broccoli_soup": {
+    "deckname": "Broccoli Soup",
+    "required": ["Carnophage", "Rancor"],
+    "conflicts": []
+  },
+  "bw_control": {
+    "deckname": "Black/White Control",
+    "required": [
+      "Swords to Plowshares",
+      "Vindicate",
+      "Gerrard's Verdict",
+      "Eternal Dragon"
+    ],
+    "conflicts": ["Hypnotic Specter", "Dark Ritual"]
+  },
+  "contamination": {
+    "deckname": "Contamination",
+    "required": ["Contamination"],
+    "conflicts": []
+  },
+  "dance_academy": {
+    "deckname": "Dance Academy",
+    "required": ["Academy Rector", "Corpse Dance"],
+    "conflicts": []
+  },
+  "deadguy": {
+    "deckname": "Deadguy Ale",
+    "required": [
+      "Gerrard's Verdict",
+      "Hypnotic Specter",
+      "Swords to Plowshares",
+      "Dark Ritual"
+    ],
+    "conflicts": ["Eternal Dragon"]
+  },
+  "devourer": {
+    "deckname": "Devourer Combo",
+    "required": ["Phyrexian Devourer", "Altar Of Dementia"],
+    "conflicts": []
+  },
+  "draco_blast": {
+    "deckname": "Draco Blast",
+    "required": ["Draco", "Erratic Explosion"],
+    "conflicts": []
+  },
+  "elves": {
+    "deckname": "Elves",
+    "required": ["Wirewood Symbiote", "Quirion Ranger"],
+    "conflicts": []
+  },
+  "enchantress": {
+    "deckname": "Enchantress",
+    "required": ["Argothian Enchantress", "Enchantress's Presence"],
+    "conflicts": []
+  },
+  "feb": {
+    "deckname": "Full English Breakfast",
+    "required": [
+      "Volrath's Shapeshifter",
+      "Survival of the Fittest",
+      "Psychatog"
+    ],
+    "conflicts": []
+  },
+  "fires": {
+    "deckname": "Fires",
+    "required": ["Fires of Yavimaya", "Blastoderm", "Birds of Paradise"],
+    "conflicts": []
+  },
+  "five_color_gators": {
+    "deckname": "Five Color Negator",
+    "required": ["Phyrexian Negator", "City of Brass", "Birds of Paradise"],
+    "conflicts": []
+  },
+  "five_color_weenie": {
+    "deckname": "Five Color Weenie",
+    "required": ["Lightning Bolt", "Armadillo Cloak", "Meddling Mage"],
+    "conflicts": []
+  },
+  "flippi": {
+    "deckname": "Blue/White Flippi",
+    "required": ["Exalted Angel", "Silver Knight", "Meddling Mage"],
+    "conflicts": []
+  },
+  "flow": {
+    "deckname": "Destructive Flow",
+    "required": ["Destructive Flow"],
+    "conflicts": []
+  },
+  "gat": {
+    "deckname": "Gro-a-tog",
+    "required": ["Mox Diamond", "Quirion Dryad", "Gush"],
+    "conflicts": []
+  },
+  "goblins": {
+    "deckname": "Goblins",
+    "required": ["Goblin Lackey", "Goblin Ringleader"],
+    "conflicts": []
+  },
+  "greater_good": {
+    "deckname": "Greater Good",
+    "required": ["Greater Good"],
+    "conflicts": []
+  },
+  "gw_madness": {
+    "deckname": "Green/White Madness",
+    "required": ["Nimble Mongoose", "Mystic Enforcer"],
+    "conflicts": ["Oath of Druids"]
+  },
+  "gw_oath": {
+    "deckname": "Green/White Oath Ponza",
+    "required": ["Terravore", "Oath of Druids", "Thermokarst", "Brushland"],
+    "conflicts": ["Karplusan Forest", "Pyroclasm"]
+  },
+  "horror_stompy": {
+    "deckname": "Horror Stompy",
+    "required": ["Drinker of Sorrow", "Phyrexian Negator"],
+    "conflicts": []
+  },
+  "iggy_pop": {
+    "deckname": "Iggy Pop",
+    "required": ["Ill-Gotten Gains", "Lion's Eye Diamond"],
+    "conflicts": []
+  },
+  "infestation": {
+    "deckname": "Infestation",
+    "required": ["Zombie Infestation"],
+    "conflicts": ["Reanimate"]
+  },
+  "lands": {
+    "deckname": "Lands",
+    "required": ["Horn of Greed", "Exploration"],
+    "conflicts": []
+  },
+  "landstill": {
+    "deckname": "Landstill",
+    "required": ["Standstill", "Counterspell", "Decree of Justice"],
+    "conflicts": ["Whipcorder"]
+  },
+  "life": {
+    "deckname": "Life Combo",
+    "required": ["Daru Spiritualist", "Nomads en-Kor"],
+    "conflicts": []
+  },
+  "machine_head": {
+    "deckname": "Machine Head",
+    "required": ["Lightning Bolt", "Duress"],
+    "conflicts": ["Destructive Flow", "Ball Lightning"]
+  },
+  "merfolk": {
+    "deckname": "Merfolk",
+    "required": ["Lord of Atlantis"],
+    "conflicts": []
+  },
+  "moneyball_black": {
+    "deckname": "Moneyball Black",
+    "required": [
+      "Cabal Therapy",
+      "Ravenous Rats",
+      "Withered Wretch",
+      "Mishra's Factory"
+    ],
+    "conflicts": ["Lightning Bolt", "Reanimate", "Draco"]
+  },
+  "mono_black_clerics": {
+    "deckname": "Mono Black Clerics",
+    "required": ["Priest of Gix", "Withered Wretch"],
+    "conflicts": []
+  },
+  "mono_black_control": {
+    "deckname": "Mono Black Control",
+    "required": ["Corrupt"],
+    "conflicts": ["Gerrard's Verdict", "Swords to Plowshares"]
+  },
+  "mono_blue_dreadnought": {
+    "deckname": "Mono Blue Dreadnought",
+    "required": ["Phyrexian Dreadnought", "Stifle"],
+    "conflicts": ["Adarkar Wastes", "Underground River", "Zombie Infestation"]
+  },
+  "mono_blue_storm": {
+    "deckname": "Mono Blue Storm",
+    "required": ["Sapphire Medallion", "Brain Freeze"],
+    "conflicts": []
+  },
+  "mono_blue_tide_control": {
+    "deckname": "Mono Blue Tide Control",
+    "required": ["Parallax Tide", "Faerie Conclave"],
+    "conflicts": ["Plains"]
+  },
+  "mono_green_ponza": {
+    "deckname": "Mono Green Ponza",
+    "required": ["Thermokarst", "Winter's Grasp", "Wall of Roots"],
+    "conflicts": ["Karplusan Forest", "Stone Rain", "Brushland"]
+  },
+  "mud": {
+    "deckname": "Mud",
+    "required": ["Metalworker", "Tangle Wire"],
+    "conflicts": []
+  },
+  "parfait": {
+    "deckname": "Parfait",
+    "required": ["Scroll Rack", "Oath of Druids"],
+    "conflicts": []
+  },
+  "pattern_rector": {
+    "deckname": "Pattern Rector",
+    "required": ["Academy Rector", "Pattern of Rebirth"],
+    "conflicts": []
+  },
+  "pirates": {
+    "deckname": "Pirates",
+    "required": ["Rishadan Cutpurse"],
+    "conflicts": []
+  },
+  "pitrack": {
+    "deckname": "Pit Rack",
+    "required": ["Bottomless Pit", "The Rack"],
+    "conflicts": ["Lavaborn Muse"]
+  },
+  "ponza": {
+    "deckname": "Ponza",
+    "required": ["Stone Rain", "Pillage"],
+    "conflicts": []
+  },
+  "pox": { "deckname": "Pox", "required": ["Pox"], "conflicts": [] },
+  "reanimator": {
+    "deckname": "Reanimator",
+    "required": ["Reanimate"],
+    "conflicts": ["Psychatog"]
+  },
+  "rebels": {
+    "deckname": "Rebels",
+    "required": ["Ramosian Sergeant", "Island"],
+    "conflicts": []
+  },
+  "replenish": {
+    "deckname": "Replenish",
+    "required": ["Replenish", "Opalescence", "Parallax Tide"],
+    "conflicts": ["Mishra's Factory"]
+  },
+  "rifter": {
+    "deckname": "Rifter",
+    "required": ["Lightning Rift"],
+    "conflicts": []
+  },
+  "rg_aggro": {
+    "deckname": "Red/Green Aggro",
+    "required": ["Rancor", "Lightning Bolt", "Call of the Herd"],
+    "conflicts": [""]
+  },
+  "rg_oath": {
+    "deckname": "Red/Green Oath Ponza",
+    "required": [
+      "Terravore",
+      "Oath of Druids",
+      "Thermokarst",
+      "Karplusan Forest"
+    ],
+    "conflicts": ["Brushland", "Plains"]
+  },
+  "rw_aggro": {
+    "deckname": "Red/White Aggro",
+    "required": ["Savannah Lions", "Battlefield Forge"],
+    "conflicts": []
+  },
+  "rock": {
+    "deckname": "The Rock",
+    "required": ["Treetop Village", "Pernicious Deed"],
+    "conflicts": ["Survival of the Fittest"]
+  },
+  "slide": {
+    "deckname": "Astral Slide",
+    "required": ["Astral Slide"],
+    "conflicts": []
+  },
+  "sligh": {
+    "deckname": "Sligh",
+    "required": [
+      "Jackal Pup",
+      "Fireblast",
+      "Grim Lavamancer",
+      "Ball Lightning"
+    ],
+    "conflicts": ["Karplusan Forest", "Call of the Herd", "Nimble Mongoose"]
+  },
+  "slivers": {
+    "deckname": "Slivers",
+    "required": ["Muscle Sliver"],
+    "conflicts": []
+  },
+  "stasis": {
+    "deckname": "Stasis",
+    "required": ["Stasis", "Forsaken City"],
+    "conflicts": []
+  },
+  "solution": {
+    "deckname": "The Solution",
+    "required": ["Lightning Angel", "Meddling Mage"],
+    "conflicts": []
+  },
+  "stompy": {
+    "deckname": "Mono Green Stompy",
+    "required": ["Blastoderm", "Call of the Herd", "Llanowar Elves"],
+    "conflicts": ["Swamp", "Mountain", "Llanowar Wastes", "Karplusan Forest"]
+  },
+  "suicide_black": {
+    "deckname": "Suicide Black",
+    "required": ["Dark Ritual", "Carnophage", "Sarcomancy"],
+    "conflicts": ["Forest", "Llanowar Wastes"]
+  },
+  "survival_madness": {
+    "deckname": "Survival Madness",
+    "required": ["Survival of the Fittest", "Basking Rootwalla"],
+    "conflicts": []
+  },
+  "survival_opposition": {
+    "deckname": "Survival Opposition",
+    "required": ["Survival of the Fittest", "Opposition"],
+    "conflicts": []
+  },
+  "survival_rock": {
+    "deckname": "Survival Rock",
+    "required": ["Survival of the Fittest", "Duress", "Cabal Therapy"],
+    "conflicts": []
+  },
+  "survival_welder": {
+    "deckname": "Survival Welder",
+    "required": ["Goblin Welder", "Survival of the Fittest", "Tangle Wire"],
+    "conflicts": ["Tinker"]
+  },
+  "terrageddon": {
+    "deckname": "Terrageddon",
+    "required": ["Armageddon", "Terravore"],
+    "conflicts": ["Oath of Druids"]
+  },
+  "tin_fins": {
+    "deckname": "Tin Fins",
+    "required": ["Shallow Grave", "Unmask", "Sutured Ghoul"],
+    "conflicts": ["Volrath's Shapeshifter", "Hermit Druid"]
+  },
+  "tings": {
+    "deckname": "Balancing Tings",
+    "required": ["Balancing Act", "Burning Wish"],
+    "conflicts": []
+  },
+  "tinker": {
+    "deckname": "Tinker Welder",
+    "required": ["Tinker", "Goblin Welder"],
+    "conflicts": ["Survival of the Fittest", "Fling"]
+  },
+  "tribe": {
+    "deckname": "Tribe Combo",
+    "required": ["Tireless Tribe", "About Face"],
+    "conflicts": []
+  },
+  "trix": {
+    "deckname": "Trix",
+    "required": ["Illusions of Grandeur", "Donate"],
+    "conflicts": []
+  },
+  "tog": {
+    "deckname": "Blue/Black Psychatog",
+    "required": ["Psychatog", "Polluted Delta"],
+    "conflicts": ["Phyrexian Dreadnought", "Mox Diamond"]
+  },
+  "tradewind_survival": {
+    "deckname": "Tradewind Survival",
+    "required": ["Survival of the Fittest", "Tradewind Rider"],
+    "conflicts": []
+  },
+  "ub_dreadnought": {
+    "deckname": "Blue/Black Dreadnought",
+    "required": ["Phyrexian Dreadnought", "Stifle", "Underground River"],
+    "conflicts": []
+  },
+  "ug_madness": {
+    "deckname": "Blue/Green Madness",
+    "required": ["Wild Mongrel", "Basking Rootwalla", "Aquamoeba"],
+    "conflicts": []
+  },
+  "ur_control": {
+    "deckname": "Blue/Red Control",
+    "required": ["Urza's Rage", "Counterspell"],
+    "conflicts": ["Duress"]
+  },
+  "uw_dreadnought": {
+    "deckname": "Blue/White Dreadnought",
+    "required": ["Phyrexian Dreadnought", "Stifle", "Adarkar Wastes"],
+    "conflicts": []
+  },
+  "uw_tide": {
+    "deckname": "Blue/White Tide Control",
+    "required": ["Parallax Tide", "Wrath of God"],
+    "conflicts": []
+  },
+  "uw_tron": {
+    "deckname": "Blue/White Tron",
+    "required": ["Plains", "Island", "Urza's Tower"],
+    "conflicts": []
+  },
+  "white_weenie": {
+    "deckname": "White Weenie",
+    "required": ["Savannah Lions", "Whipcorder"],
+    "conflicts": []
+  }
+}
