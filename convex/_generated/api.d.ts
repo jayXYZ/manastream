@@ -32,6 +32,7 @@ import type * as lib_overlays from "../lib/overlays.js";
 import type * as lib_players from "../lib/players.js";
 import type * as lib_settings from "../lib/settings.js";
 import type * as lib_spicerack_api from "../lib/spicerack/api.js";
+import type * as lib_spicerack_deckClassification from "../lib/spicerack/deckClassification.js";
 import type * as lib_spicerack_rounds from "../lib/spicerack/rounds.js";
 import type * as lib_spicerack_standings from "../lib/spicerack/standings.js";
 import type * as lib_spicerack_tournament from "../lib/spicerack/tournament.js";
@@ -78,6 +79,7 @@ declare const fullApi: ApiFromModules<{
   "lib/players": typeof lib_players;
   "lib/settings": typeof lib_settings;
   "lib/spicerack/api": typeof lib_spicerack_api;
+  "lib/spicerack/deckClassification": typeof lib_spicerack_deckClassification;
   "lib/spicerack/rounds": typeof lib_spicerack_rounds;
   "lib/spicerack/standings": typeof lib_spicerack_standings;
   "lib/spicerack/tournament": typeof lib_spicerack_tournament;

@@ -20,15 +20,28 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Input } from "../../../../components/ui/input";
 import { Label } from "../../../../components/ui/label";
 import { Pencil } from "lucide-react";
 import { Button } from "../../../../components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  LC26_BACKGROUND_COLORS,
+  type Lc26BackgroundColor,
+} from "@/lib/lc26-backgrounds";
 
 interface MatchPreviewControllerProps {
   matchOverlayId: Id<"overlays">;
 }
+
+type Lc26ColorSelectValue = "auto" | Lc26BackgroundColor;
 
 export function MatchPreviewController({
   matchOverlayId,
@@ -170,6 +183,8 @@ function MatchOverlayPreviewDialog({
     player2DisplayDeck?: string;
     player1TournamentRecord?: string;
     player2TournamentRecord?: string;
+    player1Lc26BackgroundColor?: Lc26BackgroundColor;
+    player2Lc26BackgroundColor?: Lc26BackgroundColor;
   }) => Promise<null>;
 }) {
   // Helper function to compute display values from matchOverlay
@@ -184,17 +199,20 @@ function MatchOverlayPreviewDialog({
       overlay.player2DisplayDeck || overlay.player2Data?.deckName || "Deck 2",
     player1TournamentRecord: overlay.player1TournamentRecord || "N/A",
     player2TournamentRecord: overlay.player2TournamentRecord || "N/A",
+    player1Lc26BackgroundColor: (overlay.player1Lc26BackgroundColor ??
+      "auto") as Lc26ColorSelectValue,
+    player2Lc26BackgroundColor: (overlay.player2Lc26BackgroundColor ??
+      "auto") as Lc26ColorSelectValue,
   });
 
   const [inputs, setInputs] = useState(() => getDisplayValues(matchOverlay));
 
-  // Sync inputs when dialog opens or when matchOverlay changes while dialog is open
-  // This ensures inputs show API values after overrides are cleared
-  useEffect(() => {
-    if (isOpen) {
+  const handleDialogOpenChange = (open: boolean) => {
+    if (open) {
       setInputs(getDisplayValues(matchOverlay));
     }
-  }, [matchOverlay, isOpen]);
+    setIsOpen(open);
+  };
 
   const handleUpdate = async () => {
     // Convert empty strings to undefined to clear overrides
@@ -206,6 +224,14 @@ function MatchOverlayPreviewDialog({
       player2DisplayDeck: inputs.player2DeckName || undefined,
       player1TournamentRecord: inputs.player1TournamentRecord || undefined,
       player2TournamentRecord: inputs.player2TournamentRecord || undefined,
+      player1Lc26BackgroundColor:
+        inputs.player1Lc26BackgroundColor === "auto"
+          ? undefined
+          : inputs.player1Lc26BackgroundColor,
+      player2Lc26BackgroundColor:
+        inputs.player2Lc26BackgroundColor === "auto"
+          ? undefined
+          : inputs.player2Lc26BackgroundColor,
     };
 
     await updateMatchOverlayDisplayInfo(updateData);
@@ -231,12 +257,16 @@ function MatchOverlayPreviewDialog({
         "Deck 2",
       player1TournamentRecord: updateData.player1TournamentRecord || "N/A",
       player2TournamentRecord: updateData.player2TournamentRecord || "N/A",
+      player1Lc26BackgroundColor:
+        updateData.player1Lc26BackgroundColor || "auto",
+      player2Lc26BackgroundColor:
+        updateData.player2Lc26BackgroundColor || "auto",
     });
     setIsOpen(false);
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={handleDialogOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Edit {matchOverlay.name}</DialogTitle>
@@ -279,6 +309,32 @@ function MatchOverlayPreviewDialog({
                 }
               />
             </div>
+            {matchOverlay.template === "LC26" && (
+              <div className="flex flex-col gap-2">
+                <Label>Player 1 Background</Label>
+                <Select
+                  value={inputs.player1Lc26BackgroundColor}
+                  onValueChange={(value) =>
+                    setInputs({
+                      ...inputs,
+                      player1Lc26BackgroundColor: value as Lc26ColorSelectValue,
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Auto" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Auto (From Deck)</SelectItem>
+                    {LC26_BACKGROUND_COLORS.map((color) => (
+                      <SelectItem key={`player1-${color}`} value={color}>
+                        {color}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
           <div className="flex flex-col gap-4">
             {/* Player 2 */}
@@ -317,6 +373,32 @@ function MatchOverlayPreviewDialog({
                 }
               />
             </div>
+            {matchOverlay.template === "LC26" && (
+              <div className="flex flex-col gap-2">
+                <Label>Player 2 Background</Label>
+                <Select
+                  value={inputs.player2Lc26BackgroundColor}
+                  onValueChange={(value) =>
+                    setInputs({
+                      ...inputs,
+                      player2Lc26BackgroundColor: value as Lc26ColorSelectValue,
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Auto" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Auto (From Deck)</SelectItem>
+                    {LC26_BACKGROUND_COLORS.map((color) => (
+                      <SelectItem key={`player2-${color}`} value={color}>
+                        {color}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
         </div>
         <div className="flex justify-end">

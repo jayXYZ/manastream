@@ -106,6 +106,8 @@ export async function createMatchOverlayHelper(
     player2Life: 20,
     player1GamesWon: 0,
     player2GamesWon: 0,
+    player1Lc26BackgroundColor: undefined,
+    player2Lc26BackgroundColor: undefined,
     createdAt: Date.now(),
   });
 

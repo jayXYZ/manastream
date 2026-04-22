@@ -133,6 +133,15 @@ export const overlayTypeValidator = v.union(
   v.literal("commentary"),
 );
 
+export const lc26BackgroundColorValidator = v.union(
+  v.literal("White"),
+  v.literal("Blue"),
+  v.literal("Black"),
+  v.literal("Red"),
+  v.literal("Green"),
+  v.literal("Gold"),
+);
+
 // Different overlay validators
 export const matchOverlayValidator = v.object({
   _id: v.id("overlays"),
@@ -163,6 +172,8 @@ export const matchOverlayValidator = v.object({
   player2DisplayDeck: v.optional(v.string()),
   player1TournamentRecord: v.optional(v.string()),
   player2TournamentRecord: v.optional(v.string()),
+  player1Lc26BackgroundColor: v.optional(lc26BackgroundColorValidator),
+  player2Lc26BackgroundColor: v.optional(lc26BackgroundColorValidator),
   createdAt: v.number(),
 });
 
@@ -396,6 +407,8 @@ export const updateMatchOverlayArgsValidator = v.object({
   player2DisplayDeck: v.optional(v.string()),
   player1TournamentRecord: v.optional(v.string()),
   player2TournamentRecord: v.optional(v.string()),
+  player1Lc26BackgroundColor: v.optional(lc26BackgroundColorValidator),
+  player2Lc26BackgroundColor: v.optional(lc26BackgroundColorValidator),
 });
 
 // Spicerack API Validators
