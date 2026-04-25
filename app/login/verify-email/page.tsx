@@ -8,18 +8,22 @@ export default function VerifyEmail() {
   const { signIn } = useAuthActions();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [status, setStatus] = useState<"verifying" | "success" | "error">(
-    "verifying",
+  const token = searchParams.get("token");
+  const email = searchParams.get("email");
+  const isInvalidLink = !token || !email;
+  const invalidLinkError =
+    "Invalid verification link. Please try signing in again.";
+  const [verificationStatus, setVerificationStatus] = useState<
+    "verifying" | "success" | "error"
+  >("verifying");
+  const [verificationError, setVerificationError] = useState<string | null>(
+    null,
   );
-  const [error, setError] = useState<string | null>(null);
+  const status = isInvalidLink ? "error" : verificationStatus;
+  const error = isInvalidLink ? invalidLinkError : verificationError;
 
   useEffect(() => {
-    const token = searchParams.get("token");
-    const email = searchParams.get("email");
-
-    if (!token || !email) {
-      setStatus("error");
-      setError("Invalid verification link. Please try signing in again.");
+    if (isInvalidLink) {
       return;
     }
 
@@ -32,16 +36,18 @@ export default function VerifyEmail() {
     // Attempt to verify
     void signIn("password", formData)
       .then(() => {
-        setStatus("success");
+        setVerificationStatus("success");
         setTimeout(() => {
           router.push("/dashboard");
         }, 1500);
       })
       .catch((err) => {
-        setStatus("error");
-        setError(err.message || "Verification failed. Please try again.");
+        setVerificationStatus("error");
+        setVerificationError(
+          err.message || "Verification failed. Please try again.",
+        );
       });
-  }, [searchParams, signIn, router]);
+  }, [email, isInvalidLink, router, signIn, token]);
 
   return (
     <div className="flex flex-col gap-8 w-96 mx-auto h-screen justify-center items-center">
