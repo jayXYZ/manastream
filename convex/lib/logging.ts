@@ -13,7 +13,7 @@ export async function logSpicerackEvent(
     status: "success" | "error" | "info" | "warning";
     message: string;
     tournamentId?: Id<"tournaments">;
-    metadata?: any;
+    metadata?: unknown;
   },
 ) {
   await ctx.db.insert("spicerackLogs", {

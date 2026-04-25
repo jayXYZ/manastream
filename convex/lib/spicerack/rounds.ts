@@ -1,4 +1,4 @@
-import { MutationCtx, QueryCtx } from "../../_generated/server";
+import { MutationCtx } from "../../_generated/server";
 import { Id } from "../../_generated/dataModel";
 import { DEFAULT_MATCH } from "../constants";
 import { parseCurrentSpicerackRound } from "../../models/spicerack";
@@ -113,7 +113,7 @@ export async function handleNewSpicerackRound(
     (overlay) => overlay.overlayType === "match",
   );
 
-  for (let matchOverlay of matchOverlays) {
+  for (const matchOverlay of matchOverlays) {
     await ctx.db.patch(matchOverlay._id, DEFAULT_MATCH);
   }
 }

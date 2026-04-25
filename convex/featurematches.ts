@@ -2,7 +2,6 @@ import { internalMutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { featureMatchWithPlayersValidator } from "./validators";
 import {
-  getOwnTournament,
   requireSpicerackTournament,
 } from "./lib/tournaments";
 import {

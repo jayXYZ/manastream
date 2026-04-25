@@ -54,10 +54,7 @@ export const updateStandingsOverlay = mutation({
     spicerackRoundId: v.number(),
   },
   handler: async (ctx, args) => {
-    const { userId, overlay, tournament } = await requireStandingsOverlayAccess(
-      ctx,
-      args.overlayId,
-    );
+    await requireStandingsOverlayAccess(ctx, args.overlayId);
     const standings = await getSpicerackRoundStandingsHelper(
       ctx,
       args.spicerackRoundId,

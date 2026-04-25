@@ -1,5 +1,7 @@
 import { Doc, Id } from "../_generated/dataModel";
 import { MutationCtx, QueryCtx } from "../_generated/server";
+import type { Infer } from "convex/values";
+import type { getOverlayByIdValidator } from "../validators";
 import { getPlayersForMatch } from "./players";
 import { getTournamentTimerAndRoundInfo } from "./tournaments";
 import { generatePublicUuid } from "./utils";
@@ -243,6 +245,8 @@ export async function enrichStandingsOverlay(
   };
 }
 
+type EnrichedOverlay = Infer<typeof getOverlayByIdValidator>;
+
 /**
  * Helper function to enrich an overlay based on its type.
  * Returns the enriched overlay if it needs enrichment, otherwise returns the original overlay.
@@ -250,7 +254,7 @@ export async function enrichStandingsOverlay(
 export async function enrichOverlay(
   ctx: QueryCtx,
   overlay: Doc<"overlays">,
-): Promise<any> {
+): Promise<EnrichedOverlay> {
   if (overlay.overlayType === "match") {
     return await enrichMatchOverlay(ctx, overlay);
   }

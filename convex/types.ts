@@ -7,7 +7,6 @@ import {
   getTournamentInfoValidator,
   matchOverlayValidator,
   matchOverlayWithPlayersValidator,
-  standingsOverlayValidator,
   standingsOverlayWithPlayersValidator,
 } from "./validators";
 import { Doc } from "./_generated/dataModel";

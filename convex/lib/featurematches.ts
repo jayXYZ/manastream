@@ -5,7 +5,7 @@ import {
   parseCurrentRoundFeatureMatches,
   parsePlayerRecord,
 } from "../models/spicerack";
-import { NewPlayerEntry, Player } from "../types";
+import { NewPlayerEntry } from "../types";
 import { SpicerackEventResponse, SpicerackMatch } from "../types/spicerack";
 import {
   createPlayer,
@@ -100,7 +100,7 @@ async function compareFeatureMatches(
   const currentRoundSpicerackMatches =
     parseCurrentRoundFeatureMatches(jsonData);
   const newMatches: SpicerackMatch[] = [];
-  for (let spicerackMatch of currentRoundSpicerackMatches) {
+  for (const spicerackMatch of currentRoundSpicerackMatches) {
     const checkId = generateFeatureMatchExternalId(
       spicerackTournament.spicerackTournamentId,
       spicerackTournament.currentRoundId,
@@ -116,12 +116,6 @@ async function compareFeatureMatches(
   }
   return newMatches;
 }
-
-/**
- * Constant for pending deck information before it's fetched from Spicerack
- */
-const PENDING_DECK_INFO = "PENDING" as const;
-const NO_DECK_INFO = "MISSING_DECKLIST" as const;
 
 /**
  * Extracts player information from a Spicerack match relationship
