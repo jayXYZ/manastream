@@ -22,8 +22,15 @@ import {
   fetchSpicerackRegisteredPlayers,
 } from "./lib/spicerack/api";
 import { createSpicerackTournamentHelper } from "./lib/spicerack/tournament";
+import {
+  parseAllowCompletedTournamentPolling,
+  shouldStopPollingForCompletedTournament,
+} from "./lib/spicerack/pollingBehavior";
 
 const DECKLIST_FETCH_CONCURRENCY = 8;
+const ALLOW_COMPLETED_TOURNAMENT_POLLING = parseAllowCompletedTournamentPolling(
+  process.env.SPICERACK_ALLOW_COMPLETED_POLLING,
+);
 
 export const updateNewSpicerackRound = internalMutation({
   args: {
@@ -310,7 +317,12 @@ export const validateAndStartPolling = internalAction({
       }
 
       // Check if tournament is already complete
-      if (overviewData.event_status === "COMPLETED") {
+      if (
+        shouldStopPollingForCompletedTournament({
+          isCompleted: overviewData.event_status === "COMPLETED",
+          allowCompletedTournamentPolling: ALLOW_COMPLETED_TOURNAMENT_POLLING,
+        })
+      ) {
         // Update status and log in one mutation
         await ctx.runMutation(
           internal.spicerack.updateTournamentPollingStatus,
@@ -357,6 +369,13 @@ export const validateAndStartPolling = internalAction({
         spicerackTournament.spicerackTournamentId,
         settings.spicerackApiKey,
       );
+      await ctx.runMutation(internal.player.updatePlayerRegistrationStatuses, {
+        spicerackTournamentId: spicerackTournament.spicerackTournamentId,
+        players: spicerackRegisteredPlayers.map((player) => ({
+          spicerackPlayerId: player.id,
+          registrationStatus: player.registration_status,
+        })),
+      });
       const cachedSpicerackPlayers = await ctx.runQuery(
         internal.player.getAllSpicerackTournamentPlayerSpicerackIds,
         { spicerackTournamentId: spicerackTournament.spicerackTournamentId },
@@ -373,6 +392,7 @@ export const validateAndStartPolling = internalAction({
               name: player.user_identifier,
               spicerackPlayerId: player.id,
               spicerackTournamentId: spicerackTournament.spicerackTournamentId,
+              registrationStatus: player.registration_status,
               deckId: player.decklist?.id ?? -1,
               decklistStatus: player.decklist?.id
                 ? ("pending" as const)
@@ -660,6 +680,13 @@ export const pollTournamentAndScheduleNext = internalAction({
           jsonData: spicerackData,
         },
       );
+      await ctx.runMutation(internal.player.updatePlayerRegistrationStatuses, {
+        spicerackTournamentId: spicerackTournament.spicerackTournamentId,
+        players: spicerackData.user_statuses.map((playerStatus) => ({
+          spicerackPlayerId: playerStatus.id,
+          registrationStatus: playerStatus.registration_status,
+        })),
+      });
       console.log(`New player and deck ids: ${newPlayerAndDeckIds}`);
 
       // Filter for valid deck IDs before fetching decklists
@@ -709,10 +736,15 @@ export const pollTournamentAndScheduleNext = internalAction({
       }
       // Check if tournament is complete
       if (
-        spicerackData.settings.event_lifecycle_status === "EVENT_FINISHED" ||
-        spicerackData.tournament_phases.every(
-          (phase: SpicerackTournamentPhase) => phase.status === "COMPLETE",
-        )
+        shouldStopPollingForCompletedTournament({
+          isCompleted:
+            spicerackData.settings.event_lifecycle_status ===
+              "EVENT_FINISHED" ||
+            spicerackData.tournament_phases.every(
+              (phase: SpicerackTournamentPhase) => phase.status === "COMPLETE",
+            ),
+          allowCompletedTournamentPolling: ALLOW_COMPLETED_TOURNAMENT_POLLING,
+        })
       ) {
         console.log(
           `Tournament ${spicerackTournament.spicerackTournamentId} is complete. Stopping polling.`,

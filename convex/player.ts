@@ -15,6 +15,7 @@ export const createPlayer = internalMutation({
     player: v.object({
       name: v.string(),
       spicerackPlayerId: v.number(),
+      registrationStatus: v.optional(v.string()),
       deckId: v.number(),
       decklistStatus: v.optional(decklistStatusValidator),
       deckName: v.string(),
@@ -27,6 +28,7 @@ export const createPlayer = internalMutation({
       name: args.player.name,
       spicerackTournamentId: args.spicerackTournamentId,
       spicerackPlayerId: args.player.spicerackPlayerId,
+      registrationStatus: args.player.registrationStatus,
       deckId: args.player.deckId,
       decklistStatus: args.player.decklistStatus,
       deckName: args.player.deckName,
@@ -43,6 +45,7 @@ export const createPlayers = internalMutation({
         spicerackTournamentId: v.number(),
         name: v.string(),
         spicerackPlayerId: v.number(),
+        registrationStatus: v.optional(v.string()),
         deckId: v.number(),
         decklistStatus: v.optional(decklistStatusValidator),
         deckName: v.string(),
@@ -59,6 +62,7 @@ export const createPlayers = internalMutation({
         name: player.name,
         spicerackTournamentId: player.spicerackTournamentId,
         spicerackPlayerId: player.spicerackPlayerId,
+        registrationStatus: player.registrationStatus,
         deckId: player.deckId,
         decklistStatus: player.decklistStatus,
         deckName: player.deckName,
@@ -103,6 +107,7 @@ export const getAllSpicerackTournamentPlayers = query({
     v.object({
       spicerackPlayerId: v.number(),
       name: v.string(),
+      registrationStatus: v.optional(v.string()),
       deckName: v.string(),
       deckList: v.string(),
     }),
@@ -121,9 +126,48 @@ export const getAllSpicerackTournamentPlayers = query({
     return players.map((player) => ({
       spicerackPlayerId: player.spicerackPlayerId,
       name: player.name,
+      registrationStatus: player.registrationStatus,
       deckName: player.deckName,
       deckList: player.deckList,
     }));
+  },
+});
+
+export const updatePlayerRegistrationStatuses = internalMutation({
+  args: {
+    spicerackTournamentId: v.number(),
+    players: v.array(
+      v.object({
+        spicerackPlayerId: v.number(),
+        registrationStatus: v.string(),
+      }),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const playersInTournament = await ctx.db
+      .query("players")
+      .withIndex("by_spicerack_tournament_id", (q) =>
+        q.eq("spicerackTournamentId", args.spicerackTournamentId),
+      )
+      .collect();
+
+    const registrationStatusBySpicerackPlayerId = new Map(
+      args.players.map((player) => [
+        player.spicerackPlayerId,
+        player.registrationStatus,
+      ]),
+    );
+
+    for (const player of playersInTournament) {
+      const registrationStatus = registrationStatusBySpicerackPlayerId.get(
+        player.spicerackPlayerId,
+      );
+      if (!registrationStatus || player.registrationStatus === registrationStatus) {
+        continue;
+      }
+
+      await ctx.db.patch(player._id, { registrationStatus });
+    }
   },
 });
 

@@ -294,6 +294,7 @@ export const playerValidator = v.object({
   _creationTime: v.number(),
   name: v.string(),
   spicerackPlayerId: v.number(),
+  registrationStatus: v.optional(v.string()),
   tournamentId: v.optional(v.id("tournaments")),
   spicerackTournamentId: v.optional(v.number()),
   deckId: v.number(),
