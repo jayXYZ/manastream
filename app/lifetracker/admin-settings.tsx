@@ -53,9 +53,9 @@ export default function AdminSettings(props: {
   const { setShowAdminSettings } = props;
   const { allOverlays, connectedOverlayId, setConnectedOverlayId } =
     useOverlayValidation();
-  const [selectedOverlay, setSelectedOverlay] = useState<string>(
-    connectedOverlayId || "none",
-  );
+  const connectedOverlayValue = connectedOverlayId || "none";
+  const [pendingOverlay, setPendingOverlay] = useState<string | null>(null);
+  const selectedOverlay = pendingOverlay ?? connectedOverlayValue;
   const [showSuccess, setShowSuccess] = useState(false);
 
   const resetBothPlayers = useLifeTrackerStore(
@@ -69,11 +69,6 @@ export default function AdminSettings(props: {
   const matchOverlays =
     allOverlays?.filter((overlay) => overlay.overlayType === "match") || [];
 
-  // Update selected value when store changes
-  useEffect(() => {
-    setSelectedOverlay(connectedOverlayId || "none");
-  }, [connectedOverlayId]);
-
   // Hide success message after 3 seconds
   useEffect(() => {
     if (showSuccess) {
@@ -82,10 +77,11 @@ export default function AdminSettings(props: {
     }
   }, [showSuccess]);
 
-  const hasChanges = selectedOverlay !== (connectedOverlayId || "none");
+  const hasChanges = selectedOverlay !== connectedOverlayValue;
 
   const handleSave = () => {
     setConnectedOverlayId(selectedOverlay === "none" ? null : selectedOverlay);
+    setPendingOverlay(null);
     setShowSuccess(true);
   };
 
@@ -130,7 +126,7 @@ export default function AdminSettings(props: {
             >
               Connected Overlay:
             </Label>
-            <Select value={selectedOverlay} onValueChange={setSelectedOverlay}>
+            <Select value={selectedOverlay} onValueChange={setPendingOverlay}>
               <SelectTrigger
                 id="overlay-select"
                 className="h-12 text-base flex-1"
