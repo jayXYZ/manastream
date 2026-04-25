@@ -2,7 +2,7 @@
 
 import { api } from "@/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   CommentaryOverlay,
   DeckOverlay,
@@ -30,6 +30,26 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+function getInitialTemplate(overlay: Overlay | null): TemplateType | undefined {
+  if (!overlay) return undefined;
+
+  if (overlay.overlayType === "match" || overlay.overlayType === "commentary") {
+    return overlay.template as TemplateType;
+  }
+
+  if (overlay.overlayType === "card") {
+    return ((overlay as { template?: string }).template ??
+      "Default") as TemplateType;
+  }
+
+  if (overlay.overlayType === "deck") {
+    return ((overlay as { template?: string }).template ??
+      "Duress Crew") as TemplateType;
+  }
+
+  return undefined;
+}
+
 export default function OverlaysPage() {
   const tournament = useQuery(api.tournaments.getUserTournament);
   const overlays = useQuery(api.overlays.getUserOverlays);
@@ -37,13 +57,12 @@ export default function OverlaysPage() {
   const [selectedPlayerNumber, setSelectedPlayerNumber] = useState<
     1 | 2 | null
   >(null);
-  const [selectedOverlayUrl, setSelectedOverlayUrl] = useState<string | null>(
-    null,
-  );
-  const [origin, setOrigin] = useState<string>("");
   const [selectedTemplate, setSelectedTemplate] = useState<
     TemplateType | undefined
   >(undefined);
+  const [origin] = useState(() =>
+    typeof window === "undefined" ? "" : window.location.origin,
+  );
   const setMatchOverlaySettings = useMutation(
     api.overlays.setMatchOverlaySettings,
   );
@@ -83,49 +102,13 @@ export default function OverlaysPage() {
     }
   };
 
-  // Initialize selected template when overlay changes
-  useEffect(() => {
-    if (selectedOverlay) {
-      if (
-        selectedOverlay.overlayType === "match" ||
-        selectedOverlay.overlayType === "commentary"
-      ) {
-        setSelectedTemplate(selectedOverlay.template as TemplateType);
-      } else if (selectedOverlay.overlayType === "card") {
-        setSelectedTemplate(
-          ((selectedOverlay as { template?: string }).template ??
-            "Default") as TemplateType,
-        );
-      } else if (selectedOverlay.overlayType === "deck") {
-        setSelectedTemplate(
-          ((selectedOverlay as { template?: string }).template ??
-            "Duress Crew") as TemplateType,
-        );
-      } else {
-        setSelectedTemplate(undefined);
-      }
-    } else {
-      setSelectedTemplate(undefined);
-    }
-  }, [selectedOverlay]);
-
-  useEffect(() => {
-    setOrigin(window.location.origin);
-  }, []);
-
-  // Update the overlay URL when selection changes
-  useEffect(() => {
-    if (selectedOverlay) {
-      const baseUrl = `${origin}/overlay/${selectedOverlay.publicUuid}`;
-      if (selectedOverlay.overlayType === "deck" && selectedPlayerNumber) {
-        setSelectedOverlayUrl(`${baseUrl}?player=${selectedPlayerNumber}`);
-      } else {
-        setSelectedOverlayUrl(baseUrl);
-      }
-    } else {
-      setSelectedOverlayUrl(null);
-    }
-  }, [selectedOverlay, selectedPlayerNumber, origin]);
+  const selectedOverlayUrl = selectedOverlay
+    ? `${origin}/overlay/${selectedOverlay.publicUuid}${
+        selectedOverlay.overlayType === "deck" && selectedPlayerNumber
+          ? `?player=${selectedPlayerNumber}`
+          : ""
+      }`
+    : null;
 
   if (!tournament || !overlays) {
     return (
@@ -154,6 +137,7 @@ export default function OverlaysPage() {
             setSelectedOverlay={(overlay, playerNumber) => {
               setSelectedOverlay(overlay);
               setSelectedPlayerNumber(playerNumber ?? null);
+              setSelectedTemplate(getInitialTemplate(overlay));
             }}
           />
         </div>
@@ -199,19 +183,15 @@ function OverlayDetailsPanel({
   setSelectedTemplate: (template: TemplateType) => void;
   handleSaveTemplate: () => void;
 }) {
-  const [copied, setCopied] = useState(false);
-
-  // Reset copied state when the selected overlay URL changes
-  useEffect(() => {
-    setCopied(false);
-  }, [selectedOverlayUrl]);
+  const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
+  const copied = copiedUrl === selectedOverlayUrl;
 
   const handleCopyUrl = async () => {
     if (!selectedOverlayUrl || copied) return;
     try {
       await navigator.clipboard.writeText(selectedOverlayUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setCopiedUrl(selectedOverlayUrl);
+      setTimeout(() => setCopiedUrl(null), 2000);
     } catch (err) {
       console.error("Failed to copy:", err);
     }
