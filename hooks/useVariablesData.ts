@@ -26,9 +26,9 @@ const useVariablesData = (overlayId: Id<"overlays">) => {
       player1Life: overlay.player1Life,
       player2Life: overlay.player2Life,
       player1Record:
-        overlay.player1TournamentRecord || overlay.player1Data?.record || "0-0",
+        overlay.player1TournamentRecord || "0-0",
       player2Record:
-        overlay.player2TournamentRecord || overlay.player2Data?.record || "0-0",
+        overlay.player2TournamentRecord || "0-0",
       player1GamesWon: overlay.player1GamesWon,
       player2GamesWon: overlay.player2GamesWon,
     };
