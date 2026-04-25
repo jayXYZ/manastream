@@ -1,30 +1,35 @@
 {
   "aluren": {
     "deckname": "Aluren",
+    "macro": null,
     "required": ["Aluren", "Cavern Harpy"],
     "conflicts": [],
     "color": "Gold"
   },
   "angry_hermit": {
     "deckname": "Angry Hermit",
+    "macro": null,
     "required": ["Hermit Druid", "Dragon Breath"],
     "conflicts": [],
     "color": "Gold"
   },
   "breakfast": {
     "deckname": "Cephalid Breakfast",
+    "macro": null,
     "required": ["Cephalid Illusionist", "Nomads en-Kor"],
     "conflicts": [],
     "color": "Gold"
   },
   "broccoli_soup": {
     "deckname": "Broccoli Soup",
+    "macro": null,
     "required": ["Carnophage", "Rancor"],
     "conflicts": [],
     "color": "Gold"
   },
   "bw_control": {
     "deckname": "Black/White Control",
+    "macro": null,
     "required": [
       "Swords to Plowshares",
       "Vindicate",
@@ -36,18 +41,21 @@
   },
   "contamination": {
     "deckname": "Contamination",
+    "macro": null,
     "required": ["Contamination"],
     "conflicts": [],
     "color": "Black"
   },
   "dance_academy": {
     "deckname": "Dance Academy",
+    "macro": null,
     "required": ["Academy Rector", "Corpse Dance"],
     "conflicts": [],
     "color": "Gold"
   },
   "deadguy": {
     "deckname": "Deadguy Ale",
+    "macro": null,
     "required": [
       "Gerrard's Verdict",
       "Hypnotic Specter",
@@ -59,148 +67,189 @@
   },
   "devourer": {
     "deckname": "Devourer Combo",
-    "required": ["Phyrexian Devourer", "Altar Of Dementia"],
+    "macro": null,
+    "required": ["Phyrexian Devourer", "Altar of Dementia"],
+    "conflicts": ["Mishra's Helix", "Thran Dynamo"],
+    "color": "Gold"
+  },
+  "domain": {
+    "deckname": "Domain",
+    "macro": null,
+    "required": ["Evasive Action"],
     "conflicts": [],
     "color": "Gold"
   },
   "draco_blast": {
     "deckname": "Draco Blast",
+    "macro": null,
     "required": ["Draco", "Erratic Explosion"],
     "conflicts": [],
     "color": "Gold"
   },
   "elves": {
     "deckname": "Elves",
+    "macro": null,
     "required": ["Wirewood Symbiote", "Quirion Ranger"],
     "conflicts": [],
     "color": "Green"
   },
   "enchantress": {
     "deckname": "Enchantress",
+    "macro": null,
     "required": ["Argothian Enchantress", "Enchantress's Presence"],
+    "conflicts": [],
+    "color": "Gold"
+  },
+  "esper_tog": {
+    "deckname": "Esper Psychatog",
+    "macro": "Psychatog",
+    "required": ["Psychatog", "Meddling Mage"],
     "conflicts": [],
     "color": "Gold"
   },
   "feb": {
     "deckname": "Full English Breakfast",
-    "required": [
-      "Volrath's Shapeshifter",
-      "Survival of the Fittest",
-      "Psychatog"
-    ],
+    "macro": null,
+    "required": ["Volrath's Shapeshifter", "Survival of the Fittest"],
     "conflicts": [],
     "color": "Gold"
   },
   "fires": {
     "deckname": "Fires",
+    "macro": null,
     "required": ["Fires of Yavimaya", "Blastoderm", "Birds of Paradise"],
     "conflicts": [],
     "color": "Gold"
   },
   "five_color_gators": {
     "deckname": "Five Color Negator",
+    "macro": null,
     "required": ["Phyrexian Negator", "City of Brass", "Birds of Paradise"],
     "conflicts": [],
     "color": "Gold"
   },
   "five_color_weenie": {
     "deckname": "Five Color Weenie",
+    "macro": null,
     "required": ["Lightning Bolt", "Armadillo Cloak", "Meddling Mage"],
     "conflicts": [],
     "color": "Gold"
   },
   "flippi": {
     "deckname": "Blue/White Flippi",
+    "macro": null,
     "required": ["Exalted Angel", "Silver Knight", "Meddling Mage"],
-    "conflicts": [],
+    "conflicts": ["Earthquake"],
     "color": "Gold"
   },
   "flow": {
     "deckname": "Destructive Flow",
+    "macro": null,
     "required": ["Destructive Flow"],
     "conflicts": [],
     "color": "Gold"
   },
   "gat": {
     "deckname": "Gro-a-tog",
-    "required": ["Mox Diamond", "Quirion Dryad", "Gush"],
+    "macro": null,
+    "required": ["Quirion Dryad", "Gush"],
     "conflicts": [],
     "color": "Gold"
   },
   "goblins": {
     "deckname": "Goblins",
+    "macro": null,
     "required": ["Goblin Lackey", "Goblin Ringleader"],
     "conflicts": [],
     "color": "Red"
   },
   "greater_good": {
     "deckname": "Greater Good",
+    "macro": null,
     "required": ["Greater Good"],
     "conflicts": [],
     "color": "Gold"
   },
   "gw_madness": {
     "deckname": "Green/White Madness",
-    "required": ["Nimble Mongoose", "Mystic Enforcer"],
+    "macro": "Madness",
+    "required": ["Arrogant Wurm", "Plains"],
     "conflicts": ["Oath of Druids"],
     "color": "Gold"
   },
   "gw_oath": {
     "deckname": "Green/White Oath Ponza",
+    "macro": "Oath Ponza",
     "required": ["Terravore", "Oath of Druids", "Thermokarst", "Brushland"],
     "conflicts": ["Karplusan Forest", "Pyroclasm"],
     "color": "Green"
   },
   "horror_stompy": {
     "deckname": "Horror Stompy",
+    "macro": null,
     "required": ["Drinker of Sorrow", "Phyrexian Negator"],
     "conflicts": [],
     "color": "Black"
   },
   "iggy_pop": {
     "deckname": "Iggy Pop",
+    "macro": "Storm Combo",
     "required": ["Ill-Gotten Gains", "Lion's Eye Diamond"],
     "conflicts": [],
     "color": "Gold"
   },
   "infestation": {
-    "deckname": "Infestation",
+    "deckname": "Zombie Infestation",
+    "macro": null,
     "required": ["Zombie Infestation"],
     "conflicts": ["Reanimate"],
     "color": "Black"
   },
+  "key_control": {
+    "deckname": "Key Control",
+    "macro": null,
+    "required": ["Gush", "Tithe", "Mox Diamond"],
+    "conflicts": [],
+    "color": "Gold"
+  },
   "lands": {
     "deckname": "Lands",
+    "macro": null,
     "required": ["Horn of Greed", "Exploration"],
     "conflicts": [],
     "color": "Green"
   },
   "landstill": {
     "deckname": "Landstill",
+    "macro": null,
     "required": ["Standstill", "Counterspell", "Decree of Justice"],
     "conflicts": ["Whipcorder"],
     "color": "Blue"
   },
   "life": {
     "deckname": "Life Combo",
+    "macro": null,
     "required": ["Daru Spiritualist", "Nomads en-Kor"],
     "conflicts": [],
     "color": "White"
   },
   "machine_head": {
     "deckname": "Machine Head",
+    "macro": null,
     "required": ["Lightning Bolt", "Duress"],
     "conflicts": ["Destructive Flow", "Ball Lightning"],
     "color": "Gold"
   },
   "merfolk": {
     "deckname": "Merfolk",
+    "macro": null,
     "required": ["Lord of Atlantis"],
     "conflicts": [],
     "color": "Blue"
   },
   "moneyball_black": {
     "deckname": "Moneyball Black",
+    "macro": "Mono Black",
     "required": [
       "Cabal Therapy",
       "Ravenous Rats",
@@ -212,109 +261,147 @@
   },
   "mono_black_clerics": {
     "deckname": "Mono Black Clerics",
+    "macro": null,
     "required": ["Priest of Gix", "Withered Wretch"],
     "conflicts": [],
     "color": "Black"
   },
   "mono_black_control": {
     "deckname": "Mono Black Control",
+    "macro": null,
     "required": ["Corrupt"],
     "conflicts": ["Gerrard's Verdict", "Swords to Plowshares"],
     "color": "Black"
   },
   "mono_blue_dreadnought": {
     "deckname": "Mono Blue Dreadnought",
+    "macro": "Stiflenought",
     "required": ["Phyrexian Dreadnought", "Stifle"],
     "conflicts": ["Adarkar Wastes", "Underground River", "Zombie Infestation"],
     "color": "Blue"
   },
   "mono_blue_storm": {
     "deckname": "Mono Blue Storm",
+    "macro": "Storm Combo",
     "required": ["Sapphire Medallion", "Brain Freeze"],
     "conflicts": [],
     "color": "Blue"
   },
   "mono_blue_tide_control": {
-    "deckname": "Mono Blue Tide Control",
-    "required": ["Parallax Tide", "Faerie Conclave"],
+    "deckname": "Mono Blue Control",
+    "macro": null,
+    "required": ["Counterspell", "Faerie Conclave"],
     "conflicts": ["Plains"],
     "color": "Blue"
   },
   "mono_green_ponza": {
     "deckname": "Mono Green Ponza",
+    "macro": null,
     "required": ["Thermokarst", "Winter's Grasp", "Wall of Roots"],
     "conflicts": ["Karplusan Forest", "Stone Rain", "Brushland"],
     "color": "Green"
   },
   "mud": {
     "deckname": "Mud",
+    "macro": null,
     "required": ["Metalworker", "Tangle Wire"],
     "conflicts": [],
     "color": "Brown"
   },
   "parfait": {
     "deckname": "Parfait",
+    "macro": null,
     "required": ["Scroll Rack", "Oath of Druids"],
     "conflicts": [],
     "color": "Gold"
   },
   "pattern_rector": {
     "deckname": "Pattern Rector",
+    "macro": null,
     "required": ["Academy Rector", "Pattern of Rebirth"],
     "conflicts": [],
     "color": "Gold"
   },
   "pirates": {
     "deckname": "Pirates",
+    "macro": null,
     "required": ["Rishadan Cutpurse"],
     "conflicts": [],
     "color": "Gold"
   },
   "pitrack": {
     "deckname": "Pit Rack",
+    "macro": "Mono Black",
     "required": ["Bottomless Pit", "The Rack"],
     "conflicts": ["Lavaborn Muse"],
     "color": "Black"
   },
+  "pitless_rack": {
+    "deckname": "Pitless Rack",
+    "macro": "Mono Black",
+    "required": ["Swamp", "The Rack"],
+    "conflicts": [
+      "Lavaborn Muse",
+      "Bottomless Pit",
+      "Plains",
+      "Mountain",
+      "Island",
+      "Forest"
+    ],
+    "color": "Black"
+  },
   "ponza": {
     "deckname": "Ponza",
+    "macro": null,
     "required": ["Stone Rain", "Pillage"],
     "conflicts": [],
     "color": "Red"
   },
-  "pox": { "deckname": "Pox", "required": ["Pox"], "conflicts": [] },
+  "pox": {
+    "deckname": "Pox",
+    "macro": "Mono Black",
+    "required": ["Pox"],
+    "conflicts": [],
+    "color": "Black"
+  },
   "reanimator": {
     "deckname": "Reanimator",
+    "macro": null,
     "required": ["Reanimate"],
-    "conflicts": ["Psychatog"],
+    "conflicts": ["Psychatog", "Volrath's Shapeshifter", "Sutured Ghoul"],
     "color": "Black"
   },
   "rebels": {
     "deckname": "Rebels",
+    "macro": null,
     "required": ["Ramosian Sergeant", "Island"],
     "conflicts": [],
     "color": "Gold"
   },
   "replenish": {
     "deckname": "Replenish",
-    "required": ["Replenish", "Opalescence", "Parallax Tide"],
-    "conflicts": ["Mishra's Factory"],
+    "macro": null,
+    "required": ["Replenish", "Opalescence", "Parallax Wave"],
+    "conflicts": ["Mishra's Factory", "Serra's Sanctum"],
     "color": "Gold"
   },
   "rifter": {
     "deckname": "Rifter",
+    "macro": null,
     "required": ["Lightning Rift"],
     "conflicts": [],
     "color": "Gold"
   },
   "rg_aggro": {
     "deckname": "Red/Green Aggro",
-    "required": ["Rancor", "Lightning Bolt", "Call of the Herd"],
+    "macro": null,
+    "required": ["Treetop Village", "Lightning Bolt", "Call of the Herd"],
     "conflicts": [""],
     "color": "Gold"
   },
   "rg_oath": {
     "deckname": "Red/Green Oath Ponza",
+    "macro": "Oath Ponza",
     "required": [
       "Terravore",
       "Oath of Druids",
@@ -326,175 +413,205 @@
   },
   "rw_aggro": {
     "deckname": "Red/White Aggro",
+    "macro": null,
     "required": ["Savannah Lions", "Battlefield Forge"],
     "conflicts": [],
     "color": "Gold"
   },
   "rock": {
     "deckname": "The Rock",
+    "macro": "The Rock",
     "required": ["Treetop Village", "Pernicious Deed"],
     "conflicts": ["Survival of the Fittest"],
     "color": "Gold"
   },
   "slide": {
     "deckname": "Astral Slide",
+    "macro": null,
     "required": ["Astral Slide"],
     "conflicts": [],
     "color": "Gold"
   },
   "sligh": {
     "deckname": "Sligh",
-    "required": [
-      "Jackal Pup",
-      "Fireblast",
-      "Grim Lavamancer",
-      "Ball Lightning"
-    ],
+    "macro": null,
+    "required": ["Jackal Pup", "Fireblast", "Grim Lavamancer"],
     "conflicts": ["Karplusan Forest", "Call of the Herd", "Nimble Mongoose"],
     "color": "Red"
   },
   "slivers": {
     "deckname": "Slivers",
+    "macro": null,
     "required": ["Muscle Sliver"],
     "conflicts": [],
     "color": "Gold"
   },
   "stasis": {
     "deckname": "Stasis",
+    "macro": null,
     "required": ["Stasis", "Forsaken City"],
     "conflicts": [],
     "color": "Blue"
   },
   "solution": {
     "deckname": "The Solution",
+    "macro": null,
     "required": ["Lightning Angel", "Meddling Mage"],
     "conflicts": [],
     "color": "Gold"
   },
   "stompy": {
     "deckname": "Mono Green Stompy",
+    "macro": null,
     "required": ["Blastoderm", "Call of the Herd", "Llanowar Elves"],
     "conflicts": ["Swamp", "Mountain", "Llanowar Wastes", "Karplusan Forest"],
     "color": "Green"
   },
   "suicide_black": {
     "deckname": "Suicide Black",
+    "macro": "Mono Black",
     "required": ["Dark Ritual", "Carnophage", "Sarcomancy"],
     "conflicts": ["Forest", "Llanowar Wastes"],
     "color": "Black"
   },
   "survival_madness": {
     "deckname": "Survival Madness",
+    "macro": "Madness",
     "required": ["Survival of the Fittest", "Basking Rootwalla"],
-    "conflicts": [],
+    "conflicts": ["Opposition", "Tradewind Rider"],
     "color": "Green"
   },
   "survival_opposition": {
     "deckname": "Survival Opposition",
+    "macro": null,
     "required": ["Survival of the Fittest", "Opposition"],
     "conflicts": [],
     "color": "Gold"
   },
   "survival_rock": {
     "deckname": "Survival Rock",
+    "macro": "The Rock",
     "required": ["Survival of the Fittest", "Duress", "Cabal Therapy"],
-    "conflicts": [],
+    "conflicts": ["Psychatog", "Volrath's Shapeshifter"],
     "color": "Gold"
   },
   "survival_welder": {
     "deckname": "Survival Welder",
+    "macro": null,
     "required": ["Goblin Welder", "Survival of the Fittest", "Tangle Wire"],
     "conflicts": ["Tinker"],
     "color": "Gold"
   },
   "terrageddon": {
     "deckname": "Terrageddon",
+    "macro": null,
     "required": ["Armageddon", "Terravore"],
     "conflicts": ["Oath of Druids"],
     "color": "Gold"
   },
+  "terra_oath": {
+    "deckname": "Terra Oath",
+    "macro": null,
+    "required": ["Terravore", "Oath of Druids"],
+    "conflicts": ["Thermokarst", "Winter's Grasp"],
+    "color": "Gold"
+  },
   "tin_fins": {
     "deckname": "Tin Fins",
-    "required": ["Shallow Grave", "Unmask", "Sutured Ghoul"],
+    "macro": null,
+    "required": ["Shallow Grave", "Buried Alive", "Sutured Ghoul"],
     "conflicts": ["Volrath's Shapeshifter", "Hermit Druid"],
     "color": "Gold"
   },
   "tings": {
     "deckname": "Balancing Tings",
+    "macro": null,
     "required": ["Balancing Act", "Burning Wish"],
     "conflicts": [],
     "color": "Gold"
   },
   "tinker": {
     "deckname": "Tinker Welder",
+    "macro": null,
     "required": ["Tinker", "Goblin Welder"],
     "conflicts": ["Survival of the Fittest", "Fling"],
     "color": "Gold"
   },
   "tribe": {
     "deckname": "Tribe Combo",
+    "macro": null,
     "required": ["Tireless Tribe", "About Face"],
     "conflicts": [],
     "color": "Gold"
   },
   "trix": {
     "deckname": "Trix",
+    "macro": null,
     "required": ["Illusions of Grandeur", "Donate"],
     "conflicts": [],
     "color": "Blue"
   },
   "tog": {
     "deckname": "Blue/Black Psychatog",
+    "macro": "Psychatog",
     "required": ["Psychatog", "Polluted Delta"],
     "conflicts": ["Phyrexian Dreadnought", "Mox Diamond"],
     "color": "Gold"
   },
   "tradewind_survival": {
     "deckname": "Tradewind Survival",
+    "macro": null,
     "required": ["Survival of the Fittest", "Tradewind Rider"],
     "conflicts": [],
     "color": "Gold"
   },
   "ub_dreadnought": {
     "deckname": "Blue/Black Dreadnought",
+    "macro": "Stiflenought",
     "required": ["Phyrexian Dreadnought", "Stifle", "Underground River"],
-    "conflicts": [],
+    "conflicts": ["Sutured Ghoul", "Hermit Druid"],
     "color": "Blue"
   },
   "ug_madness": {
     "deckname": "Blue/Green Madness",
+    "macro": "Madness",
     "required": ["Wild Mongrel", "Basking Rootwalla", "Aquamoeba"],
     "conflicts": [],
     "color": "Green"
   },
   "ur_control": {
     "deckname": "Blue/Red Control",
+    "macro": null,
     "required": ["Urza's Rage", "Counterspell"],
     "conflicts": ["Duress"],
     "color": "Gold"
   },
   "uw_dreadnought": {
     "deckname": "Blue/White Dreadnought",
+    "macro": "Stiflenought",
     "required": ["Phyrexian Dreadnought", "Stifle", "Adarkar Wastes"],
     "conflicts": [],
     "color": "Blue"
   },
   "uw_tide": {
-    "deckname": "Blue/White Tide Control",
-    "required": ["Parallax Tide", "Wrath of God"],
-    "conflicts": [],
+    "deckname": "Blue/White Control",
+    "macro": null,
+    "required": ["Akroma's Vengeance", "Wrath of God"],
+    "conflicts": ["Standstill"],
     "color": "Blue"
   },
   "uw_tron": {
     "deckname": "Blue/White Tron",
+    "macro": null,
     "required": ["Plains", "Island", "Urza's Tower"],
     "conflicts": [],
     "color": "Gold"
   },
   "white_weenie": {
     "deckname": "White Weenie",
+    "macro": null,
     "required": ["Savannah Lions", "Whipcorder"],
-    "conflicts": [],
+    "conflicts": ["Mana Leak", "Memory Lapse", "Standstill"],
     "color": "White"
   }
 }

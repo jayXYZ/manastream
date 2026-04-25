@@ -15,6 +15,10 @@ const PREMODERN_FORMAT = "PREMODERN";
 
 const defaultArchetypes = archetypes as ArchetypeDefinitions;
 
+function normalizeCardNameForComparison(cardName: string): string {
+  return cardName.trim().toLowerCase();
+}
+
 function normalizeCardName(rawCardName: string): string {
   return rawCardName
     .trim()
@@ -79,7 +83,10 @@ export function determineArchetype(
     return existingArchetype;
   }
 
-  const maindeckCards = new Set(Object.keys(maindeck));
+  const maindeckCards = new Set(
+    Object.keys(maindeck).map(normalizeCardNameForComparison),
+  );
+  const matchedArchetypes: string[] = [];
 
   for (const [archetypeKey, archetypeData] of Object.entries(
     archetypeDefinitions,
@@ -87,13 +94,23 @@ export function determineArchetype(
     const requiredCards = archetypeData.required ?? [];
     const conflicts = archetypeData.conflicts ?? [];
     const hasRequiredCards = requiredCards.every((card) =>
-      maindeckCards.has(card),
+      maindeckCards.has(normalizeCardNameForComparison(card)),
     );
-    const hasConflictCards = conflicts.some((card) => maindeckCards.has(card));
+    const hasConflictCards = conflicts.some((card) =>
+      maindeckCards.has(normalizeCardNameForComparison(card)),
+    );
 
     if (hasRequiredCards && !hasConflictCards) {
-      return archetypeData.deckname ?? archetypeKey;
+      matchedArchetypes.push(archetypeData.deckname ?? archetypeKey);
     }
+  }
+
+  if (matchedArchetypes.length === 1) {
+    return matchedArchetypes[0];
+  }
+
+  if (matchedArchetypes.length > 1) {
+    return `CONFLICT (${matchedArchetypes.join(" / ")})`;
   }
 
   return "Unknown";

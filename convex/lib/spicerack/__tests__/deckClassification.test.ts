@@ -77,6 +77,81 @@ describe("determineArchetype", () => {
     );
     expect(result).toBe("Black/White Control");
   });
+
+  it("matches required cards case-insensitively", () => {
+    const caseMismatchedArchetypes: ArchetypeDefinitions = {
+      deadguy_case_mismatch: {
+        deckname: "Deadguy Ale",
+        required: [
+          "gerrard's verdict",
+          "hypnotic specter",
+          "swords to plowshares",
+          "dark ritual",
+        ],
+        conflicts: [],
+      },
+    };
+
+    const result = determineArchetype(
+      {
+        "Gerrard's Verdict": 4,
+        "Hypnotic Specter": 4,
+        "Swords to Plowshares": 4,
+        "Dark Ritual": 4,
+      },
+      caseMismatchedArchetypes,
+      "Unknown",
+    );
+
+    expect(result).toBe("Deadguy Ale");
+  });
+
+  it("matches conflicts case-insensitively", () => {
+    const caseMismatchedArchetypes: ArchetypeDefinitions = {
+      conflict_test: {
+        deckname: "Should Not Match",
+        required: ["Lightning Bolt"],
+        conflicts: ["chain lightning"],
+      },
+    };
+
+    const result = determineArchetype(
+      {
+        "Lightning Bolt": 4,
+        "Chain Lightning": 4,
+      },
+      caseMismatchedArchetypes,
+      "Unknown",
+    );
+
+    expect(result).toBe("Unknown");
+  });
+
+  it('returns a "CONFLICT" label when multiple archetypes match', () => {
+    const overlappingArchetypes: ArchetypeDefinitions = {
+      burn: {
+        deckname: "Burn",
+        required: ["Lightning Bolt"],
+        conflicts: [],
+      },
+      red_aggro: {
+        deckname: "Red Aggro",
+        required: ["Lightning Bolt", "Chain Lightning"],
+        conflicts: [],
+      },
+    };
+
+    const result = determineArchetype(
+      {
+        "Lightning Bolt": 4,
+        "Chain Lightning": 4,
+      },
+      overlappingArchetypes,
+      "Unknown",
+    );
+
+    expect(result).toBe("CONFLICT (Burn / Red Aggro)");
+  });
 });
 
 describe("classifyDecknameForFormat", () => {
