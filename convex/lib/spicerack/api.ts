@@ -74,19 +74,29 @@ export async function fetchSpicerackDecklistData(
     }
     const jsonData = await response.json();
 
+    const plaintextList =
+      typeof jsonData.plaintext_list === "string"
+        ? jsonData.plaintext_list
+        : undefined;
+    const archetype =
+      typeof jsonData.archetype === "string" &&
+      jsonData.archetype.trim().length > 0
+        ? jsonData.archetype
+        : undefined;
+
     // Basic validation
-    if (!jsonData.archetype || !jsonData.plaintext_list) {
+    if (!plaintextList) {
       throw new Error("Invalid API response structure");
     }
     const deckname = classifyDecknameForFormat({
       eventFormat,
-      existingArchetype: jsonData.archetype,
-      plaintextList: jsonData.plaintext_list,
+      existingArchetype: archetype,
+      plaintextList,
     });
 
     return {
       deckname,
-      decklist: jsonData.plaintext_list,
+      decklist: plaintextList,
     };
   });
 }
@@ -174,7 +184,11 @@ export async function fetchSpicerackRegisteredPlayers(
       throw new Error(`Failed to fetch registered players: ${response.status}`);
     }
     const jsonData = await response.json();
-    return jsonData;
+    return jsonData.filter(
+      (player: SpicerackRegisteredPlayersResponse) =>
+        player.registration_status !== "CANCELED" &&
+        player.registration_status !== "ON_WAITLIST",
+    );
   });
 }
 
