@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { rankPairingsByUniqueness } from "../../convex/lib/pairingRankings";
+import {
+  filterPairingsByMinimumMatchPoints,
+  rankPairingsByUniqueness,
+} from "../../convex/lib/pairingRankings";
 
 describe("rankPairingsByUniqueness", () => {
   const tournamentPlayers = [
@@ -105,5 +108,53 @@ describe("rankPairingsByUniqueness", () => {
         hasKnownDecks: false,
       },
     ]);
+  });
+});
+
+describe("filterPairingsByMinimumMatchPoints", () => {
+  it("keeps pairings when either player meets the minimum points threshold", () => {
+    const pairings = [
+      {
+        tableNumber: 1,
+        player1TotalMatchPoints: 12,
+        player2TotalMatchPoints: 3,
+      },
+      {
+        tableNumber: 2,
+        player1TotalMatchPoints: 6,
+        player2TotalMatchPoints: 9,
+      },
+      {
+        tableNumber: 3,
+        player1TotalMatchPoints: 6,
+        player2TotalMatchPoints: 3,
+      },
+    ];
+
+    expect(
+      filterPairingsByMinimumMatchPoints(pairings, 9).map(
+        (pairing) => pairing.tableNumber,
+      ),
+    ).toEqual([1, 2]);
+  });
+
+  it("returns all pairings when the threshold is empty or zero", () => {
+    const pairings = [
+      {
+        tableNumber: 1,
+        player1TotalMatchPoints: 0,
+        player2TotalMatchPoints: 0,
+      },
+      {
+        tableNumber: 2,
+        player1TotalMatchPoints: 3,
+        player2TotalMatchPoints: 0,
+      },
+    ];
+
+    expect(filterPairingsByMinimumMatchPoints(pairings, undefined)).toEqual(
+      pairings,
+    );
+    expect(filterPairingsByMinimumMatchPoints(pairings, 0)).toEqual(pairings);
   });
 });

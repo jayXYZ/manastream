@@ -93,6 +93,8 @@ export const pairingValidator = v.object({
   player2: v.id("players"),
   player1TournamentRecord: v.string(),
   player2TournamentRecord: v.string(),
+  player1TotalMatchPoints: v.optional(v.number()),
+  player2TotalMatchPoints: v.optional(v.number()),
   tableNumber: v.optional(v.number()),
   status: v.string(),
   createdAt: v.number(),

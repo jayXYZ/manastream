@@ -19,6 +19,11 @@ export type RankedPairing<TPairing extends PairingRankingInput> = TPairing & {
   hasKnownDecks: boolean;
 };
 
+export type MatchPointsPairingInput = {
+  player1TotalMatchPoints?: number;
+  player2TotalMatchPoints?: number;
+};
+
 type ArchetypeDefinition = {
   deckname?: string;
   macro?: string | null;
@@ -71,6 +76,20 @@ export function rankPairingsByUniqueness<
       ...pairing,
       rank: index + 1,
     }));
+}
+
+export function filterPairingsByMinimumMatchPoints<
+  TPairing extends MatchPointsPairingInput,
+>(pairings: TPairing[], minimumPoints: number | undefined): TPairing[] {
+  if (!minimumPoints || minimumPoints <= 0) {
+    return pairings;
+  }
+
+  return pairings.filter(
+    (pairing) =>
+      (pairing.player1TotalMatchPoints ?? 0) >= minimumPoints ||
+      (pairing.player2TotalMatchPoints ?? 0) >= minimumPoints,
+  );
 }
 
 function buildMacroCounts(players: PairingRankingPlayer[]): Map<string, number> {

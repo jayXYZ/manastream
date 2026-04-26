@@ -114,6 +114,10 @@ export async function snapshotCurrentRoundPairings(
       player2TournamentRecord: parsePlayerRecord(
         player2Relationship.user_event_status,
       ),
+      player1TotalMatchPoints:
+        player1Relationship.user_event_status.total_match_points,
+      player2TotalMatchPoints:
+        player2Relationship.user_event_status.total_match_points,
       tableNumber: match.table_number > 0 ? match.table_number : undefined,
       status: match.status,
       createdAt: Date.now(),
