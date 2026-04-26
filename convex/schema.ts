@@ -11,6 +11,7 @@ import {
   spicerackLogValidator,
   spicerackTournamentValidator,
   roundStandingsValidator,
+  scryfallCardCacheValidator,
 } from "./validators";
 
 // The schema is normally optional, but Convex Auth
@@ -69,6 +70,10 @@ export default defineSchema({
     .index("by_spicerack_tournament_id", ["spicerackTournamentId"])
     .index("by_tournament", ["tournamentId"])
     .index("by_spicerack_player_id", ["spicerackPlayerId"]),
+
+  scryfallCardCache: defineTable(scryfallCardCacheValidator)
+    .index("by_cache_key", ["cacheKey"])
+    .index("by_normalized_name", ["normalizedName"]),
 
   // Spicerack Debug Logs table
   spicerackLogs: defineTable(spicerackLogValidator)

@@ -119,6 +119,44 @@ export const decklistStatusValidator = v.union(
   v.literal("manual"),
 );
 
+export const deckCardsStatusValidator = v.union(
+  v.literal("pending"),
+  v.literal("ready"),
+  v.literal("partial"),
+  v.literal("failed"),
+);
+
+export const resolvedDeckCardValidator = v.object({
+  count: v.number(),
+  name: v.string(),
+  imageUrl: v.optional(v.string()),
+  typeLine: v.string(),
+  legality: v.optional(v.string()),
+  scryfallId: v.optional(v.string()),
+  unresolved: v.optional(v.boolean()),
+});
+
+export const resolvedDeckCardsValidator = v.object({
+  mainboard: v.array(resolvedDeckCardValidator),
+  sideboard: v.array(resolvedDeckCardValidator),
+  unresolvedNames: v.array(v.string()),
+  resolvedAt: v.number(),
+});
+
+export const scryfallCardCacheValidator = v.object({
+  cacheKey: v.string(),
+  normalizedName: v.string(),
+  name: v.string(),
+  policy: v.string(),
+  status: v.union(v.literal("resolved"), v.literal("unresolved")),
+  imageUrl: v.optional(v.string()),
+  typeLine: v.string(),
+  legality: v.optional(v.string()),
+  scryfallId: v.optional(v.string()),
+  lastError: v.optional(v.string()),
+  updatedAt: v.number(),
+});
+
 export const spicerackRoundStandingsDataValidator = v.object({
   round_number: v.number(),
   standings: v.array(playerInStandingsValidator),
@@ -287,6 +325,8 @@ export const playerValidator = v.object({
   decklistStatus: v.optional(decklistStatusValidator),
   deckName: v.string(), // Archetype name
   deckList: v.string(), // Plaintext deck list
+  deckCardsStatus: v.optional(deckCardsStatusValidator),
+  deckCards: v.optional(resolvedDeckCardsValidator),
   updatedAt: v.number(),
 });
 
