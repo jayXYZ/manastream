@@ -47,14 +47,18 @@ export const getCurrentRoundFeatureMatches = query({
     if (!tournament) {
       return [];
     }
+    const currentRoundId = tournament.currentRoundId;
     const currentRoundNumber = tournament.currentRoundNumber;
-    if (!currentRoundNumber) {
+    if (currentRoundId == null && currentRoundNumber == null) {
       return [];
     }
     const featureMatchesWithPlayerData = await getFeatureMatchesWithPlayerData(
       ctx,
-      tournament.spicerackTournamentId,
-      currentRoundNumber,
+      {
+        spicerackTournamentId: tournament.spicerackTournamentId,
+        spicerackRoundId: currentRoundId,
+        roundNumber: currentRoundNumber,
+      },
     );
     return featureMatchesWithPlayerData;
   },
@@ -70,7 +74,7 @@ export const getAllFeatureMatches = query({
     }
     const featureMatchesWithPlayerData = await getFeatureMatchesWithPlayerData(
       ctx,
-      tournament.spicerackTournamentId,
+      { spicerackTournamentId: tournament.spicerackTournamentId },
     );
     return featureMatchesWithPlayerData;
   },

@@ -68,6 +68,7 @@ export const featureMatchValidator = v.object({
   externalId: v.string(), // Spicerack Tournament ID + Round ID + Player 1 Name + Player 2 Name
   spicerackTournamentId: v.optional(v.number()),
   tournamentId: v.optional(v.id("tournaments")),
+  spicerackRoundId: v.optional(v.number()),
   roundNumber: v.number(),
   player1: v.id("players"),
   player2: v.id("players"),
@@ -76,6 +77,24 @@ export const featureMatchValidator = v.object({
   tableNumber: v.optional(v.number()),
   spicerackTimerExpiry: v.optional(v.number()), // Unix timestamp
   spicerackTimerRunning: v.optional(v.boolean()),
+  createdAt: v.number(),
+});
+
+export const pairingValidator = v.object({
+  _id: v.id("pairings"),
+  _creationTime: v.number(),
+  externalId: v.string(),
+  spicerackTournamentId: v.number(),
+  tournamentId: v.id("tournaments"),
+  spicerackRoundId: v.number(),
+  roundNumber: v.number(),
+  spicerackMatchId: v.number(),
+  player1: v.id("players"),
+  player2: v.id("players"),
+  player1TournamentRecord: v.string(),
+  player2TournamentRecord: v.string(),
+  tableNumber: v.optional(v.number()),
+  status: v.string(),
   createdAt: v.number(),
 });
 
@@ -302,6 +321,31 @@ export const playerValidator = v.object({
   deckName: v.string(), // Archetype name
   deckList: v.string(), // Plaintext deck list
   updatedAt: v.number(),
+});
+
+export const rankedPairingWithPlayersValidator = v.object({
+  ...pairingValidator.fields,
+  player1Data: v.optional(playerValidator),
+  player2Data: v.optional(playerValidator),
+  rank: v.number(),
+  player1MacroArchetype: v.optional(v.string()),
+  player2MacroArchetype: v.optional(v.string()),
+  uniquenessScore: v.optional(v.number()),
+  hasKnownDecks: v.boolean(),
+});
+
+export const currentRoundPairingsResultValidator = v.object({
+  status: v.union(
+    v.literal("ready"),
+    v.literal("no_tournament"),
+    v.literal("no_spicerack_tournament"),
+    v.literal("no_current_round"),
+    v.literal("no_pairings"),
+  ),
+  roundNumber: v.optional(v.number()),
+  roundName: v.optional(v.string()),
+  pairingCount: v.number(),
+  pairings: v.array(rankedPairingWithPlayersValidator),
 });
 
 export const spicerackLogValidator = v.object({

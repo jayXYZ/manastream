@@ -11,6 +11,7 @@ import {
   spicerackLogValidator,
   spicerackTournamentValidator,
   roundStandingsValidator,
+  pairingValidator,
 } from "./validators";
 
 // The schema is normally optional, but Convex Auth
@@ -63,6 +64,11 @@ export default defineSchema({
     .index("by_tournament_and_round", ["tournamentId", "roundNumber"])
     .index("by_external_id", ["externalId"])
     .index("by_spicerack_tournament_id", ["spicerackTournamentId"]),
+
+  pairings: defineTable(pairingValidator)
+    .index("by_tournament_and_round", ["tournamentId", "roundNumber"])
+    .index("by_spicerack_round", ["spicerackRoundId"])
+    .index("by_external_id", ["externalId"]),
 
   // Players table
   players: defineTable(playerValidator)

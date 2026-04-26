@@ -8,6 +8,7 @@ import {
   Timer as TimerIcon,
   ChevronsRight,
   User,
+  Swords,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -47,6 +48,11 @@ const navigationItems = [
     name: "Players",
     href: "/dashboard/players",
     icon: User,
+  },
+  {
+    name: "Pairings",
+    href: "/dashboard/pairings",
+    icon: Swords,
   },
 ];
 

@@ -6,7 +6,10 @@ import {
 } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
-import { SpicerackTournamentPhase } from "./types/spicerack";
+import {
+  SpicerackEventResponse,
+  SpicerackTournamentPhase,
+} from "./types/spicerack";
 import { logSpicerackEvent } from "./lib/logging";
 import { DEFAULT_MATCH, POLLING_INTERVAL } from "./lib/constants";
 import {
@@ -351,9 +354,10 @@ export const validateAndStartPolling = internalAction({
         `Tournament ${spicerackTournament.spicerackTournamentId} validated. Status: ${overviewData.event_status}`,
       );
 
+      let eventData: SpicerackEventResponse | undefined;
       let eventFormatForClassification: string | undefined;
       try {
-        const eventData = await fetchSpicerackEventData(
+        eventData = await fetchSpicerackEventData(
           spicerackTournament.spicerackTournamentId,
           settings.spicerackApiKey,
         );
@@ -556,6 +560,17 @@ export const validateAndStartPolling = internalAction({
             });
           }
         }
+      }
+
+      if (eventData) {
+        await ctx.runMutation(
+          internal.pairings.snapshotCurrentRoundPairingsForTournament,
+          {
+            tournamentId: tournament._id,
+            spicerackTournamentId: spicerackTournament.spicerackTournamentId,
+            jsonData: eventData,
+          },
+        );
       }
 
       // Log success

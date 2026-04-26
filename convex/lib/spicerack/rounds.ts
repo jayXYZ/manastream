@@ -8,6 +8,7 @@ import {
   getCurrentRoundDisplayName,
   parseCompletedRounds,
 } from "../../models/spicerack";
+import { snapshotCurrentRoundPairings } from "../pairings";
 
 /**
  * Checks for a new Spicerack round and handles it if found.
@@ -55,11 +56,13 @@ export async function checkForNewSpicerackRound(
     await handleNewSpicerackRound(
       ctx,
       tournamentId,
+      spicerackTournamentId,
       spicerackTournament._id,
       currentRound.id,
       currentRound.round_number,
       newRoundDisplayName ?? "",
       completedRounds,
+      jsonData,
     );
   }
 }
@@ -68,21 +71,25 @@ export async function checkForNewSpicerackRound(
  * Handle a new Spicerack round
  * @param ctx - The mutation context
  * @param tournamentId - The ID of the tournament
+ * @param spicerackTournamentId - The ID of the Spicerack tournament
  * @param spicerackTournamentDocId - The ID of the Spicerack tournament document
  * @param spicerackNewRoundId - The ID of the new round
  * @param spicerackNewRoundNumber - The number of the new round
  * @param newRoundDisplayName - The display name of the new round
  * @param completedRounds - The completed rounds
+ * @param jsonData - The Spicerack event response containing the new round matches
  * @throws Error if the Spicerack tournament document is not found
  */
 export async function handleNewSpicerackRound(
   ctx: MutationCtx,
   tournamentId: Id<"tournaments">,
+  spicerackTournamentId: number,
   spicerackTournamentDocId: Id<"spicerackTournaments">,
   spicerackNewRoundId: number,
   spicerackNewRoundNumber: number,
   newRoundDisplayName: string | undefined,
   completedRounds: { roundId: number; roundName: string }[],
+  jsonData: SpicerackEventResponse,
 ) {
   console.log(
     "Handling new round",
@@ -101,6 +108,12 @@ export async function handleNewSpicerackRound(
   await ctx.db.patch(tournamentId, {
     currentRound: spicerackNewRoundNumber,
     currentRoundDisplayName: newRoundDisplayName ?? "",
+  });
+
+  await snapshotCurrentRoundPairings(ctx, {
+    tournamentId,
+    spicerackTournamentId,
+    jsonData,
   });
 
   // resets all match overlays for the tournament
