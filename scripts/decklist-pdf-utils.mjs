@@ -1,4 +1,6 @@
+import fs from "node:fs/promises";
 import path from "node:path";
+import { PDFDocument } from "pdf-lib";
 
 const MISSING_DECK_VALUES = new Set(["", "MISSING_DECKLIST", "PENDING", "Unknown"]);
 
@@ -74,6 +76,10 @@ export function isMissingDeckValue(value) {
   return MISSING_DECK_VALUES.has(String(value ?? ""));
 }
 
+export function normalizeStatus(value) {
+  return String(value ?? "").trim().toUpperCase();
+}
+
 export function buildDecklistUrl({
   baseUrl = "https://www.decklist.org/",
   firstName = "",
@@ -115,6 +121,33 @@ export function outputFilePath(outputDir, index, playerName) {
   const safeName = sanitizeFilename(playerName) || `player-${index + 1}`;
   const prefix = String(index + 1).padStart(3, "0");
   return path.join(outputDir, `${prefix}-${safeName}.pdf`);
+}
+
+export async function mergePdfFiles(inputPaths, outputPath) {
+  if (!Array.isArray(inputPaths) || inputPaths.length === 0) {
+    throw new Error("No PDFs provided to merge.");
+  }
+
+  const merged = await PDFDocument.create();
+
+  for (const filePath of inputPaths) {
+    const bytes = await fs.readFile(filePath);
+    const pdf = await PDFDocument.load(bytes);
+    const pages = await merged.copyPages(pdf, pdf.getPageIndices());
+    for (const page of pages) {
+      merged.addPage(page);
+    }
+  }
+
+  await fs.mkdir(path.dirname(outputPath), { recursive: true });
+  const mergedBytes = await merged.save();
+  await fs.writeFile(outputPath, mergedBytes);
+
+  return {
+    outputPath,
+    sourceCount: inputPaths.length,
+    pageCount: merged.getPageCount(),
+  };
 }
 
 function truncate(value, maxLength) {

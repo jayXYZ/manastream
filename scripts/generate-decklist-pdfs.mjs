@@ -5,6 +5,8 @@ import { chromium } from "playwright";
 import {
   buildDecklistUrl,
   isMissingDeckValue,
+  mergePdfFiles,
+  normalizeStatus,
   outputFilePath,
   splitMainAndSide,
   splitPlayerName,
@@ -28,6 +30,10 @@ Options:
   --deck-designer <name>       Value for deck designer field
   --tournament-id <number>     Filter players by spicerackTournamentId
   --statuses <csv>             Allowed statuses (default: ready,manual)
+  --exclude-eliminated         Exclude players with registrationStatus=ELIMINATED
+  --exclude-registration-statuses <csv>
+                               Exclude any registration statuses (case-insensitive)
+  --merge-output <path>        Write a merged batch PDF at this path
   --limit <n>                  Max number of players to process
   --headful                    Run browser with UI
   --dry-run                    Print URLs and planned files without downloading
@@ -48,6 +54,7 @@ async function main() {
   const inputPath = path.resolve(args.input);
   const outputDir = path.resolve(args.output ?? "./tmp/decklist-pdfs");
   const allowedStatuses = parseStatuses(args.statuses ?? "ready,manual");
+  const excludedRegistrationStatuses = parseExcludedRegistrationStatuses(args);
   const tournamentId = toOptionalNumber(args.tournamentId);
   const limit = toOptionalNumber(args.limit);
   const decksheet = args.decksheet === "scg" ? "scg" : "wotc";
@@ -62,6 +69,10 @@ async function main() {
       return true;
     })
     .filter((player) => allowedStatuses.has(String(player.decklistStatus ?? "")))
+    .filter(
+      (player) =>
+        !excludedRegistrationStatuses.has(normalizeStatus(player.registrationStatus)),
+    )
     .filter((player) => !isMissingDeckValue(player.deckList));
 
   const selectedPlayers = limit ? candidates.slice(0, limit) : candidates;
@@ -71,6 +82,9 @@ async function main() {
   }
 
   await fs.mkdir(outputDir, { recursive: true });
+  const mergeOutputPath = args.mergeOutput
+    ? path.resolve(args.mergeOutput)
+    : undefined;
 
   console.log(`Found ${selectedPlayers.length} player(s) to process.`);
   console.log(`Output directory: ${outputDir}`);
@@ -97,6 +111,10 @@ async function main() {
       const outputPath = outputFilePath(outputDir, index, player.name);
       console.log(`${outputPath}\n  ${url.toString()}`);
     });
+
+    if (mergeOutputPath) {
+      console.log(`Merged output path: ${mergeOutputPath}`);
+    }
     return;
   }
 
@@ -105,6 +123,7 @@ async function main() {
 
   let successCount = 0;
   const failures = [];
+  const generatedPdfPaths = [];
 
   try {
     for (let index = 0; index < selectedPlayers.length; index += 1) {
@@ -145,6 +164,7 @@ async function main() {
         ]);
 
         await download.saveAs(outputPath);
+        generatedPdfPaths.push(outputPath);
         successCount += 1;
         console.log(`  Saved ${outputPath}`);
       } catch (error) {
@@ -158,6 +178,23 @@ async function main() {
   } finally {
     await context.close();
     await browser.close();
+  }
+
+  if (mergeOutputPath) {
+    if (generatedPdfPaths.length === 0) {
+      console.log("Skipped merge because no PDFs were generated successfully.");
+    } else {
+      try {
+        const mergedResult = await mergePdfFiles(generatedPdfPaths, mergeOutputPath);
+        console.log(
+          `Merged ${mergedResult.sourceCount} PDFs into ${mergedResult.outputPath} (${mergedResult.pageCount} page(s))`,
+        );
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        failures.push({ name: "merge", error: errorMessage });
+        console.error(`Failed to merge PDFs: ${errorMessage}`);
+      }
+    }
   }
 
   console.log("");
@@ -176,7 +213,12 @@ function parseArgs(argv) {
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i];
 
-    if (token === "--headful" || token === "--dry-run" || token === "--help") {
+    if (
+      token === "--headful" ||
+      token === "--dry-run" ||
+      token === "--help" ||
+      token === "--exclude-eliminated"
+    ) {
       const key = token.replace(/^--/, "").replace(/-([a-z])/g, (_, c) => c.toUpperCase());
       parsed[key] = true;
       continue;
@@ -205,6 +247,26 @@ function parseStatuses(csv) {
     .map((value) => value.trim())
     .filter(Boolean);
   return new Set(values);
+}
+
+function parseExcludedRegistrationStatuses(args) {
+  const excluded = new Set();
+
+  if (args.excludeEliminated) {
+    excluded.add("ELIMINATED");
+  }
+
+  if (args.excludeRegistrationStatuses) {
+    const values = String(args.excludeRegistrationStatuses)
+      .split(",")
+      .map((value) => normalizeStatus(value))
+      .filter(Boolean);
+    for (const value of values) {
+      excluded.add(value);
+    }
+  }
+
+  return excluded;
 }
 
 function toOptionalNumber(value) {

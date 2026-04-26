@@ -1,6 +1,13 @@
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { describe, it, expect } from "vitest";
+import { PDFDocument } from "pdf-lib";
 import {
   buildDecklistUrl,
+  mergePdfFiles,
+  normalizeStatus,
   sanitizeFilename,
   splitMainAndSide,
   splitPlayerName,
@@ -70,5 +77,36 @@ describe("buildDecklistUrl", () => {
     expect(url.searchParams.get("deckmain")).toBe("4 Brainstorm");
     expect(url.searchParams.get("deckside")).toBe("2 Hydroblast");
     expect(url.searchParams.get("disableediting")).toBe("true");
+  });
+});
+
+describe("normalizeStatus", () => {
+  it("normalizes case and surrounding whitespace", () => {
+    expect(normalizeStatus("  eliminated ")).toBe("ELIMINATED");
+  });
+});
+
+describe("mergePdfFiles", () => {
+  it("merges multiple PDFs into one output file", async () => {
+    const tempDir = path.join(os.tmpdir(), `decklist-merge-test-${randomUUID()}`);
+    await fs.mkdir(tempDir, { recursive: true });
+
+    const firstPath = path.join(tempDir, "first.pdf");
+    const secondPath = path.join(tempDir, "second.pdf");
+    const mergedPath = path.join(tempDir, "merged.pdf");
+
+    const firstPdf = await PDFDocument.create();
+    firstPdf.addPage([200, 200]);
+    await fs.writeFile(firstPath, await firstPdf.save());
+
+    const secondPdf = await PDFDocument.create();
+    secondPdf.addPage([300, 300]);
+    await fs.writeFile(secondPath, await secondPdf.save());
+
+    await mergePdfFiles([firstPath, secondPath], mergedPath);
+
+    const mergedBytes = await fs.readFile(mergedPath);
+    const mergedPdf = await PDFDocument.load(mergedBytes);
+    expect(mergedPdf.getPageCount()).toBe(2);
   });
 });
