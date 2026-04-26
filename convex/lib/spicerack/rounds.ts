@@ -64,7 +64,14 @@ export async function checkForNewSpicerackRound(
       completedRounds,
       jsonData,
     );
+    return;
   }
+
+  await snapshotCurrentRoundPairings(ctx, {
+    tournamentId,
+    spicerackTournamentId,
+    jsonData,
+  });
 }
 
 /**
