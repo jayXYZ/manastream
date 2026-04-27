@@ -4,6 +4,8 @@ import { authTables } from "@convex-dev/auth/server";
 import {
   overlayValidator,
   playerValidator,
+  playerStatusValidator,
+  playerDecklistValidator,
   tournamentValidator,
   settingsValidator,
   featureMatchValidator,
@@ -74,7 +76,31 @@ export default defineSchema({
   players: defineTable(playerValidator)
     .index("by_spicerack_tournament_id", ["spicerackTournamentId"])
     .index("by_tournament", ["tournamentId"])
-    .index("by_spicerack_player_id", ["spicerackPlayerId"]),
+    .index("by_spicerack_player_id", ["spicerackPlayerId"])
+    .index("by_spicerack_tournament_id_and_spicerack_player_id", [
+      "spicerackTournamentId",
+      "spicerackPlayerId",
+    ]),
+
+  playerStatuses: defineTable(playerStatusValidator)
+    .index("by_player_id", ["playerId"])
+    .index("by_spicerack_tournament_id", ["spicerackTournamentId"])
+    .index("by_spicerack_tournament_id_and_spicerack_player_id", [
+      "spicerackTournamentId",
+      "spicerackPlayerId",
+    ]),
+
+  playerDecklists: defineTable(playerDecklistValidator)
+    .index("by_player_id", ["playerId"])
+    .index("by_spicerack_tournament_id", ["spicerackTournamentId"])
+    .index("by_spicerack_tournament_id_and_spicerack_player_id", [
+      "spicerackTournamentId",
+      "spicerackPlayerId",
+    ])
+    .index("by_spicerack_tournament_id_and_decklist_status", [
+      "spicerackTournamentId",
+      "decklistStatus",
+    ]),
 
   // Spicerack Debug Logs table
   spicerackLogs: defineTable(spicerackLogValidator)

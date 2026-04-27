@@ -1,6 +1,7 @@
 import { Doc, Id } from "../_generated/dataModel";
 import { MutationCtx, QueryCtx } from "../_generated/server";
-import { NewPlayerEntry, Player } from "../types";
+import { NewPlayerEntry, PlayerWithData } from "../types";
+import { getPlayerData, insertPlayerDataRows } from "./playerData";
 
 /**
  * Helper function to get player data for a given spicerack match
@@ -14,8 +15,8 @@ export async function getPlayersForMatch(
   player1Id?: Id<"players">,
   player2Id?: Id<"players">,
 ): Promise<{
-  player1Data?: Doc<"players">;
-  player2Data?: Doc<"players">;
+  player1Data?: PlayerWithData;
+  player2Data?: PlayerWithData;
 }> {
   const [player1Data, player2Data] = await Promise.all([
     player1Id ? ctx.db.get(player1Id) : Promise.resolve(undefined),
@@ -23,8 +24,12 @@ export async function getPlayersForMatch(
   ]);
 
   return {
-    player1Data: player1Data ?? undefined,
-    player2Data: player2Data ?? undefined,
+    player1Data: player1Data
+      ? await getPlayerData(ctx, player1Data)
+      : undefined,
+    player2Data: player2Data
+      ? await getPlayerData(ctx, player2Data)
+      : undefined,
   };
 }
 
@@ -75,21 +80,16 @@ export async function doesPlayerExist(
 export async function createPlayer(
   ctx: MutationCtx,
   spicerackTournamentId: number,
-  player: Pick<
-    Player,
-    | "name"
-    | "spicerackPlayerId"
-    | "deckId"
-    | "decklistStatus"
-    | "deckName"
-    | "deckList"
-    | "spicerackTournamentId"
-  >,
+  player: NewPlayerEntry,
 ): Promise<Id<"players">> {
   const playerId = await ctx.db.insert("players", {
     ...player,
     spicerackTournamentId,
     updatedAt: Date.now(),
+  });
+  await insertPlayerDataRows(ctx, playerId, {
+    ...player,
+    spicerackTournamentId,
   });
   return playerId;
 }

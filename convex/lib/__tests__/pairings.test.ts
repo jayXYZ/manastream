@@ -49,10 +49,13 @@ function makePairingsCtx(args: {
   return {
     db: {
       query(tableName: string) {
-        if (tableName !== "pairings") {
-          throw new Error(`Unexpected table ${tableName}`);
+        if (tableName === "pairings") {
+          return makeQueryable(args.pairings);
         }
-        return makeQueryable(args.pairings);
+        if (tableName === "playerStatuses" || tableName === "playerDecklists") {
+          return makeQueryable([]);
+        }
+        throw new Error(`Unexpected table ${tableName}`);
       },
       get(id: string) {
         return Promise.resolve(playersById.get(id));
@@ -85,6 +88,14 @@ function makeQueryable(rows: Record<string, unknown>[]) {
                 ([field, value]) => row[field] === value,
               ),
             ),
+          ),
+        unique: () =>
+          Promise.resolve(
+            rows.filter((row) =>
+              Object.entries(clauses).every(
+                ([field, value]) => row[field] === value,
+              ),
+            )[0] ?? null,
           ),
       };
     },

@@ -315,20 +315,54 @@ export const playerValidator = v.object({
   _creationTime: v.number(),
   name: v.string(),
   spicerackPlayerId: v.number(),
+  // Deprecated during player data split migration. Use playerStatuses.
   registrationStatus: v.optional(v.string()),
   tournamentId: v.optional(v.id("tournaments")),
   spicerackTournamentId: v.optional(v.number()),
+  // Deprecated during player data split migration. Use playerDecklists.
+  deckId: v.optional(v.number()),
+  decklistStatus: v.optional(decklistStatusValidator),
+  deckName: v.optional(v.string()), // Archetype name
+  deckList: v.optional(v.string()), // Plaintext deck list
+  updatedAt: v.number(),
+});
+
+export const playerStatusValidator = v.object({
+  _id: v.id("playerStatuses"),
+  _creationTime: v.number(),
+  playerId: v.id("players"),
+  spicerackTournamentId: v.number(),
+  spicerackPlayerId: v.number(),
+  registrationStatus: v.optional(v.string()),
+  updatedAt: v.number(),
+});
+
+export const playerDecklistValidator = v.object({
+  _id: v.id("playerDecklists"),
+  _creationTime: v.number(),
+  playerId: v.id("players"),
+  spicerackTournamentId: v.number(),
+  spicerackPlayerId: v.number(),
   deckId: v.number(),
   decklistStatus: v.optional(decklistStatusValidator),
-  deckName: v.string(), // Archetype name
-  deckList: v.string(), // Plaintext deck list
+  deckName: v.string(),
+  deckList: v.string(),
   updatedAt: v.number(),
+});
+
+export const playerWithDataValidator = v.object({
+  ...playerValidator.fields,
+  registrationStatus: v.optional(v.string()),
+  deckId: v.number(),
+  decklistStatus: v.optional(decklistStatusValidator),
+  deckName: v.string(),
+  deckList: v.string(),
 });
 
 export const rankedPairingWithPlayersValidator = v.object({
   ...pairingValidator.fields,
-  player1Data: v.optional(playerValidator),
-  player2Data: v.optional(playerValidator),
+  player1Data: v.optional(playerWithDataValidator),
+  player2Data: v.optional(playerWithDataValidator),
   rank: v.number(),
   player1MacroArchetype: v.optional(v.string()),
   player2MacroArchetype: v.optional(v.string()),
@@ -370,8 +404,8 @@ export const spicerackLogValidator = v.object({
 // Expanded Validators
 export const matchOverlayWithPlayersValidator = v.object({
   ...matchOverlayValidator.fields,
-  player1Data: v.optional(playerValidator),
-  player2Data: v.optional(playerValidator),
+  player1Data: v.optional(playerWithDataValidator),
+  player2Data: v.optional(playerWithDataValidator),
   manualTimerExpiry: v.optional(v.number()),
   manualTimerRunning: v.optional(v.boolean()),
 });
@@ -379,8 +413,8 @@ export const matchOverlayWithPlayersValidator = v.object({
 export const featureMatchWithPlayersValidator = v.union(
   v.object({
     ...featureMatchValidator.fields,
-    player1Data: v.optional(playerValidator),
-    player2Data: v.optional(playerValidator),
+    player1Data: v.optional(playerWithDataValidator),
+    player2Data: v.optional(playerWithDataValidator),
   }),
   v.null(),
 );
@@ -396,7 +430,7 @@ export const standingsOverlayWithPlayersValidator = v.object({
     v.array(
       v.object({
         ...playerInStandingsValidator.fields,
-        playerData: v.optional(playerValidator),
+        playerData: v.optional(playerWithDataValidator),
       }),
     ),
   ),

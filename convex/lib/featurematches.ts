@@ -5,7 +5,7 @@ import {
   parseCurrentRoundFeatureMatches,
   parsePlayerRecord,
 } from "../models/spicerack";
-import { NewPlayerEntry } from "../types";
+import { NewPlayerEntry, PlayerWithData } from "../types";
 import { SpicerackEventResponse, SpicerackMatch } from "../types/spicerack";
 import {
   createPlayer,
@@ -56,8 +56,8 @@ export async function getFeatureMatchesWithPlayerData(
   filter: FeatureMatchRoundFilter,
 ): Promise<
   (Doc<"featureMatches"> & {
-    player1Data?: Doc<"players">;
-    player2Data?: Doc<"players">;
+    player1Data?: PlayerWithData;
+    player2Data?: PlayerWithData;
   })[]
 > {
   const featureMatches = await getFeatureMatches(ctx, filter);

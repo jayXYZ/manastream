@@ -6,6 +6,7 @@ import {
 } from "../models/spicerack";
 import { SpicerackEventResponse, SpicerackMatch } from "../types/spicerack";
 import { createPendingPlayerEntry, createPlayer } from "./players";
+import { getPlayerData } from "./playerData";
 
 type SnapshotCurrentRoundPairingsArgs = {
   tournamentId: Id<"tournaments">;
@@ -52,8 +53,12 @@ export async function getCurrentRoundPairingsWithPlayerData(
       ]);
       return {
         ...pairing,
-        player1Data: player1Data ?? undefined,
-        player2Data: player2Data ?? undefined,
+        player1Data: player1Data
+          ? await getPlayerData(ctx, player1Data)
+          : undefined,
+        player2Data: player2Data
+          ? await getPlayerData(ctx, player2Data)
+          : undefined,
       };
     }),
   );

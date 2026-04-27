@@ -9,6 +9,7 @@ import {
   snapshotCurrentRoundPairings,
 } from "./lib/pairings";
 import { rankPairingsByUniqueness } from "./lib/pairingRankings";
+import { getPlayerData } from "./lib/playerData";
 
 type CurrentRoundPairingsResult = Infer<
   typeof currentRoundPairingsResultValidator
@@ -70,9 +71,13 @@ export const getCurrentRoundPairings = query({
         .collect(),
     ]);
 
+    const tournamentPlayersWithData = await Promise.all(
+      tournamentPlayers.map((player) => getPlayerData(ctx, player)),
+    );
+
     const rankedPairings = rankPairingsByUniqueness(
       pairings,
-      tournamentPlayers.map((player) => ({
+      tournamentPlayersWithData.map((player) => ({
         name: player.name,
         deckName: player.deckName,
       })),

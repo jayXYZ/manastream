@@ -79,10 +79,13 @@ function makeFeatureMatchesCtx(featureMatches: Record<string, unknown>[]) {
   return {
     db: {
       query(tableName: string) {
-        if (tableName !== "featureMatches") {
-          throw new Error(`Unexpected table ${tableName}`);
+        if (tableName === "featureMatches") {
+          return makeQueryable(featureMatches);
         }
-        return makeQueryable(featureMatches);
+        if (tableName === "playerStatuses" || tableName === "playerDecklists") {
+          return makeQueryable([]);
+        }
+        throw new Error(`Unexpected table ${tableName}`);
       },
       get(id: string) {
         return Promise.resolve({ _id: id, name: id });
@@ -115,6 +118,14 @@ function makeQueryable(rows: Record<string, unknown>[]) {
                 ([field, value]) => row[field] === value,
               ),
             ),
+          ),
+        unique: () =>
+          Promise.resolve(
+            rows.filter((row) =>
+              Object.entries(clauses).every(
+                ([field, value]) => row[field] === value,
+              ),
+            )[0] ?? null,
           ),
       };
     },

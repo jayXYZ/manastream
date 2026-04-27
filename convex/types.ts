@@ -13,6 +13,13 @@ import { Doc } from "./_generated/dataModel";
 
 export type Overlay = Doc<"overlays">;
 export type Player = Doc<"players">;
+export type PlayerWithData = Player & {
+  registrationStatus?: string;
+  deckId: number;
+  decklistStatus?: Player["decklistStatus"];
+  deckName: string;
+  deckList: string;
+};
 export type Tournament = Doc<"tournaments">;
 export type SpicerackTournament = Doc<"spicerackTournaments">;
 export type RoundStandings = Doc<"roundStandings">;
@@ -53,13 +60,13 @@ export type TournamentInfo = Infer<typeof getTournamentInfoValidator>;
 /**
  * Type for a new player entry to be created
  */
-export type NewPlayerEntry = Pick<
-  Player,
-  | "name"
-  | "spicerackPlayerId"
-  | "deckId"
-  | "decklistStatus"
-  | "deckName"
-  | "deckList"
-  | "spicerackTournamentId"
->;
+export type NewPlayerEntry = {
+  name: string;
+  spicerackPlayerId: number;
+  spicerackTournamentId: number;
+  registrationStatus?: string;
+  deckId: number;
+  decklistStatus?: Player["decklistStatus"];
+  deckName: string;
+  deckList: string;
+};

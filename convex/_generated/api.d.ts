@@ -8,11 +8,6 @@
  * @module
  */
 
-import type {
-  ApiFromModules,
-  FilterApi,
-  FunctionReference,
-} from "convex/server";
 import type * as _overlays_card from "../_overlays/card.js";
 import type * as _overlays_commentary from "../_overlays/commentary.js";
 import type * as _overlays_deck from "../_overlays/deck.js";
@@ -31,6 +26,7 @@ import type * as lib_logging from "../lib/logging.js";
 import type * as lib_overlays from "../lib/overlays.js";
 import type * as lib_pairingRankings from "../lib/pairingRankings.js";
 import type * as lib_pairings from "../lib/pairings.js";
+import type * as lib_playerData from "../lib/playerData.js";
 import type * as lib_players from "../lib/players.js";
 import type * as lib_settings from "../lib/settings.js";
 import type * as lib_spicerack_api from "../lib/spicerack/api.js";
@@ -42,6 +38,7 @@ import type * as lib_spicerack_tournament from "../lib/spicerack/tournament.js";
 import type * as lib_tournaments from "../lib/tournaments.js";
 import type * as lib_utils from "../lib/utils.js";
 import type * as lib_validation from "../lib/validation.js";
+import type * as migrations from "../migrations.js";
 import type * as models_spicerack from "../models/spicerack.js";
 import type * as overlays from "../overlays.js";
 import type * as pairings from "../pairings.js";
@@ -51,18 +48,16 @@ import type * as settings from "../settings.js";
 import type * as spicerack from "../spicerack.js";
 import type * as templates from "../templates.js";
 import type * as tournaments from "../tournaments.js";
-import type * as types_spicerack from "../types/spicerack.js";
 import type * as types from "../types.js";
+import type * as types_spicerack from "../types/spicerack.js";
 import type * as validators from "../validators.js";
 
-/**
- * A utility for referencing Convex functions in your app's API.
- *
- * Usage:
- * ```js
- * const myFunctionReference = api.myModule.myFunction;
- * ```
- */
+import type {
+  ApiFromModules,
+  FilterApi,
+  FunctionReference,
+} from "convex/server";
+
 declare const fullApi: ApiFromModules<{
   "_overlays/card": typeof _overlays_card;
   "_overlays/commentary": typeof _overlays_commentary;
@@ -82,6 +77,7 @@ declare const fullApi: ApiFromModules<{
   "lib/overlays": typeof lib_overlays;
   "lib/pairingRankings": typeof lib_pairingRankings;
   "lib/pairings": typeof lib_pairings;
+  "lib/playerData": typeof lib_playerData;
   "lib/players": typeof lib_players;
   "lib/settings": typeof lib_settings;
   "lib/spicerack/api": typeof lib_spicerack_api;
@@ -93,6 +89,7 @@ declare const fullApi: ApiFromModules<{
   "lib/tournaments": typeof lib_tournaments;
   "lib/utils": typeof lib_utils;
   "lib/validation": typeof lib_validation;
+  migrations: typeof migrations;
   "models/spicerack": typeof models_spicerack;
   overlays: typeof overlays;
   pairings: typeof pairings;
@@ -102,15 +99,37 @@ declare const fullApi: ApiFromModules<{
   spicerack: typeof spicerack;
   templates: typeof templates;
   tournaments: typeof tournaments;
-  "types/spicerack": typeof types_spicerack;
   types: typeof types;
+  "types/spicerack": typeof types_spicerack;
   validators: typeof validators;
 }>;
+
+/**
+ * A utility for referencing Convex functions in your app's public API.
+ *
+ * Usage:
+ * ```js
+ * const myFunctionReference = api.myModule.myFunction;
+ * ```
+ */
 export declare const api: FilterApi<
   typeof fullApi,
   FunctionReference<any, "public">
 >;
+
+/**
+ * A utility for referencing Convex functions in your app's internal API.
+ *
+ * Usage:
+ * ```js
+ * const myFunctionReference = internal.myModule.myFunction;
+ * ```
+ */
 export declare const internal: FilterApi<
   typeof fullApi,
   FunctionReference<any, "internal">
 >;
+
+export declare const components: {
+  migrations: import("@convex-dev/migrations/_generated/component.js").ComponentApi<"migrations">;
+};

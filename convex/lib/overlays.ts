@@ -2,6 +2,7 @@ import { Doc, Id } from "../_generated/dataModel";
 import { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Infer } from "convex/values";
 import type { getOverlayByIdValidator } from "../validators";
+import { getPlayerData } from "./playerData";
 import { getPlayersForMatch } from "./players";
 import { getTournamentTimerAndRoundInfo } from "./tournaments";
 import { generatePublicUuid } from "./utils";
@@ -194,8 +195,8 @@ export async function enrichDeckOverlay(
     ...overlay,
     matchData: {
       ...featureMatch,
-      player1Data: player1,
-      player2Data: player2,
+      player1Data: await getPlayerData(ctx, player1),
+      player2Data: await getPlayerData(ctx, player2),
     },
   };
 }
@@ -234,7 +235,7 @@ export async function enrichStandingsOverlay(
 
       return {
         ...standing,
-        playerData: player ?? undefined,
+        playerData: player ? await getPlayerData(ctx, player) : undefined,
       };
     }),
   );
