@@ -3,9 +3,9 @@ import { MutationCtx, QueryCtx } from "../_generated/server";
 import {
   generateFeatureMatchExternalId,
   parseCurrentRoundFeatureMatches,
-  parsePlayerRecord,
+  parsePlayerTournamentRecord,
 } from "../models/spicerack";
-import { NewPlayerEntry, Player } from "../types";
+import { NewPlayerEntry } from "../types";
 import { SpicerackEventResponse, SpicerackMatch } from "../types/spicerack";
 import {
   createPlayer,
@@ -100,7 +100,7 @@ async function compareFeatureMatches(
   const currentRoundSpicerackMatches =
     parseCurrentRoundFeatureMatches(jsonData);
   const newMatches: SpicerackMatch[] = [];
-  for (let spicerackMatch of currentRoundSpicerackMatches) {
+  for (const spicerackMatch of currentRoundSpicerackMatches) {
     const checkId = generateFeatureMatchExternalId(
       spicerackTournament.spicerackTournamentId,
       spicerackTournament.currentRoundId,
@@ -116,12 +116,6 @@ async function compareFeatureMatches(
   }
   return newMatches;
 }
-
-/**
- * Constant for pending deck information before it's fetched from Spicerack
- */
-const PENDING_DECK_INFO = "PENDING" as const;
-const NO_DECK_INFO = "MISSING_DECKLIST" as const;
 
 /**
  * Extracts player information from a Spicerack match relationship
@@ -242,6 +236,7 @@ export async function compareSpicerackToDatabase(
 export async function createFeatureMatches(
   ctx: MutationCtx,
   spicerackTournamentId: number,
+  jsonData: SpicerackEventResponse,
   newFeatureMatches: SpicerackMatch[],
   newPlayers: NewPlayerEntry[],
 ): Promise<{ playerId: Id<"players">; deckId: number }[]> {
@@ -301,10 +296,12 @@ export async function createFeatureMatches(
     }
 
     // Parse tournament records for each player
-    const player1TournamentRecord = parsePlayerRecord(
+    const player1TournamentRecord = parsePlayerTournamentRecord(
+      jsonData,
       player1Relationship.user_event_status,
     );
-    const player2TournamentRecord = parsePlayerRecord(
+    const player2TournamentRecord = parsePlayerTournamentRecord(
+      jsonData,
       player2Relationship.user_event_status,
     );
 

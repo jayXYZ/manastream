@@ -1,10 +1,7 @@
 import { internalMutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { featureMatchWithPlayersValidator } from "./validators";
-import {
-  getOwnTournament,
-  requireSpicerackTournament,
-} from "./lib/tournaments";
+import { requireSpicerackTournament } from "./lib/tournaments";
 import {
   createFeatureMatches,
   getFeatureMatchesWithPlayerData,
@@ -92,6 +89,7 @@ export const createNewFeatureMatches = internalMutation({
     const playerAndDeckIds = await createFeatureMatches(
       ctx,
       args.spicerackTournamentId,
+      args.jsonData,
       newFeatureMatches,
       newPlayers,
     );
