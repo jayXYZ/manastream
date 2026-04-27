@@ -11,6 +11,8 @@ import {
   buildScryfallRequest,
   createUnresolvedCard,
   getCardCacheKey,
+  isCacheableScryfallFailure,
+  isRetryableCachedFailure,
   mapScryfallCard,
   normalizeCardName,
   parseDecklist,
@@ -23,7 +25,8 @@ import {
   scryfallCardCacheValidator,
 } from "./validators";
 
-const SCRYFALL_REQUEST_DELAY_MS = 125;
+const SCRYFALL_REQUEST_DELAY_MS = 250;
+const SCRYFALL_MAX_ATTEMPTS = 3;
 
 export const getCachedCards = internalQuery({
   args: {
@@ -197,6 +200,12 @@ export const resolvePlayerDeckCards = internalAction({
       if (!cachedCard) {
         continue;
       }
+      if (
+        cachedCard.status === "unresolved" &&
+        isRetryableCachedFailure(cachedCard.lastError)
+      ) {
+        continue;
+      }
       cachedByName.set(
         name,
         cacheEntryToMetadata(name, {
@@ -211,13 +220,20 @@ export const resolvePlayerDeckCards = internalAction({
 
     const missingNames = cardNames.filter((name) => !cachedByName.has(name));
     const fetchedCacheEntries = [];
+    const transientFailureNames = [];
     for (const [index, name] of missingNames.entries()) {
       if (index > 0) {
         await sleep(SCRYFALL_REQUEST_DELAY_MS);
       }
       const fetched = await fetchScryfallCard(name);
-      fetchedCacheEntries.push(metadataToCacheEntry(name, fetched));
-      cachedByName.set(name, fetched);
+      cachedByName.set(name, fetched.metadata);
+      if (fetched.cacheable) {
+        fetchedCacheEntries.push(
+          metadataToCacheEntry(name, fetched.metadata, fetched.lastError),
+        );
+      } else {
+        transientFailureNames.push(name);
+      }
     }
 
     if (fetchedCacheEntries.length > 0) {
@@ -232,6 +248,7 @@ export const resolvePlayerDeckCards = internalAction({
       deckCardsStatus: getDeckCardsStatus(
         deckCards.unresolvedNames.length,
         cardNames.length,
+        transientFailureNames.length,
       ),
       deckCards,
     });
@@ -273,33 +290,64 @@ export const backfillDeckCards = internalAction({
   },
 });
 
-async function fetchScryfallCard(
-  name: string,
-): Promise<ResolvedCardMetadata> {
+async function fetchScryfallCard(name: string): Promise<{
+  metadata: ResolvedCardMetadata;
+  cacheable: boolean;
+  lastError?: string;
+}> {
   const request = buildScryfallRequest(name);
-  try {
-    const response = await fetch(request.url, {
-      headers: request.headers,
-      method: "GET",
-    });
+  let lastError = "Transient Scryfall failure";
 
-    if (!response.ok) {
-      return createUnresolvedCard(name);
+  for (let attempt = 1; attempt <= SCRYFALL_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await fetch(request.url, {
+        headers: request.headers,
+        method: "GET",
+      });
+
+      if (!response.ok) {
+        const details = await readScryfallErrorDetails(response);
+        lastError = `Scryfall ${response.status}: ${details}`;
+        if (isCacheableScryfallFailure(response.status)) {
+          return {
+            metadata: createUnresolvedCard(name),
+            cacheable: true,
+            lastError,
+          };
+        }
+        await waitBeforeRetry(response, attempt);
+        continue;
+      }
+
+      const json = await response.json();
+      const card: ScryfallCardLike | undefined =
+        json.object === "list" ? json.data?.[0] : json;
+      const metadata = mapScryfallCard(name, card);
+
+      return {
+        metadata,
+        cacheable: true,
+        lastError: metadata.unresolved
+          ? "Scryfall returned no usable card image"
+          : undefined,
+      };
+    } catch (error) {
+      lastError = `Transient Scryfall failure: ${String(error)}`;
+      await sleep(SCRYFALL_REQUEST_DELAY_MS * attempt);
     }
-
-    const json = await response.json();
-    const card: ScryfallCardLike | undefined =
-      json.object === "list" ? json.data?.[0] : json;
-
-    return mapScryfallCard(name, card);
-  } catch {
-    return createUnresolvedCard(name);
   }
+
+  return {
+    metadata: createUnresolvedCard(name),
+    cacheable: false,
+    lastError,
+  };
 }
 
 function metadataToCacheEntry(
   name: string,
   metadata: ResolvedCardMetadata,
+  lastError?: string,
 ) {
   return {
     cacheKey: getCardCacheKey(name),
@@ -311,7 +359,7 @@ function metadataToCacheEntry(
     typeLine: metadata.typeLine,
     legality: metadata.legality,
     scryfallId: metadata.scryfallId,
-    lastError: metadata.unresolved ? "Card could not be resolved" : undefined,
+    lastError: metadata.unresolved ? lastError : undefined,
     updatedAt: Date.now(),
   };
 }
@@ -338,7 +386,14 @@ function cacheEntryToMetadata(
   };
 }
 
-function getDeckCardsStatus(unresolvedCount: number, totalCount: number) {
+function getDeckCardsStatus(
+  unresolvedCount: number,
+  totalCount: number,
+  transientFailureCount: number,
+) {
+  if (transientFailureCount > 0 && unresolvedCount === totalCount) {
+    return "pending" as const;
+  }
   if (unresolvedCount === 0) {
     return "ready" as const;
   }
@@ -362,4 +417,24 @@ function getUniqueCardNames(decklist: {
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function readScryfallErrorDetails(response: Response) {
+  try {
+    const json = await response.clone().json();
+    return json.details ?? json.code ?? response.statusText;
+  } catch {
+    return response.statusText;
+  }
+}
+
+async function waitBeforeRetry(response: Response, attempt: number) {
+  const retryAfter = response.headers.get("Retry-After");
+  const retryAfterSeconds = retryAfter ? Number.parseInt(retryAfter, 10) : NaN;
+  if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
+    await sleep(retryAfterSeconds * 1000);
+    return;
+  }
+
+  await sleep(SCRYFALL_REQUEST_DELAY_MS * attempt);
 }

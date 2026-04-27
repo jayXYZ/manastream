@@ -144,6 +144,18 @@ export function createUnresolvedCard(name: string): ResolvedCardMetadata {
   };
 }
 
+export function isRetryableCachedFailure(lastError: string | undefined): boolean {
+  return (
+    !lastError ||
+    lastError === "Card could not be resolved" ||
+    lastError.startsWith("Transient Scryfall failure")
+  );
+}
+
+export function isCacheableScryfallFailure(status: number): boolean {
+  return status === 404;
+}
+
 export function buildResolvedDeckCards(
   parsedDecklist: ParsedDecklist,
   cardMetadataByName: Map<string, ResolvedCardMetadata>,

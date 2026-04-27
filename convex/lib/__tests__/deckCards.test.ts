@@ -5,6 +5,8 @@ import {
   buildScryfallRequest,
   createUnresolvedCard,
   getCardCacheKey,
+  isCacheableScryfallFailure,
+  isRetryableCachedFailure,
   mapScryfallCard,
   normalizeCardName,
   parseDecklist,
@@ -67,6 +69,21 @@ describe("deck card helpers", () => {
     expect(mapScryfallCard("Definitely Not A Real Card", undefined)).toEqual(
       createUnresolvedCard("Definitely Not A Real Card"),
     );
+  });
+
+  it("treats only true not-found Scryfall failures as cacheable", () => {
+    expect(isCacheableScryfallFailure(404)).toBe(true);
+    expect(isCacheableScryfallFailure(429)).toBe(false);
+    expect(isCacheableScryfallFailure(403)).toBe(false);
+    expect(isCacheableScryfallFailure(500)).toBe(false);
+  });
+
+  it("retries legacy generic unresolved cache entries", () => {
+    expect(isRetryableCachedFailure("Card could not be resolved")).toBe(true);
+    expect(isRetryableCachedFailure("Transient Scryfall failure: 429")).toBe(
+      true,
+    );
+    expect(isRetryableCachedFailure("Scryfall 404: Not found")).toBe(false);
   });
 
   it("builds partial resolved deck data without throwing for unresolved cards", () => {
