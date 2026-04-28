@@ -8,6 +8,7 @@ import {
   DeckOverlay,
   MatchOverlay,
   Overlay,
+  StandingsOverlay,
   TemplateType,
 } from "@/convex/types";
 import OverlaysTable from "./components/overlays-table";
@@ -97,36 +98,51 @@ export default function OverlaysPage() {
   const setDeckOverlaySettings = useMutation(
     api.overlays.setDeckOverlaySettings,
   );
+  const setStandingsOverlaySettings = useMutation(
+    api.overlays.setStandingsOverlaySettings,
+  );
 
   const handleSaveTemplate = () => {
-    if (selectedOverlay && selectedTemplate) {
-      const braunDarkPalette = isBraunDarkTemplate(selectedTemplate)
-        ? selectedBraunDarkPalette
-        : undefined;
+    if (selectedOverlay) {
+      const braunDarkPalette =
+        isBraunDarkTemplate(selectedTemplate) ||
+        selectedOverlay.overlayType === "standings"
+          ? selectedBraunDarkPalette
+          : undefined;
 
       if (selectedOverlay.overlayType === "match") {
+        if (!selectedTemplate) return;
         setMatchOverlaySettings({
           overlayId: selectedOverlay._id as Id<"overlays">,
           template: selectedTemplate as MatchOverlay["template"],
           ...(braunDarkPalette ? { braunDarkPalette } : {}),
         });
       } else if (selectedOverlay.overlayType === "commentary") {
+        if (!selectedTemplate) return;
         setCommentaryOverlaySettings({
           overlayId: selectedOverlay._id as Id<"overlays">,
           template: selectedTemplate as CommentaryOverlay["template"],
           ...(braunDarkPalette ? { braunDarkPalette } : {}),
         });
       } else if (selectedOverlay.overlayType === "card") {
+        if (!selectedTemplate) return;
         setCardOverlaySettings({
           overlayId: selectedOverlay._id as Id<"overlays">,
           template: selectedTemplate as "Default" | "Braun Dark",
           ...(braunDarkPalette ? { braunDarkPalette } : {}),
         });
       } else if (selectedOverlay.overlayType === "deck") {
+        if (!selectedTemplate) return;
         setDeckOverlaySettings({
           overlayId: selectedOverlay._id as Id<"overlays">,
           template: selectedTemplate as DeckOverlay["template"],
           ...(braunDarkPalette ? { braunDarkPalette } : {}),
+        });
+      } else if (selectedOverlay.overlayType === "standings") {
+        setStandingsOverlaySettings({
+          overlayId: selectedOverlay._id as Id<"overlays">,
+          braunDarkPalette:
+            selectedBraunDarkPalette as StandingsOverlay["braunDarkPalette"],
         });
       }
     }
@@ -246,7 +262,10 @@ function OverlayDetailsPanel({
 
   const hasTemplates =
     getAvailableTemplates(selectedOverlay.overlayType).length > 0;
-  const hasBraunDarkPalette = isBraunDarkTemplate(selectedTemplate);
+  const hasBraunDarkPalette =
+    selectedOverlay.overlayType === "standings" ||
+    isBraunDarkTemplate(selectedTemplate);
+  const showPaletteSaveButton = hasBraunDarkPalette && !hasTemplates;
   const resolution =
     selectedOverlay.overlayType === "card" ? "745×1040" : "1920×1080";
 
@@ -369,23 +388,35 @@ function OverlayDetailsPanel({
             <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
               Palette
             </span>
-            <Select
-              value={selectedBraunDarkPalette}
-              onValueChange={(value) =>
-                setSelectedBraunDarkPalette(value as BraunDarkPaletteName)
-              }
-            >
-              <SelectTrigger className="h-8 text-sm">
-                <SelectValue placeholder="Select a palette" />
-              </SelectTrigger>
-              <SelectContent>
-                {BRAUN_DARK_PALETTE_OPTIONS.map((palette) => (
-                  <SelectItem key={palette.value} value={palette.value}>
-                    {palette.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-1.5">
+              <Select
+                value={selectedBraunDarkPalette}
+                onValueChange={(value) =>
+                  setSelectedBraunDarkPalette(value as BraunDarkPaletteName)
+                }
+              >
+                <SelectTrigger className="flex-1 h-8 text-sm">
+                  <SelectValue placeholder="Select a palette" />
+                </SelectTrigger>
+                <SelectContent>
+                  {BRAUN_DARK_PALETTE_OPTIONS.map((palette) => (
+                    <SelectItem key={palette.value} value={palette.value}>
+                      {palette.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {showPaletteSaveButton && (
+                <Button
+                  size="sm"
+                  className="shrink-0 h-8"
+                  onClick={handleSaveTemplate}
+                >
+                  <Save className="size-3 mr-1" />
+                  Save
+                </Button>
+              )}
+            </div>
           </div>
         )}
       </div>

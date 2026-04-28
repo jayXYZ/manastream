@@ -284,6 +284,7 @@ export const standingsOverlayValidator = v.object({
   name: v.string(),
   overlayType: v.literal("standings"),
   tournamentId: v.id("tournaments"),
+  braunDarkPalette: v.optional(braunDarkPaletteValidator),
 
   publicUuid: v.string(), // Direct UUID string for public access
   roundStandingsId: v.optional(v.id("roundStandings")), // Reference to the round standings

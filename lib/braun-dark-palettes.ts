@@ -7,6 +7,7 @@ export type BraunDarkPalette = {
   muted: string;
   accent: string;
   rule: string;
+  rowAlt: string;
   frameBorder: string;
   counterBg: string;
   placeholderBg: string;
@@ -28,6 +29,7 @@ export const BRAUN_DARK_PALETTES: Record<
     muted: "#918A84",
     accent: "#E8642C",
     rule: "rgba(210,200,185,0.18)",
+    rowAlt: "rgba(210,200,185,0.025)",
     frameBorder: "#8A8378",
     counterBg: "rgba(0,0,0,0.72)",
     placeholderBg: "rgba(0,0,0,0.55)",
@@ -44,6 +46,7 @@ export const BRAUN_DARK_PALETTES: Record<
     muted: "#A89189",
     accent: "#D9A64A",
     rule: "rgba(236,221,210,0.18)",
+    rowAlt: "rgba(236,221,210,0.025)",
     frameBorder: "#8C6B68",
     counterBg: "rgba(0,0,0,0.72)",
     placeholderBg: "rgba(0,0,0,0.55)",

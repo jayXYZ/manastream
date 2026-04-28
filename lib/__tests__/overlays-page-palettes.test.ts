@@ -18,8 +18,12 @@ describe("Overlays page Braun Dark palette setting", () => {
     expect(overlaysPageSource).toContain(
       "...(braunDarkPalette ? { braunDarkPalette } : {})",
     );
+    expect(overlaysPageSource).toContain("setStandingsOverlaySettings");
+    expect(overlaysPageSource).toContain(
+      'selectedOverlay.overlayType === "standings"',
+    );
     expect(
       overlaysPageSource.match(/braunDarkPalette/g)?.length,
-    ).toBeGreaterThanOrEqual(8);
+    ).toBeGreaterThanOrEqual(10);
   });
 });

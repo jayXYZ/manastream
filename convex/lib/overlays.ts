@@ -133,6 +133,7 @@ export async function createStandingsOverlayHelper(
     overlayType: "standings",
     tournamentId,
     publicUuid,
+    braunDarkPalette: "Dark",
     roundStandingsId: undefined,
     spicerackRoundId: undefined,
     createdAt: Date.now(),

@@ -2,19 +2,14 @@
 
 import { api } from "@/convex/_generated/api";
 import { StandingsOverlay as StandingsOverlayType } from "@/convex/types";
+import {
+  getBraunDarkPalette,
+  type BraunDarkPalette,
+} from "@/lib/braun-dark-palettes";
 import { useQuery } from "convex/react";
 import { useSearchParams } from "next/navigation";
 
 const PAGE_SIZE = 16;
-
-const THEME = {
-  surface: "#1C1B19",
-  text: "#D4CFC5",
-  muted: "#918A84",
-  accent: "#E8642C",
-  rule: "rgba(210,200,185,0.18)",
-  rowAlt: "rgba(210,200,185,0.025)",
-};
 
 const FONT = "'Instrument Sans', 'Helvetica Neue', sans-serif";
 const TOP_BAR = 120;
@@ -26,6 +21,7 @@ export default function StandingsOverlay({
 }: {
   data: StandingsOverlayType;
 }) {
+  const theme = getBraunDarkPalette(data.braunDarkPalette);
   const tournamentInfo = useQuery(api.tournaments.getTournamentInfo, {
     tournamentId: data.tournamentId,
   });
@@ -48,14 +44,14 @@ export default function StandingsOverlay({
   return (
     <div
       className="w-[1920px] h-[1080px] relative overflow-hidden"
-      style={{ background: THEME.surface, color: THEME.text, fontFamily: FONT }}
+      style={{ background: theme.surface, color: theme.text, fontFamily: FONT }}
     >
       {/* ── TOP BAR ── */}
       <div
         className="absolute top-0 left-0 right-0 flex items-center"
         style={{
           height: TOP_BAR,
-          borderBottom: `1px solid ${THEME.rule}`,
+          borderBottom: `1px solid ${theme.rule}`,
           paddingLeft: SIDE_MARGIN,
           paddingRight: SIDE_MARGIN,
         }}
@@ -67,7 +63,7 @@ export default function StandingsOverlay({
               fontWeight: 600,
               letterSpacing: "-0.02em",
               lineHeight: 1,
-              color: THEME.text,
+              color: theme.text,
             }}
           >
             Standings
@@ -78,7 +74,7 @@ export default function StandingsOverlay({
               fontWeight: 500,
               letterSpacing: "0.18em",
               textTransform: "uppercase",
-              color: THEME.accent,
+              color: theme.accent,
             }}
           >
             {tournamentInfo?.currentRoundDisplayName ?? ""}
@@ -90,7 +86,7 @@ export default function StandingsOverlay({
             style={{
               width: 24,
               height: 2,
-              background: THEME.accent,
+              background: theme.accent,
               borderRadius: 1,
             }}
           />
@@ -100,7 +96,7 @@ export default function StandingsOverlay({
               fontWeight: 500,
               letterSpacing: "0.25em",
               textTransform: "uppercase",
-              color: THEME.muted,
+              color: theme.muted,
             }}
           >
             {tournamentInfo?.eventName ?? ""}
@@ -129,22 +125,30 @@ export default function StandingsOverlay({
           }}
         >
           {/* Header */}
-          <HeaderCell align="left">Rank</HeaderCell>
-          <HeaderCell align="left">Name</HeaderCell>
-          <HeaderCell align="left">Deck</HeaderCell>
-          <HeaderCell align="right">Record</HeaderCell>
+          <HeaderCell align="left" theme={theme}>
+            Rank
+          </HeaderCell>
+          <HeaderCell align="left" theme={theme}>
+            Name
+          </HeaderCell>
+          <HeaderCell align="left" theme={theme}>
+            Deck
+          </HeaderCell>
+          <HeaderCell align="right" theme={theme}>
+            Record
+          </HeaderCell>
 
           {paginatedStandings.map((standing, idx) => {
-            const rowBg = idx % 2 === 1 ? THEME.rowAlt : "transparent";
+            const rowBg = idx % 2 === 1 ? theme.rowAlt : "transparent";
             return (
-              <Row key={standing.player_id} bg={rowBg}>
+              <Row key={standing.player_id} bg={rowBg} theme={theme}>
                 <Cell align="left">
                   <span
                     style={{
                       fontSize: 32,
                       fontWeight: 600,
                       letterSpacing: "-0.01em",
-                      color: THEME.text,
+                      color: theme.text,
                       fontVariantNumeric: "tabular-nums",
                     }}
                   >
@@ -157,7 +161,7 @@ export default function StandingsOverlay({
                       fontSize: 30,
                       fontWeight: 500,
                       letterSpacing: "-0.01em",
-                      color: THEME.text,
+                      color: theme.text,
                     }}
                   >
                     {standing.name}
@@ -168,7 +172,7 @@ export default function StandingsOverlay({
                     style={{
                       fontSize: 26,
                       fontWeight: 400,
-                      color: THEME.muted,
+                      color: theme.muted,
                       letterSpacing: "0.01em",
                     }}
                   >
@@ -180,7 +184,7 @@ export default function StandingsOverlay({
                     style={{
                       fontSize: 30,
                       fontWeight: 500,
-                      color: THEME.text,
+                      color: theme.text,
                       fontVariantNumeric: "tabular-nums",
                       letterSpacing: "0.02em",
                     }}
@@ -203,7 +207,7 @@ export default function StandingsOverlay({
         className="absolute bottom-0 left-0 right-0 flex items-center"
         style={{
           height: BOTTOM_BAR,
-          borderTop: `1px solid ${THEME.rule}`,
+          borderTop: `1px solid ${theme.rule}`,
           paddingLeft: SIDE_MARGIN,
           paddingRight: SIDE_MARGIN,
         }}
@@ -214,7 +218,7 @@ export default function StandingsOverlay({
             fontWeight: 500,
             letterSpacing: "0.25em",
             textTransform: "uppercase",
-            color: THEME.muted,
+            color: theme.muted,
           }}
         >
           {standings.length} Players
@@ -231,21 +235,23 @@ export default function StandingsOverlay({
 function HeaderCell({
   children,
   align,
+  theme,
 }: {
   children: React.ReactNode;
   align: "left" | "right";
+  theme: BraunDarkPalette;
 }) {
   return (
     <div
       style={{
         padding: "0 16px 14px 16px",
-        borderBottom: `1px solid ${THEME.rule}`,
+        borderBottom: `1px solid ${theme.rule}`,
         textAlign: align,
         fontSize: 13,
         fontWeight: 500,
         letterSpacing: "0.25em",
         textTransform: "uppercase",
-        color: THEME.muted,
+        color: theme.muted,
       }}
     >
       {children}
@@ -256,9 +262,11 @@ function HeaderCell({
 function Row({
   children,
   bg,
+  theme,
 }: {
   children: React.ReactNode;
   bg: string;
+  theme: BraunDarkPalette;
 }) {
   return (
     <div
@@ -273,7 +281,7 @@ function Row({
               key={i}
               style={{
                 background: bg,
-                borderBottom: `1px solid ${THEME.rule}`,
+                borderBottom: `1px solid ${theme.rule}`,
               }}
             >
               {child}

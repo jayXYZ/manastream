@@ -23,6 +23,7 @@ describe("Braun Dark palettes", () => {
       "placeholderCrosshair",
       "placeholderDim",
       "placeholderLabel",
+      "rowAlt",
       "rule",
       "surface",
       "surfaceRaised",
