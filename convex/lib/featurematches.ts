@@ -3,7 +3,7 @@ import { MutationCtx, QueryCtx } from "../_generated/server";
 import {
   generateFeatureMatchExternalId,
   parseCurrentRoundFeatureMatches,
-  parsePlayerRecord,
+  parsePlayerTournamentRecord,
 } from "../models/spicerack";
 import { NewPlayerEntry, PlayerWithData } from "../types";
 import { SpicerackEventResponse, SpicerackMatch } from "../types/spicerack";
@@ -236,6 +236,7 @@ export async function compareSpicerackToDatabase(
 export async function createFeatureMatches(
   ctx: MutationCtx,
   spicerackTournamentId: number,
+  jsonData: SpicerackEventResponse,
   newFeatureMatches: SpicerackMatch[],
   newPlayers: NewPlayerEntry[],
 ): Promise<{ playerId: Id<"players">; deckId: number }[]> {
@@ -295,10 +296,12 @@ export async function createFeatureMatches(
     }
 
     // Parse tournament records for each player
-    const player1TournamentRecord = parsePlayerRecord(
+    const player1TournamentRecord = parsePlayerTournamentRecord(
+      jsonData,
       player1Relationship.user_event_status,
     );
-    const player2TournamentRecord = parsePlayerRecord(
+    const player2TournamentRecord = parsePlayerTournamentRecord(
+      jsonData,
       player2Relationship.user_event_status,
     );
 

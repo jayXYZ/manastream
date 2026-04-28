@@ -4,8 +4,10 @@ export interface ParsedCard {
   count: number;
   name: string;
   imageUrl?: string;
-  type_line: string;
-  legality: string;
+  typeLine: string;
+  legality?: string;
+  scryfallId?: string;
+  unresolved?: boolean;
 }
 
 export interface ParsedDecklist {

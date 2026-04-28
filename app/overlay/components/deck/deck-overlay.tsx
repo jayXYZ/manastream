@@ -5,18 +5,14 @@ import {
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import * as Scry from "scryfall-sdk";
-import { useState, useEffect } from "react";
 import DeckDuressCrewOverlay from "./deck-duress-crew-overlay";
 import DeckBraunDarkOverlay from "./deck-braun-dark-overlay";
-import { DeckPlayerData, ParsedCard, ParsedDecklist } from "./deck-types";
+import { DeckPlayerData } from "./deck-types";
 
 const TEMPLATE_COMPONENTS = {
   "Duress Crew": DeckDuressCrewOverlay,
   "Braun Dark": DeckBraunDarkOverlay,
 } as const;
-
-const cardCache: { [key: string]: Scry.Card } = {};
 
 export default function DeckOverlay({ data }: { data: DeckOverlayType }) {
   const searchParams = useSearchParams();
@@ -71,24 +67,15 @@ function DeckTemplateRenderer({
 }) {
   const playerData =
     playerNumber === "1" ? matchInfo.player1Data : matchInfo.player2Data;
-  const [parsedDecklist, setParsedDecklist] = useState<ParsedDecklist | null>(
-    null,
-  );
 
-  useEffect(() => {
-    if (!playerData) {
-      return;
-    }
-    const fetchDecklist = async () => {
-      const decklist = playerData.deckList;
-      const parsed = await parseDecklist(decklist);
-      setParsedDecklist(parsed);
-    };
-    fetchDecklist();
-  }, [playerData]);
-
-  if (!parsedDecklist || !playerData) {
+  if (!playerData) {
     return <div>Loading...</div>;
+  }
+  if (!playerData.deckCards) {
+    if (playerData.deckCardsStatus === "failed") {
+      return <div>Deck card images unavailable</div>;
+    }
+    return <div>Loading deck card images...</div>;
   }
 
   const templateName = data.template ?? "Duress Crew";
@@ -99,105 +86,10 @@ function DeckTemplateRenderer({
 
   return (
     <TemplateComponent
-      parsedDecklist={parsedDecklist}
+      parsedDecklist={playerData.deckCards}
       playerData={playerData as DeckPlayerData}
       tournamentInfo={tournamentInfo}
       braunDarkPalette={data.braunDarkPalette}
     />
   );
 }
-
-const parseDecklist = async (decklist: string) => {
-  console.log("Parsing decklist:", decklist);
-  const [mainboardStr, sideboardStr] = decklist.split("\nSIDEBOARD:\n");
-  const mainboard: ParsedCard[] = [];
-  const sideboard: ParsedCard[] = [];
-
-  const processSection = async (section: string, array: ParsedCard[]) => {
-    const lines = section.trim().split("\n");
-    for (const line of lines) {
-      const match = line.match(/^(\d+)\s+(.+)$/);
-      if (match) {
-        const [, count, name] = match;
-        let card: Scry.Card;
-
-        try {
-          if (cardCache[name]) {
-            card = cardCache[name];
-          } else {
-            if (
-              name === "Plains" ||
-              name === "Island" ||
-              name === "Swamp" ||
-              name === "Mountain" ||
-              name === "Forest"
-            ) {
-              card = await Scry.Cards.byName(name, "LEB");
-            } else {
-              const searchQuery = `!"${name}" not:reprint`;
-              const query = await Scry.Cards.search(searchQuery)
-                .cancelAfterPage()
-                .waitForAll();
-              card = query[0];
-              cardCache[name] = card;
-            }
-          }
-
-          array.push({
-            count: parseInt(count),
-            name,
-            imageUrl:
-              card.image_uris?.png || card.card_faces?.[0].image_uris?.png,
-            type_line: card.type_line,
-            legality: card.legalities?.premodern,
-          });
-        } catch (error) {
-          console.error(`Error processing card ${name}:`, error);
-        }
-      }
-    }
-  };
-
-  await processSection(mainboardStr, mainboard);
-  if (sideboardStr) {
-    await processSection(sideboardStr, sideboard);
-  }
-
-  return { mainboard: sortList(mainboard), sideboard: sortList(sideboard) };
-};
-
-const getTypeOrder = (type_line: string): number => {
-  if (type_line.includes("Creature")) return 1;
-  if (type_line.includes("Instant")) return 2;
-  if (type_line.includes("Sorcery")) return 3;
-  if (type_line.includes("Enchantment")) return 4;
-  if (type_line.includes("Artifact")) return 5;
-  if (type_line.includes("Basic")) return 7;
-  if (type_line.includes("Land")) return 6;
-  return 8;
-};
-
-const sortList = (cards: ParsedCard[]) => {
-  const cardsByName = cards.reduce(
-    (acc, card) => {
-      if (!acc[card.name]) {
-        acc[card.name] = card;
-      }
-      return acc;
-    },
-    {} as { [key: string]: ParsedCard },
-  );
-
-  return Object.values(cardsByName).sort((a, b) => {
-    const typeOrderA = getTypeOrder(a.type_line);
-    const typeOrderB = getTypeOrder(b.type_line);
-
-    if (typeOrderA !== typeOrderB) {
-      return typeOrderA - typeOrderB;
-    }
-    if (a.count !== b.count) {
-      return b.count - a.count;
-    }
-    return a.name.localeCompare(b.name);
-  });
-};

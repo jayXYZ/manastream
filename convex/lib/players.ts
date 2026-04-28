@@ -1,5 +1,6 @@
 import { Doc, Id } from "../_generated/dataModel";
 import { MutationCtx, QueryCtx } from "../_generated/server";
+import { internal } from "../_generated/api";
 import { NewPlayerEntry, PlayerWithData } from "../types";
 import { getPlayerData, insertPlayerDataRows } from "./playerData";
 
@@ -34,7 +35,7 @@ export async function getPlayersForMatch(
 }
 
 export async function getPlayerBySpicerackPlayerId(
-  ctx: QueryCtx,
+  ctx: QueryCtx | MutationCtx,
   spicerackPlayerId: number,
 ): Promise<Doc<"players"> | undefined> {
   const player = await ctx.db
@@ -47,7 +48,7 @@ export async function getPlayerBySpicerackPlayerId(
 }
 
 export async function getPlayersBySpicerackPlayerIds(
-  ctx: QueryCtx,
+  ctx: QueryCtx | MutationCtx,
   player1SpicerackPlayerId: number,
   player2SpicerackPlayerId: number,
 ): Promise<{
@@ -65,7 +66,7 @@ export async function getPlayersBySpicerackPlayerIds(
 }
 
 export async function doesPlayerExist(
-  ctx: QueryCtx,
+  ctx: QueryCtx | MutationCtx,
   spicerackPlayerId: number,
 ): Promise<boolean> {
   const player = await ctx.db
@@ -85,12 +86,14 @@ export async function createPlayer(
   const playerId = await ctx.db.insert("players", {
     ...player,
     spicerackTournamentId,
+    deckCardsStatus: getInitialDeckCardsStatus(player.deckList),
     updatedAt: Date.now(),
   });
   await insertPlayerDataRows(ctx, playerId, {
     ...player,
     spicerackTournamentId,
   });
+  await scheduleDeckCardsResolution(ctx, playerId, player.deckList);
   return playerId;
 }
 
@@ -126,4 +129,37 @@ export function createPendingPlayerEntry(
     deckName: PENDING_DECK_INFO,
     deckList: PENDING_DECK_INFO,
   };
+}
+
+function getInitialDeckCardsStatus(deckList: string) {
+  if (isResolvableDeckList(deckList)) {
+    return "pending" as const;
+  }
+  if (deckList === "PENDING") {
+    return "pending" as const;
+  }
+  return "failed" as const;
+}
+
+function isResolvableDeckList(deckList: string) {
+  const trimmed = deckList.trim();
+  return (
+    trimmed.length > 0 &&
+    trimmed !== "PENDING" &&
+    trimmed !== "MISSING_DECKLIST" &&
+    trimmed !== "Unknown"
+  );
+}
+
+async function scheduleDeckCardsResolution(
+  ctx: Pick<MutationCtx, "scheduler">,
+  playerId: Id<"players">,
+  deckList: string,
+) {
+  if (!isResolvableDeckList(deckList)) {
+    return;
+  }
+  await ctx.scheduler.runAfter(0, internal.deckCards.resolvePlayerDeckCards, {
+    playerId,
+  });
 }

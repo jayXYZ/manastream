@@ -5,6 +5,8 @@ import {
   query,
   mutation,
 } from "./_generated/server";
+import type { MutationCtx } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { getOwnTournament } from "./lib/tournaments";
 import { decklistStatusValidator } from "./validators";
@@ -40,12 +42,14 @@ export const createPlayer = internalMutation({
       decklistStatus: args.player.decklistStatus,
       deckName: args.player.deckName,
       deckList: args.player.deckList,
+      deckCardsStatus: getInitialDeckCardsStatus(args.player.deckList),
       updatedAt: Date.now(),
     });
     await insertPlayerDataRows(ctx, playerId, {
       ...args.player,
       spicerackTournamentId: args.spicerackTournamentId,
     });
+    await scheduleDeckCardsResolution(ctx, playerId, args.player.deckList);
     return playerId;
   },
 });
@@ -69,6 +73,7 @@ export const createPlayers = internalMutation({
   handler: async (ctx, args) => {
     const playerIdsAndDeckIds: { playerId: Id<"players">; deckId: number }[] =
       [];
+    const playerIdsToResolve: Id<"players">[] = [];
     for (const player of args.players) {
       const playerId = await ctx.db.insert("players", {
         name: player.name,
@@ -79,11 +84,16 @@ export const createPlayers = internalMutation({
         decklistStatus: player.decklistStatus,
         deckName: player.deckName,
         deckList: player.deckList,
+        deckCardsStatus: getInitialDeckCardsStatus(player.deckList),
         updatedAt: Date.now(),
       });
       await insertPlayerDataRows(ctx, playerId, player);
+      if (isResolvableDeckList(player.deckList)) {
+        playerIdsToResolve.push(playerId);
+      }
       playerIdsAndDeckIds.push({ playerId, deckId: player.deckId });
     }
+    await scheduleDeckCardsResolutionBatch(ctx, playerIdsToResolve);
     return playerIdsAndDeckIds;
   },
 });
@@ -101,6 +111,7 @@ export const updatePlayerDecklists = internalMutation({
     ),
   },
   handler: async (ctx, args) => {
+    const playerIdsToResolve: Id<"players">[] = [];
     for (const player of args.players) {
       const existingPlayer = await ctx.db.get(player.playerId);
       if (!existingPlayer) {
@@ -112,6 +123,8 @@ export const updatePlayerDecklists = internalMutation({
       await ctx.db.patch(player.playerId, {
         deckName: player.deckName,
         deckList: player.deckList,
+        deckCardsStatus: getInitialDeckCardsStatus(player.deckList),
+        deckCards: undefined,
         ...(player.deckId !== undefined && { deckId: player.deckId }),
         ...(player.decklistStatus !== undefined && {
           decklistStatus: player.decklistStatus,
@@ -127,7 +140,11 @@ export const updatePlayerDecklists = internalMutation({
           deckList: player.deckList,
         });
       }
+      if (isResolvableDeckList(player.deckList)) {
+        playerIdsToResolve.push(player.playerId);
+      }
     }
+    await scheduleDeckCardsResolutionBatch(ctx, playerIdsToResolve);
   },
 });
 
@@ -376,6 +393,8 @@ export const updatePlayerInfo = mutation({
       deckName: args.deckName,
       deckList: args.deckList,
       decklistStatus: "manual",
+      deckCardsStatus: getInitialDeckCardsStatus(args.deckList),
+      deckCards: undefined,
       updatedAt: Date.now(),
     });
     await upsertPlayerDecklist(ctx, player._id, {
@@ -386,5 +405,51 @@ export const updatePlayerInfo = mutation({
       deckName: args.deckName,
       deckList: args.deckList,
     });
+    await scheduleDeckCardsResolution(ctx, player._id, args.deckList);
   },
 });
+
+function getInitialDeckCardsStatus(deckList: string) {
+  if (isResolvableDeckList(deckList)) {
+    return "pending" as const;
+  }
+  if (deckList === "PENDING") {
+    return "pending" as const;
+  }
+  return "failed" as const;
+}
+
+function isResolvableDeckList(deckList: string) {
+  const trimmed = deckList.trim();
+  return (
+    trimmed.length > 0 &&
+    trimmed !== "PENDING" &&
+    trimmed !== "MISSING_DECKLIST" &&
+    trimmed !== "Unknown"
+  );
+}
+
+async function scheduleDeckCardsResolution(
+  ctx: Pick<MutationCtx, "scheduler">,
+  playerId: Id<"players">,
+  deckList: string,
+) {
+  if (!isResolvableDeckList(deckList)) {
+    return;
+  }
+  await ctx.scheduler.runAfter(0, internal.deckCards.resolvePlayerDeckCards, {
+    playerId,
+  });
+}
+
+async function scheduleDeckCardsResolutionBatch(
+  ctx: Pick<MutationCtx, "scheduler">,
+  playerIds: Id<"players">[],
+) {
+  if (playerIds.length === 0) {
+    return;
+  }
+  await ctx.scheduler.runAfter(0, internal.deckCards.resolvePlayersDeckCards, {
+    playerIds,
+  });
+}
