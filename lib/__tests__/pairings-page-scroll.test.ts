@@ -44,3 +44,24 @@ describe("Pairings page table scrolling", () => {
     expect(bodyIndex).toBeGreaterThan(scrollAreaIndex);
   });
 });
+
+describe("Pairings page minimum points threshold slider", () => {
+  it("uses a slider capped by the maximum possible points for the current round", () => {
+    expect(pairingsPageSource).toContain(
+      'import { Slider } from "@/components/ui/slider";',
+    );
+    expect(pairingsPageSource).toContain(
+      "const maximumPointsThreshold = getMaximumPointsThreshold(",
+    );
+    expect(pairingsPageSource).toContain(
+      "return Math.max(0, 3 * (roundNumber - 1));",
+    );
+    expect(pairingsPageSource).toContain(
+      "max={maximumPointsThreshold}",
+    );
+  });
+
+  it("fills the visible range to the right of the selected lower bound", () => {
+    expect(pairingsPageSource).toContain('rangeSide="maximum"');
+  });
+});

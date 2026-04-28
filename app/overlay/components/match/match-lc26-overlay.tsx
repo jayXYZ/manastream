@@ -387,10 +387,10 @@ export default function MatchLC26Overlay({
       <BezelFrame zone={ZONES.main} />
       <BezelFrame zone={ZONES.p1} />
       <BezelFrame zone={ZONES.p2} />
-      {/* <BezelFrame zone={ZONES.p1Card} /> */}
+      <BezelFrame zone={ZONES.p1Card} />
       <BezelFrame zone={ZONES.p2Card} />
       {/* ── CARD BACKGROUNDS ── */}
-      {[ZONES.p2Card].map((zone, i) => (
+      {[ZONES.p1Card, ZONES.p2Card].map((zone, i) => (
         <div
           key={`parchment-${i}`}
           style={{
@@ -408,6 +408,70 @@ export default function MatchLC26Overlay({
           }}
         ></div>
       ))}
+      {/* -- Commentators & Other Info -- */}
+      <div
+        style={{
+          position: "absolute",
+          left: ZONES.p2Card.x,
+          top: ZONES.p2Card.y,
+          width: ZONES.p2Card.w,
+          height: ZONES.p2Card.h,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          gap: 40,
+          zIndex: 100,
+          padding: 20,
+        }}
+      >
+        <div>
+          <div
+            style={{
+              fontFamily: `${plantinItalic.style.fontFamily}, sans-serif`,
+              fontSize: 24,
+              color: "black",
+              fontWeight: 600,
+            }}
+          >
+            Event:
+          </div>
+          <div
+            style={{
+              fontFamily: `${plantinRegular.style.fontFamily}, sans-serif`,
+              fontSize: 24,
+              color: "black",
+              textAlign: "right",
+              lineHeight: 1.2,
+            }}
+          >
+            {tournamentInfo?.eventName}
+          </div>
+        </div>
+        <div>
+          <div
+            style={{
+              fontFamily: `${plantinItalic.style.fontFamily}, sans-serif`,
+              fontSize: 24,
+              color: "black",
+              fontWeight: 600,
+            }}
+          >
+            Commentators:
+          </div>
+          <div
+            style={{
+              fontFamily: `${plantinRegular.style.fontFamily}, sans-serif`,
+              fontSize: 24,
+              color: "black",
+              textAlign: "right",
+              lineHeight: 1.2,
+            }}
+          >
+            {tournamentInfo?.commentatorLeft} & {<br />}
+            {tournamentInfo?.commentatorRight}
+          </div>
+        </div>
+      </div>
       {/* ── TOP BAR ── */}
       <div
         className="absolute top-0 left-0 right-0"
@@ -685,10 +749,10 @@ export default function MatchLC26Overlay({
           }}
         />
         <Image
-          src="/images/logos/swamp-logo-tight-transparent.svg"
+          src="/images/logos/swamp-logo-border.png"
           alt=""
-          width={711}
-          height={545}
+          width={2130}
+          height={1800}
           style={{
             width: "auto",
             height: "auto",

@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/player-table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Input } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -38,15 +38,19 @@ const emptyStateCopy = {
 
 export default function PairingsPage() {
   const result = useQuery(api.pairings.getCurrentRoundPairings);
-  const [minimumPointsInput, setMinimumPointsInput] = useState("");
-  const minimumPointsThreshold = parseMinimumPointsInput(minimumPointsInput);
+  const [minimumPointsThreshold, setMinimumPointsThreshold] = useState(0);
+  const maximumPointsThreshold = getMaximumPointsThreshold(result?.roundNumber);
+  const selectedMinimumPointsThreshold = Math.min(
+    minimumPointsThreshold,
+    maximumPointsThreshold,
+  );
   const visiblePairings = useMemo(
     () =>
       filterPairingsByMinimumMatchPoints(
         result?.pairings ?? [],
-        minimumPointsThreshold,
+        selectedMinimumPointsThreshold,
       ),
-    [result?.pairings, minimumPointsThreshold],
+    [result?.pairings, selectedMinimumPointsThreshold],
   );
 
   if (result === undefined) {
@@ -54,7 +58,8 @@ export default function PairingsPage() {
   }
 
   const roundLabel =
-    result.roundName ?? (result.roundNumber ? `Round ${result.roundNumber}` : "");
+    result.roundName ??
+    (result.roundNumber ? `Round ${result.roundNumber}` : "");
 
   return (
     <div className="m-8 flex flex-col gap-4">
@@ -77,28 +82,34 @@ export default function PairingsPage() {
       {result.status === "ready" ? (
         <div className="overflow-hidden rounded-lg border border-border">
           <div className="flex flex-col gap-3 border-b border-border bg-background p-3 md:flex-row md:items-end md:justify-between">
-            <div>
+            <div className="space-y-1">
               <label
-                htmlFor="minimum-points-threshold"
+                id="minimum-points-threshold-label"
                 className="text-sm font-medium"
               >
-                Minimum points threshold
+                Minimum points threshold: {selectedMinimumPointsThreshold}
               </label>
               <p className="text-xs text-muted-foreground">
                 Shows pairings where either player meets the threshold.
               </p>
             </div>
-            <Input
-              id="minimum-points-threshold"
-              type="number"
-              min={0}
-              step={1}
-              inputMode="numeric"
-              className="w-full md:w-36"
-              placeholder="Any"
-              value={minimumPointsInput}
-              onChange={(event) => setMinimumPointsInput(event.target.value)}
-            />
+            <div className="flex w-full flex-col gap-2 md:w-72">
+              <Slider
+                aria-labelledby="minimum-points-threshold-label"
+                value={[selectedMinimumPointsThreshold]}
+                onValueChange={(value) =>
+                  setMinimumPointsThreshold(value[0] ?? 0)
+                }
+                min={0}
+                max={maximumPointsThreshold}
+                step={1}
+                rangeSide="maximum"
+              />
+              <div className="flex justify-between text-xs font-mono text-muted-foreground">
+                <span>0</span>
+                <span>{maximumPointsThreshold}</span>
+              </div>
+            </div>
           </div>
           <div className="border-b border-border bg-background">
             <Table>
@@ -216,17 +227,12 @@ function PlayerCell({
   );
 }
 
-function parseMinimumPointsInput(value: string): number | undefined {
-  if (value.trim() === "") {
-    return undefined;
+function getMaximumPointsThreshold(roundNumber: number | undefined): number {
+  if (roundNumber === undefined) {
+    return 0;
   }
 
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) {
-    return undefined;
-  }
-
-  return Math.max(0, Math.floor(parsed));
+  return Math.max(0, 3 * (roundNumber - 1));
 }
 
 function PairingsLoading() {
