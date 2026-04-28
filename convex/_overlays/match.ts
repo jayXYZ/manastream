@@ -2,6 +2,7 @@ import { mutation, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
 import { filterUndefined } from "../lib/utils";
 import {
+  braunDarkPaletteValidator,
   lc26BackgroundColorValidator,
   matchTemplatesValidator,
   updateMatchOverlayArgsValidator,
@@ -225,6 +226,7 @@ export const setMatchOverlaySettings = mutation({
     overlayId: v.id("overlays"),
     name: v.optional(v.string()),
     template: v.optional(matchTemplatesValidator),
+    braunDarkPalette: v.optional(braunDarkPaletteValidator),
   },
   handler: async (ctx, args) => {
     await requireMatchOverlayAccess(ctx, args.overlayId);

@@ -53,6 +53,7 @@ export type TemplateType =
   | "LC26";
 export type CardTemplateName = "Default" | "Braun Dark";
 export type DeckTemplateName = "Duress Crew" | "Braun Dark";
+export type BraunDarkPaletteName = "Dark" | "Maroon";
 
 // Tournament info types from the validators
 export type TournamentInfo = Infer<typeof getTournamentInfoValidator>;

@@ -163,6 +163,11 @@ export const lc26BackgroundColorValidator = v.union(
   v.literal("Gold"),
 );
 
+export const braunDarkPaletteValidator = v.union(
+  v.literal("Dark"),
+  v.literal("Maroon"),
+);
+
 // Different overlay validators
 export const matchOverlayValidator = v.object({
   _id: v.id("overlays"),
@@ -195,6 +200,7 @@ export const matchOverlayValidator = v.object({
   player2TournamentRecord: v.optional(v.string()),
   player1Lc26BackgroundColor: v.optional(lc26BackgroundColorValidator),
   player2Lc26BackgroundColor: v.optional(lc26BackgroundColorValidator),
+  braunDarkPalette: v.optional(braunDarkPaletteValidator),
   createdAt: v.number(),
 });
 
@@ -214,6 +220,7 @@ export const cardOverlayValidator = v.object({
   name: v.string(),
   overlayType: v.literal("card"),
   template: v.optional(cardTemplatesValidator),
+  braunDarkPalette: v.optional(braunDarkPaletteValidator),
   tournamentId: v.id("tournaments"),
   publicUuid: v.string(), // Direct UUID string for public access
   cardUrl: v.string(),
@@ -226,6 +233,7 @@ export const deckOverlayValidator = v.object({
   name: v.string(),
   overlayType: v.literal("deck"),
   template: v.optional(deckTemplatesValidator),
+  braunDarkPalette: v.optional(braunDarkPaletteValidator),
   tournamentId: v.id("tournaments"),
   publicUuid: v.string(), // Direct UUID string for public access
   matchId: v.optional(v.id("featureMatches")),
@@ -261,6 +269,7 @@ export const commentaryOverlayValidator = v.object({
     v.literal("Braun Dark Duo"),
   ),
   templateId: v.optional(v.id("templates")),
+  braunDarkPalette: v.optional(braunDarkPaletteValidator),
   commentatorLeft: v.string(),
   commentatorLeftSubText: v.optional(v.string()),
   commentatorRight: v.string(),

@@ -1,6 +1,10 @@
 import { api } from "@/convex/_generated/api";
 import { CommentaryOverlay as CommentaryOverlayType } from "@/convex/types";
 import { useQuery } from "convex/react";
+import {
+  BraunDarkPalette,
+  getBraunDarkPalette,
+} from "@/lib/braun-dark-palettes";
 
 /**
  * Braun Dark Duo — Commentary Separate Nameplates Overlay
@@ -11,17 +15,6 @@ import { useQuery } from "convex/react";
  * Follows the Braun T 1000 receiver aesthetic — matte anthracite surface,
  * warm stone type, precise bezel borders, functional orange accents.
  */
-
-// ── Dark theme palette (shared with match overlay) ──
-const THEME = {
-  surface: "#1C1B19",
-  surfaceRaised: "#222120",
-  text: "#D4CFC5",
-  muted: "#918A84",
-  accent: "#E8642C",
-  rule: "rgba(210,200,185,0.18)",
-  frameBorder: "#8A8378",
-};
 
 // ── Layout constants ──
 const PLATE_WIDTH = 440;
@@ -35,10 +28,12 @@ function Nameplate({
   name,
   subText,
   align,
+  theme,
 }: {
   name: string;
   subText: string;
   align: "left" | "right";
+  theme: BraunDarkPalette;
 }) {
   const isRight = align === "right";
 
@@ -47,12 +42,13 @@ function Nameplate({
       style={{
         width: PLATE_WIDTH,
         height: PLATE_HEIGHT,
-        background: THEME.surface,
-        border: `1px solid ${THEME.frameBorder}`,
+        background: theme.surface,
+        border: `1px solid ${theme.frameBorder}`,
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
-        boxShadow: "0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.03)",
+        boxShadow:
+          "0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.03)",
       }}
     >
       {/* Label row — COMMENTARY + accent rule */}
@@ -73,7 +69,7 @@ function Nameplate({
             fontFamily: FONT,
             fontSize: 10,
             fontWeight: 500,
-            color: THEME.muted,
+            color: theme.muted,
             letterSpacing: "0.25em",
             textTransform: "uppercase" as const,
             flexShrink: 0,
@@ -85,7 +81,7 @@ function Nameplate({
           style={{
             flex: 1,
             height: 1,
-            background: THEME.accent,
+            background: theme.accent,
           }}
         />
         {/* Small indicator dot at rule terminus */}
@@ -94,7 +90,7 @@ function Nameplate({
             width: 4,
             height: 4,
             borderRadius: "50%",
-            background: THEME.accent,
+            background: theme.accent,
             flexShrink: 0,
           }}
         />
@@ -117,7 +113,7 @@ function Nameplate({
             fontFamily: FONT,
             fontSize: 28,
             fontWeight: 500,
-            color: THEME.text,
+            color: theme.text,
             letterSpacing: "-0.01em",
             lineHeight: 1.15,
           }}
@@ -130,7 +126,7 @@ function Nameplate({
               fontFamily: FONT,
               fontSize: 13,
               fontWeight: 400,
-              color: THEME.muted,
+              color: theme.muted,
               letterSpacing: "0.02em",
               marginTop: 3,
             }}
@@ -144,8 +140,8 @@ function Nameplate({
       <div
         style={{
           height: 3,
-          background: THEME.surfaceRaised,
-          borderTop: `1px solid ${THEME.rule}`,
+          background: theme.surfaceRaised,
+          borderTop: `1px solid ${theme.rule}`,
         }}
       />
     </div>
@@ -157,6 +153,7 @@ export default function CommentaryBraunDarkDuoOverlay({
 }: {
   data: CommentaryOverlayType;
 }) {
+  const theme = getBraunDarkPalette(data.braunDarkPalette);
   const tournamentInfo = useQuery(api.tournaments.getTournamentInfo, {
     tournamentId: data.tournamentId,
   });
@@ -164,7 +161,9 @@ export default function CommentaryBraunDarkDuoOverlay({
   const commentatorLeft =
     tournamentInfo?.commentatorLeft ?? data?.commentatorLeft ?? "";
   const commentatorLeftSubText =
-    tournamentInfo?.commentatorLeftSubText ?? data?.commentatorLeftSubText ?? "";
+    tournamentInfo?.commentatorLeftSubText ??
+    data?.commentatorLeftSubText ??
+    "";
   const commentatorRight =
     tournamentInfo?.commentatorRight ?? data?.commentatorRight ?? "";
   const commentatorRightSubText =
@@ -186,6 +185,7 @@ export default function CommentaryBraunDarkDuoOverlay({
           name={commentatorLeft}
           subText={commentatorLeftSubText}
           align="left"
+          theme={theme}
         />
       </div>
 
@@ -201,6 +201,7 @@ export default function CommentaryBraunDarkDuoOverlay({
           name={commentatorRight}
           subText={commentatorRightSubText}
           align="right"
+          theme={theme}
         />
       </div>
 

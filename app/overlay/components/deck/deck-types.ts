@@ -27,4 +27,5 @@ export interface DeckTemplateProps {
   parsedDecklist: ParsedDecklist;
   playerData: DeckPlayerData;
   tournamentInfo?: DeckTournamentInfo | null;
+  braunDarkPalette?: string | null;
 }

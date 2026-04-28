@@ -3,7 +3,10 @@ import { v } from "convex/values";
 import { requireCardOverlayAccess, requireTournamentAccess } from "../lib/auth";
 import { createCardOverlayHelper } from "../lib/overlays";
 import { filterUndefined } from "../lib/utils";
-import { cardTemplatesValidator } from "../validators";
+import {
+  braunDarkPaletteValidator,
+  cardTemplatesValidator,
+} from "../validators";
 
 /**
  * Internal mutation to create a card overlay.
@@ -65,6 +68,7 @@ export const setCardOverlaySettings = mutation({
     overlayId: v.id("overlays"),
     name: v.optional(v.string()),
     template: v.optional(cardTemplatesValidator),
+    braunDarkPalette: v.optional(braunDarkPaletteValidator),
   },
   handler: async (ctx, args) => {
     await requireCardOverlayAccess(ctx, args.overlayId);

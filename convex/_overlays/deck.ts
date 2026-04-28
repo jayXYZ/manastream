@@ -3,7 +3,10 @@ import { v } from "convex/values";
 import { requireDeckOverlayAccess } from "../lib/auth";
 import { createDeckOverlayHelper } from "../lib/overlays";
 import { filterUndefined } from "../lib/utils";
-import { deckTemplatesValidator } from "../validators";
+import {
+  braunDarkPaletteValidator,
+  deckTemplatesValidator,
+} from "../validators";
 
 /**
  * Internal mutation to create a deck overlay.
@@ -46,6 +49,7 @@ export const setDeckOverlaySettings = mutation({
     overlayId: v.id("overlays"),
     name: v.optional(v.string()),
     template: v.optional(deckTemplatesValidator),
+    braunDarkPalette: v.optional(braunDarkPaletteValidator),
   },
   handler: async (ctx, args) => {
     await requireDeckOverlayAccess(ctx, args.overlayId);

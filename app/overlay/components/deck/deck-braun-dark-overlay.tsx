@@ -2,17 +2,7 @@ import Image from "next/image";
 import type { JSX } from "react";
 import { Mic } from "lucide-react";
 import { DeckTemplateProps } from "./deck-types";
-
-const THEME = {
-  surface: "#1C1B19",
-  surfaceRaised: "#222120",
-  text: "#D4CFC5",
-  muted: "#918A84",
-  accent: "#E8642C",
-  rule: "rgba(210,200,185,0.18)",
-  frameBorder: "#8A8378",
-  counterBg: "rgba(0,0,0,0.72)",
-};
+import { getBraunDarkPalette } from "@/lib/braun-dark-palettes";
 
 const FONT = "'Instrument Sans', 'Helvetica Neue', sans-serif";
 const BOTTOM_BAR = 48;
@@ -22,7 +12,9 @@ export default function DeckBraunDarkOverlay({
   parsedDecklist,
   playerData,
   tournamentInfo,
+  braunDarkPalette,
 }: DeckTemplateProps) {
+  const theme = getBraunDarkPalette(braunDarkPalette);
   const commentators = [
     tournamentInfo?.commentatorLeft,
     tournamentInfo?.commentatorRight,
@@ -35,8 +27,8 @@ export default function DeckBraunDarkOverlay({
       className="w-[1920px] h-[1080px] overflow-hidden"
       style={{
         fontFamily: FONT,
-        color: THEME.text,
-        background: THEME.surface,
+        color: theme.text,
+        background: theme.surface,
       }}
     >
       <div className="relative h-full">
@@ -44,13 +36,13 @@ export default function DeckBraunDarkOverlay({
           className="overflow-hidden"
           style={{
             height: `calc(100% - ${BOTTOM_BAR}px)`,
-            background: THEME.surface,
+            background: theme.surface,
           }}
         >
           <div
             className="mx-6 h-[94px] flex items-baseline gap-4"
             style={{
-              borderBottom: `1px solid ${THEME.rule}`,
+              borderBottom: `1px solid ${theme.rule}`,
               paddingTop: 24,
             }}
           >
@@ -60,7 +52,7 @@ export default function DeckBraunDarkOverlay({
                 fontWeight: 600,
                 lineHeight: 1,
                 letterSpacing: "-0.02em",
-                color: THEME.text,
+                color: theme.text,
               }}
             >
               {playerData.name}
@@ -69,7 +61,7 @@ export default function DeckBraunDarkOverlay({
               style={{
                 fontSize: 36,
                 fontWeight: 400,
-                color: THEME.accent,
+                color: theme.accent,
                 letterSpacing: "0.01em",
                 lineHeight: 1,
               }}
@@ -86,8 +78,8 @@ export default function DeckBraunDarkOverlay({
               <div
                 className="h-full p-2"
                 style={{
-                  border: `1px solid ${THEME.frameBorder}`,
-                  background: THEME.surfaceRaised,
+                  border: `1px solid ${theme.frameBorder}`,
+                  background: theme.surfaceRaised,
                 }}
               >
                 <div
@@ -124,9 +116,9 @@ export default function DeckBraunDarkOverlay({
                       <div
                         className="absolute bottom-[5%] left-1/2 -translate-x-1/2 px-3 py-1 rounded-sm text-2xl"
                         style={{
-                          background: THEME.counterBg,
-                          color: THEME.text,
-                          border: `1px solid ${THEME.rule}`,
+                          background: theme.counterBg,
+                          color: theme.text,
+                          border: `1px solid ${theme.rule}`,
                           fontWeight: 700,
                           boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
                         }}
@@ -144,8 +136,8 @@ export default function DeckBraunDarkOverlay({
                 <div
                   className="h-full p-2 overflow-hidden"
                   style={{
-                    border: `1px solid ${THEME.frameBorder}`,
-                    background: THEME.surfaceRaised,
+                    border: `1px solid ${theme.frameBorder}`,
+                    background: theme.surfaceRaised,
                   }}
                 >
                   <div className="flex h-full flex-col overflow-hidden">
@@ -184,20 +176,20 @@ export default function DeckBraunDarkOverlay({
           className="absolute bottom-0 left-0 right-0 flex items-center"
           style={{
             height: BOTTOM_BAR,
-            background: THEME.surface,
-            borderTop: `1px solid ${THEME.rule}`,
+            background: theme.surface,
+            borderTop: `1px solid ${theme.rule}`,
             paddingLeft: 40,
             paddingRight: 40,
           }}
         >
           {commentators && (
             <div className="flex items-center gap-2">
-              <Mic size={14} color={THEME.accent} strokeWidth={2} />
+              <Mic size={14} color={theme.accent} strokeWidth={2} />
               <span
                 style={{
                   fontFamily: FONT,
                   fontSize: 14,
-                  color: THEME.muted,
+                  color: theme.muted,
                   letterSpacing: "0.02em",
                 }}
               >
@@ -212,13 +204,13 @@ export default function DeckBraunDarkOverlay({
               fontFamily: FONT,
               fontSize: 10,
               fontWeight: 500,
-              color: THEME.muted,
+              color: theme.muted,
               letterSpacing: "0.25em",
               textTransform: "uppercase",
             }}
           >
             {tournamentInfo?.eventName ?? "EVENT"}{" "}
-            <span style={{ color: THEME.accent }}>|</span> PREMODERN
+            <span style={{ color: theme.accent }}>|</span> PREMODERN
           </div>
         </div>
       </div>

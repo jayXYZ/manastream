@@ -4,6 +4,10 @@ import { useQuery } from "convex/react";
 import Timer from "@/components/timer";
 import { Mic } from "lucide-react";
 import Image from "next/image";
+import {
+  getBraunDarkPalette,
+  type BraunDarkPalette,
+} from "@/lib/braun-dark-palettes";
 
 /**
  * Braun Dark — Camera Frame Overlay
@@ -14,22 +18,6 @@ import Image from "next/image";
  *
  * Theme: Matte anthracite surface, warm stone type — Braun T 1000 receiver
  */
-
-// ── Dark theme palette ──
-const THEME = {
-  surface: "#1C1B19",
-  text: "#D4CFC5",
-  muted: "#918A84",
-  accent: "#E8642C",
-  rule: "rgba(210,200,185,0.18)",
-  placeholderBg: "rgba(0,0,0,0.55)",
-  placeholderBgCard: "rgba(0,0,0,0.40)",
-  placeholderCrosshair: "rgba(255,255,255,0.04)",
-  placeholderLabel: "rgba(255,255,255,0.18)",
-  placeholderDim: "rgba(255,255,255,0.08)",
-  frameBorder: "#8A8378",
-  watermark: "rgba(210,200,185,0.10)",
-};
 
 // ── Layout constants ──
 const TOP_BAR = 120;
@@ -99,22 +87,36 @@ const ZONES = computeLayout();
 
 // ── Components ──
 
-function GameWinDot({ won, index }: { won: number; index: number }) {
+function GameWinDot({
+  won,
+  index,
+  theme,
+}: {
+  won: number;
+  index: number;
+  theme: BraunDarkPalette;
+}) {
   return (
     <div
       style={{
         width: 16,
         height: 16,
         borderRadius: "50%",
-        background: index < won ? THEME.text : "transparent",
-        border: `1.5px solid ${index < won ? THEME.text : THEME.muted}`,
+        background: index < won ? theme.text : "transparent",
+        border: `1.5px solid ${index < won ? theme.text : theme.muted}`,
         transition: "all 0.3s ease",
       }}
     />
   );
 }
 
-function BezelFrame({ zone }: { zone: CameraZone }) {
+function BezelFrame({
+  zone,
+  theme,
+}: {
+  zone: CameraZone;
+  theme: BraunDarkPalette;
+}) {
   const fx = zone.x - FRAME_INSET;
   const fy = zone.y - FRAME_INSET;
   const fw = zone.w + FRAME_INSET * 2;
@@ -128,7 +130,7 @@ function BezelFrame({ zone }: { zone: CameraZone }) {
         top: fy,
         width: fw,
         height: fh,
-        border: `${BEZEL_BORDER}px solid ${THEME.frameBorder}`,
+        border: `${BEZEL_BORDER}px solid ${theme.frameBorder}`,
         boxSizing: "border-box",
         pointerEvents: "none",
       }}
@@ -140,10 +142,12 @@ function Placeholder({
   zone,
   label,
   isCard,
+  theme,
 }: {
   zone: CameraZone;
   label: string;
   isCard?: boolean;
+  theme: BraunDarkPalette;
 }) {
   return (
     <div
@@ -153,7 +157,7 @@ function Placeholder({
         top: zone.y,
         width: zone.w,
         height: zone.h,
-        background: isCard ? THEME.placeholderBgCard : THEME.placeholderBg,
+        background: isCard ? theme.placeholderBgCard : theme.placeholderBg,
         overflow: "hidden",
       }}
     >
@@ -165,7 +169,7 @@ function Placeholder({
           top: 0,
           bottom: 0,
           width: 1,
-          background: THEME.placeholderCrosshair,
+          background: theme.placeholderCrosshair,
         }}
       />
       <div
@@ -175,7 +179,7 @@ function Placeholder({
           left: 0,
           right: 0,
           height: 1,
-          background: THEME.placeholderCrosshair,
+          background: theme.placeholderCrosshair,
         }}
       />
       {/* Card outline hint */}
@@ -184,7 +188,7 @@ function Placeholder({
           style={{
             position: "absolute",
             inset: "12%",
-            border: `1px solid ${THEME.placeholderCrosshair}`,
+            border: `1px solid ${theme.placeholderCrosshair}`,
             borderRadius: 8,
           }}
         />
@@ -196,13 +200,13 @@ function Placeholder({
           top: 10,
           left: 10,
           padding: "4px 6px",
-          border: `1px solid ${THEME.placeholderCrosshair}`,
+          border: `1px solid ${theme.placeholderCrosshair}`,
           background: "rgba(0,0,0,0.35)",
           borderRadius: 4,
           fontFamily: "'Instrument Sans', 'Helvetica Neue', sans-serif",
           fontSize: 10,
           fontWeight: 500,
-          color: THEME.placeholderLabel,
+          color: theme.placeholderLabel,
           letterSpacing: "0.05em",
         }}
       >
@@ -225,7 +229,7 @@ function Placeholder({
             fontFamily: "'Instrument Sans', 'Helvetica Neue', sans-serif",
             fontSize: 11,
             fontWeight: 500,
-            color: THEME.placeholderLabel,
+            color: theme.placeholderLabel,
             letterSpacing: "0.15em",
             textTransform: "uppercase",
           }}
@@ -236,7 +240,7 @@ function Placeholder({
           style={{
             fontFamily: "'Instrument Sans', 'Helvetica Neue', sans-serif",
             fontSize: 10,
-            color: THEME.placeholderDim,
+            color: theme.placeholderDim,
             letterSpacing: "0.05em",
           }}
         >
@@ -252,6 +256,7 @@ export default function MatchBraunDarkOverlay({
 }: {
   data: MatchOverlayWithPlayers;
 }) {
+  const theme = getBraunDarkPalette(data.braunDarkPalette);
   const tournamentInfo = useQuery(api.tournaments.getTournamentInfo, {
     tournamentId: data.tournamentId,
   });
@@ -261,14 +266,14 @@ export default function MatchBraunDarkOverlay({
     <div
       className="w-[1920px] h-[1080px] relative overflow-hidden"
       style={{
-        background: THEME.surface,
-        color: THEME.text,
+        background: theme.surface,
+        color: theme.text,
       }}
     >
       {/* ── CAMERA PLACEHOLDERS ── */}
-      <Placeholder zone={ZONES.main} label="Overhead Camera" />
-      <Placeholder zone={ZONES.p1} label="Player 1 Cam" />
-      <Placeholder zone={ZONES.p2} label="Player 2 Cam" />
+      <Placeholder zone={ZONES.main} label="Overhead Camera" theme={theme} />
+      <Placeholder zone={ZONES.p1} label="Player 1 Cam" theme={theme} />
+      <Placeholder zone={ZONES.p2} label="Player 2 Cam" theme={theme} />
       {/* <Placeholder zone={ZONES.p1Card} label="P1 Card" isCard />
       <Placeholder zone={ZONES.p2Card} label="P2 Card" isCard /> */}
 
@@ -329,9 +334,9 @@ export default function MatchBraunDarkOverlay({
       </div>
 
       {/* ── BEZEL FRAMES (no labels) ── */}
-      <BezelFrame zone={ZONES.main} />
-      <BezelFrame zone={ZONES.p1} />
-      <BezelFrame zone={ZONES.p2} />
+      <BezelFrame zone={ZONES.main} theme={theme} />
+      <BezelFrame zone={ZONES.p1} theme={theme} />
+      <BezelFrame zone={ZONES.p2} theme={theme} />
       {/* <BezelFrame zone={ZONES.p1Card} />
       <BezelFrame zone={ZONES.p2Card} /> */}
 
@@ -340,8 +345,8 @@ export default function MatchBraunDarkOverlay({
         className="absolute top-0 left-0 right-0"
         style={{
           height: TOP_BAR,
-          background: THEME.surface,
-          borderBottom: `1px solid ${THEME.rule}`,
+          background: theme.surface,
+          borderBottom: `1px solid ${theme.rule}`,
         }}
       >
         <div className="flex items-stretch h-full">
@@ -350,7 +355,7 @@ export default function MatchBraunDarkOverlay({
             className="flex items-center justify-center"
             style={{
               width: 200,
-              borderRight: `1px solid ${THEME.rule}`,
+              borderRight: `1px solid ${theme.rule}`,
             }}
           >
             <span
@@ -358,7 +363,7 @@ export default function MatchBraunDarkOverlay({
                 fontFamily: "'Instrument Sans', 'Helvetica Neue', sans-serif",
                 fontSize: 72,
                 fontWeight: 600,
-                color: THEME.text,
+                color: theme.text,
                 letterSpacing: "-0.03em",
                 lineHeight: 1,
               }}
@@ -372,11 +377,19 @@ export default function MatchBraunDarkOverlay({
             className="flex flex-col items-center justify-center gap-2"
             style={{
               width: 40,
-              borderRight: `1px solid ${THEME.rule}`,
+              borderRight: `1px solid ${theme.rule}`,
             }}
           >
-            <GameWinDot won={data.player1GamesWon ?? 0} index={0} />
-            <GameWinDot won={data.player1GamesWon ?? 0} index={1} />
+            <GameWinDot
+              won={data.player1GamesWon ?? 0}
+              index={0}
+              theme={theme}
+            />
+            <GameWinDot
+              won={data.player1GamesWon ?? 0}
+              index={1}
+              theme={theme}
+            />
           </div>
 
           {/* Player 1 name + deck */}
@@ -393,7 +406,7 @@ export default function MatchBraunDarkOverlay({
                 fontFamily: "'Instrument Sans', 'Helvetica Neue', sans-serif",
                 fontSize: 38,
                 fontWeight: 500,
-                color: THEME.text,
+                color: theme.text,
                 letterSpacing: "-0.01em",
                 lineHeight: 1.1,
               }}
@@ -406,7 +419,7 @@ export default function MatchBraunDarkOverlay({
                   fontFamily: "'Instrument Sans', 'Helvetica Neue', sans-serif",
                   fontSize: 20,
                   fontWeight: 400,
-                  color: THEME.muted,
+                  color: theme.muted,
                   letterSpacing: "0.02em",
                 }}
               >
@@ -416,13 +429,13 @@ export default function MatchBraunDarkOverlay({
               </span>
               {data.player1TournamentRecord && (
                 <>
-                  <span style={{ color: THEME.accent, fontSize: 20 }}>|</span>
+                  <span style={{ color: theme.accent, fontSize: 20 }}>|</span>
                   <span
                     style={{
                       fontFamily:
                         "'Instrument Sans', 'Helvetica Neue', sans-serif",
                       fontSize: 20,
-                      color: THEME.muted,
+                      color: theme.muted,
                       letterSpacing: "0.02em",
                     }}
                   >
@@ -438,8 +451,8 @@ export default function MatchBraunDarkOverlay({
             className="flex flex-col items-center justify-center"
             style={{
               width: 280,
-              borderLeft: `1px solid ${THEME.rule}`,
-              borderRight: `1px solid ${THEME.rule}`,
+              borderLeft: `1px solid ${theme.rule}`,
+              borderRight: `1px solid ${theme.rule}`,
             }}
           >
             <div
@@ -447,7 +460,7 @@ export default function MatchBraunDarkOverlay({
                 fontFamily: "'Instrument Sans', 'Helvetica Neue', sans-serif",
                 fontSize: 14,
                 fontWeight: 500,
-                color: THEME.muted,
+                color: theme.muted,
                 letterSpacing: "0.15em",
                 textTransform: "uppercase",
                 marginBottom: 2,
@@ -460,7 +473,7 @@ export default function MatchBraunDarkOverlay({
                 fontFamily: "'Instrument Sans', 'Helvetica Neue', sans-serif",
                 fontSize: 48,
                 fontWeight: 600,
-                color: THEME.text,
+                color: theme.text,
                 letterSpacing: "-0.02em",
                 lineHeight: 1,
               }}
@@ -472,7 +485,7 @@ export default function MatchBraunDarkOverlay({
               style={{
                 width: 24,
                 height: 2,
-                background: THEME.accent,
+                background: theme.accent,
                 marginTop: 8,
                 borderRadius: 1,
               }}
@@ -493,7 +506,7 @@ export default function MatchBraunDarkOverlay({
                 fontFamily: "'Instrument Sans', 'Helvetica Neue', sans-serif",
                 fontSize: 38,
                 fontWeight: 500,
-                color: THEME.text,
+                color: theme.text,
                 letterSpacing: "-0.01em",
                 lineHeight: 1.1,
                 textAlign: "right",
@@ -509,13 +522,13 @@ export default function MatchBraunDarkOverlay({
                       fontFamily:
                         "'Instrument Sans', 'Helvetica Neue', sans-serif",
                       fontSize: 20,
-                      color: THEME.muted,
+                      color: theme.muted,
                       letterSpacing: "0.02em",
                     }}
                   >
                     {data.player2TournamentRecord}
                   </span>
-                  <span style={{ color: THEME.accent, fontSize: 20 }}>|</span>
+                  <span style={{ color: theme.accent, fontSize: 20 }}>|</span>
                 </>
               )}
               <span
@@ -523,7 +536,7 @@ export default function MatchBraunDarkOverlay({
                   fontFamily: "'Instrument Sans', 'Helvetica Neue', sans-serif",
                   fontSize: 20,
                   fontWeight: 400,
-                  color: THEME.muted,
+                  color: theme.muted,
                   letterSpacing: "0.02em",
                 }}
               >
@@ -539,11 +552,19 @@ export default function MatchBraunDarkOverlay({
             className="flex flex-col items-center justify-center gap-2"
             style={{
               width: 40,
-              borderLeft: `1px solid ${THEME.rule}`,
+              borderLeft: `1px solid ${theme.rule}`,
             }}
           >
-            <GameWinDot won={data.player2GamesWon ?? 0} index={0} />
-            <GameWinDot won={data.player2GamesWon ?? 0} index={1} />
+            <GameWinDot
+              won={data.player2GamesWon ?? 0}
+              index={0}
+              theme={theme}
+            />
+            <GameWinDot
+              won={data.player2GamesWon ?? 0}
+              index={1}
+              theme={theme}
+            />
           </div>
 
           {/* Player 2 Life */}
@@ -551,7 +572,7 @@ export default function MatchBraunDarkOverlay({
             className="flex items-center justify-center"
             style={{
               width: 200,
-              borderLeft: `1px solid ${THEME.rule}`,
+              borderLeft: `1px solid ${theme.rule}`,
             }}
           >
             <span
@@ -559,7 +580,7 @@ export default function MatchBraunDarkOverlay({
                 fontFamily: "'Instrument Sans', 'Helvetica Neue', sans-serif",
                 fontSize: 72,
                 fontWeight: 600,
-                color: THEME.text,
+                color: theme.text,
                 letterSpacing: "-0.03em",
                 lineHeight: 1,
               }}
@@ -575,8 +596,8 @@ export default function MatchBraunDarkOverlay({
         className="absolute bottom-0 left-0 right-0 flex items-center"
         style={{
           height: BOTTOM_BAR,
-          background: THEME.surface,
-          borderTop: `1px solid ${THEME.rule}`,
+          background: theme.surface,
+          borderTop: `1px solid ${theme.rule}`,
           paddingLeft: 40,
           paddingRight: 40,
         }}
@@ -585,12 +606,12 @@ export default function MatchBraunDarkOverlay({
         {(tournamentInfo.commentatorLeft ||
           tournamentInfo.commentatorRight) && (
           <div className="flex items-center gap-2">
-            <Mic size={14} color={THEME.accent} strokeWidth={2} />
+            <Mic size={14} color={theme.accent} strokeWidth={2} />
             <span
               style={{
                 fontFamily: "'Instrument Sans', 'Helvetica Neue', sans-serif",
                 fontSize: 14,
-                color: THEME.muted,
+                color: theme.muted,
                 letterSpacing: "0.02em",
               }}
             >
@@ -608,13 +629,13 @@ export default function MatchBraunDarkOverlay({
             fontFamily: "'Instrument Sans', 'Helvetica Neue', sans-serif",
             fontSize: 10,
             fontWeight: 500,
-            color: THEME.muted,
+            color: theme.muted,
             letterSpacing: "0.25em",
             textTransform: "uppercase",
           }}
         >
           {tournamentInfo.eventName}{" "}
-          <span style={{ color: THEME.accent }}>|</span> PREMODERN
+          <span style={{ color: theme.accent }}>|</span> PREMODERN
         </div>
       </div>
 

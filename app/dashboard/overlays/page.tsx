@@ -29,6 +29,11 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  BRAUN_DARK_PALETTE_OPTIONS,
+  DEFAULT_BRAUN_DARK_PALETTE,
+  type BraunDarkPaletteName,
+} from "@/lib/braun-dark-palettes";
 
 function getInitialTemplate(overlay: Overlay | null): TemplateType | undefined {
   if (!overlay) return undefined;
@@ -50,6 +55,21 @@ function getInitialTemplate(overlay: Overlay | null): TemplateType | undefined {
   return undefined;
 }
 
+function getInitialBraunDarkPalette(
+  overlay: Overlay | null,
+): BraunDarkPaletteName {
+  return (
+    (overlay as (Overlay & { braunDarkPalette?: BraunDarkPaletteName }) | null)
+      ?.braunDarkPalette ?? DEFAULT_BRAUN_DARK_PALETTE
+  );
+}
+
+function isBraunDarkTemplate(
+  template: TemplateType | undefined,
+): template is "Braun Dark" | "Braun Dark Duo" {
+  return template === "Braun Dark" || template === "Braun Dark Duo";
+}
+
 export default function OverlaysPage() {
   const tournament = useQuery(api.tournaments.getUserTournament);
   const overlays = useQuery(api.overlays.getUserOverlays);
@@ -60,6 +80,8 @@ export default function OverlaysPage() {
   const [selectedTemplate, setSelectedTemplate] = useState<
     TemplateType | undefined
   >(undefined);
+  const [selectedBraunDarkPalette, setSelectedBraunDarkPalette] =
+    useState<BraunDarkPaletteName>(DEFAULT_BRAUN_DARK_PALETTE);
   const [origin] = useState(() =>
     typeof window === "undefined" ? "" : window.location.origin,
   );
@@ -78,25 +100,33 @@ export default function OverlaysPage() {
 
   const handleSaveTemplate = () => {
     if (selectedOverlay && selectedTemplate) {
+      const braunDarkPalette = isBraunDarkTemplate(selectedTemplate)
+        ? selectedBraunDarkPalette
+        : undefined;
+
       if (selectedOverlay.overlayType === "match") {
         setMatchOverlaySettings({
           overlayId: selectedOverlay._id as Id<"overlays">,
           template: selectedTemplate as MatchOverlay["template"],
+          ...(braunDarkPalette ? { braunDarkPalette } : {}),
         });
       } else if (selectedOverlay.overlayType === "commentary") {
         setCommentaryOverlaySettings({
           overlayId: selectedOverlay._id as Id<"overlays">,
           template: selectedTemplate as CommentaryOverlay["template"],
+          ...(braunDarkPalette ? { braunDarkPalette } : {}),
         });
       } else if (selectedOverlay.overlayType === "card") {
         setCardOverlaySettings({
           overlayId: selectedOverlay._id as Id<"overlays">,
           template: selectedTemplate as "Default" | "Braun Dark",
+          ...(braunDarkPalette ? { braunDarkPalette } : {}),
         });
       } else if (selectedOverlay.overlayType === "deck") {
         setDeckOverlaySettings({
           overlayId: selectedOverlay._id as Id<"overlays">,
           template: selectedTemplate as DeckOverlay["template"],
+          ...(braunDarkPalette ? { braunDarkPalette } : {}),
         });
       }
     }
@@ -138,6 +168,7 @@ export default function OverlaysPage() {
               setSelectedOverlay(overlay);
               setSelectedPlayerNumber(playerNumber ?? null);
               setSelectedTemplate(getInitialTemplate(overlay));
+              setSelectedBraunDarkPalette(getInitialBraunDarkPalette(overlay));
             }}
           />
         </div>
@@ -161,6 +192,8 @@ export default function OverlaysPage() {
             selectedOverlayUrl={selectedOverlayUrl}
             selectedTemplate={selectedTemplate}
             setSelectedTemplate={setSelectedTemplate}
+            selectedBraunDarkPalette={selectedBraunDarkPalette}
+            setSelectedBraunDarkPalette={setSelectedBraunDarkPalette}
             handleSaveTemplate={handleSaveTemplate}
           />
         </div>
@@ -175,12 +208,16 @@ function OverlayDetailsPanel({
   selectedOverlayUrl,
   selectedTemplate,
   setSelectedTemplate,
+  selectedBraunDarkPalette,
+  setSelectedBraunDarkPalette,
   handleSaveTemplate,
 }: {
   selectedOverlay: Overlay | null;
   selectedOverlayUrl: string | null;
   selectedTemplate: TemplateType | undefined;
   setSelectedTemplate: (template: TemplateType) => void;
+  selectedBraunDarkPalette: BraunDarkPaletteName;
+  setSelectedBraunDarkPalette: (palette: BraunDarkPaletteName) => void;
   handleSaveTemplate: () => void;
 }) {
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
@@ -209,6 +246,7 @@ function OverlayDetailsPanel({
 
   const hasTemplates =
     getAvailableTemplates(selectedOverlay.overlayType).length > 0;
+  const hasBraunDarkPalette = isBraunDarkTemplate(selectedTemplate);
   const resolution =
     selectedOverlay.overlayType === "card" ? "745×1040" : "1920×1080";
 
@@ -323,6 +361,31 @@ function OverlayDetailsPanel({
                 Save
               </Button>
             </div>
+          </div>
+        )}
+
+        {hasBraunDarkPalette && (
+          <div className="space-y-1.5 pt-2.5 border-t border-border/50">
+            <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
+              Palette
+            </span>
+            <Select
+              value={selectedBraunDarkPalette}
+              onValueChange={(value) =>
+                setSelectedBraunDarkPalette(value as BraunDarkPaletteName)
+              }
+            >
+              <SelectTrigger className="h-8 text-sm">
+                <SelectValue placeholder="Select a palette" />
+              </SelectTrigger>
+              <SelectContent>
+                {BRAUN_DARK_PALETTE_OPTIONS.map((palette) => (
+                  <SelectItem key={palette.value} value={palette.value}>
+                    {palette.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         )}
       </div>
