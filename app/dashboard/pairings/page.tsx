@@ -115,7 +115,7 @@ export default function PairingsPage() {
               </TableHeader>
             </Table>
           </div>
-          <ScrollArea className="h-[calc(100vh-252px)] rounded-b-lg">
+          <ScrollArea className="h-[calc(100vh-396px)] rounded-b-lg">
             {visiblePairings.length > 0 ? (
               <Table>
                 <TableBody>
