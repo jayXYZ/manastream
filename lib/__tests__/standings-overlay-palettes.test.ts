@@ -26,3 +26,37 @@ describe("Standings overlay Braun Dark palette", () => {
     expect(standingsMutationSource).toContain("braunDarkPaletteValidator");
   });
 });
+
+describe("Standings overlay layout", () => {
+  const readNumericConst = (name: string) => {
+    const match = standingsOverlaySource.match(
+      new RegExp(`const ${name} = (\\d+);`),
+    );
+
+    if (!match) {
+      throw new Error(`Could not find ${name}`);
+    }
+
+    return Number(match[1]);
+  };
+
+  it("fits a full page of rows above the footer at 1920x1080", () => {
+    const pageSize = readNumericConst("PAGE_SIZE");
+    const topBar = readNumericConst("TOP_BAR");
+    const bottomBar = readNumericConst("BOTTOM_BAR");
+    const rowHeight = readNumericConst("ROW_HEIGHT");
+    const tablePaddingTop = readNumericConst("TABLE_PADDING_TOP");
+    const tablePaddingBottom = readNumericConst("TABLE_PADDING_BOTTOM");
+    const headerHeight = readNumericConst("HEADER_HEIGHT");
+
+    const usableTableHeight =
+      1080 - topBar - bottomBar - tablePaddingTop - tablePaddingBottom;
+    const requiredTableHeight = headerHeight + pageSize * rowHeight;
+
+    expect(requiredTableHeight).toBeLessThanOrEqual(usableTableHeight);
+  });
+
+  it("keeps wider horizontal margins around the standings table", () => {
+    expect(readNumericConst("SIDE_MARGIN")).toBeGreaterThanOrEqual(120);
+  });
+});

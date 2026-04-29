@@ -14,7 +14,11 @@ const PAGE_SIZE = 16;
 const FONT = "'Instrument Sans', 'Helvetica Neue', sans-serif";
 const TOP_BAR = 120;
 const BOTTOM_BAR = 48;
-const SIDE_MARGIN = 80;
+const SIDE_MARGIN = 140;
+const TABLE_PADDING_TOP = 28;
+const TABLE_PADDING_BOTTOM = 18;
+const HEADER_HEIGHT = 32;
+const ROW_HEIGHT = 48;
 
 export default function StandingsOverlay({
   data,
@@ -61,12 +65,12 @@ export default function StandingsOverlay({
             style={{
               fontSize: 56,
               fontWeight: 600,
-              letterSpacing: "-0.02em",
+              letterSpacing: 0,
               lineHeight: 1,
               color: theme.text,
             }}
           >
-            Standings
+            {tournamentInfo?.eventName ?? ""}
           </span>
           <span
             style={{
@@ -82,14 +86,6 @@ export default function StandingsOverlay({
         </div>
 
         <div className="ml-auto flex items-center gap-4">
-          <div
-            style={{
-              width: 24,
-              height: 2,
-              background: theme.accent,
-              borderRadius: 1,
-            }}
-          />
           <span
             style={{
               fontSize: 13,
@@ -98,9 +94,7 @@ export default function StandingsOverlay({
               textTransform: "uppercase",
               color: theme.muted,
             }}
-          >
-            {tournamentInfo?.eventName ?? ""}
-          </span>
+          ></span>
         </div>
       </div>
 
@@ -112,15 +106,15 @@ export default function StandingsOverlay({
           bottom: BOTTOM_BAR,
           paddingLeft: SIDE_MARGIN,
           paddingRight: SIDE_MARGIN,
-          paddingTop: 36,
-          paddingBottom: 24,
+          paddingTop: TABLE_PADDING_TOP,
+          paddingBottom: TABLE_PADDING_BOTTOM,
         }}
       >
         <div
           className="grid w-full"
           style={{
-            gridTemplateColumns: "120px 1fr 1fr 200px",
-            columnGap: 32,
+            gridTemplateColumns: "100px minmax(0, 1fr) minmax(0, 1fr) 170px",
+            columnGap: 28,
             rowGap: 0,
           }}
         >
@@ -145,9 +139,9 @@ export default function StandingsOverlay({
                 <Cell align="left">
                   <span
                     style={{
-                      fontSize: 32,
+                      fontSize: 28,
                       fontWeight: 600,
-                      letterSpacing: "-0.01em",
+                      letterSpacing: 0,
                       color: theme.text,
                       fontVariantNumeric: "tabular-nums",
                     }}
@@ -158,9 +152,9 @@ export default function StandingsOverlay({
                 <Cell align="left">
                   <span
                     style={{
-                      fontSize: 30,
+                      fontSize: 28,
                       fontWeight: 500,
-                      letterSpacing: "-0.01em",
+                      letterSpacing: 0,
                       color: theme.text,
                     }}
                   >
@@ -170,7 +164,7 @@ export default function StandingsOverlay({
                 <Cell align="left">
                   <span
                     style={{
-                      fontSize: 26,
+                      fontSize: 24,
                       fontWeight: 400,
                       color: theme.muted,
                       letterSpacing: "0.01em",
@@ -182,7 +176,7 @@ export default function StandingsOverlay({
                 <Cell align="right">
                   <span
                     style={{
-                      fontSize: 30,
+                      fontSize: 28,
                       fontWeight: 500,
                       color: theme.text,
                       fontVariantNumeric: "tabular-nums",
@@ -244,7 +238,12 @@ function HeaderCell({
   return (
     <div
       style={{
-        padding: "0 16px 14px 16px",
+        padding: "0 12px",
+        height: HEADER_HEIGHT,
+        boxSizing: "border-box",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: align === "right" ? "flex-end" : "flex-start",
         borderBottom: `1px solid ${theme.rule}`,
         textAlign: align,
         fontSize: 13,
@@ -282,6 +281,9 @@ function Row({
               style={{
                 background: bg,
                 borderBottom: `1px solid ${theme.rule}`,
+                height: ROW_HEIGHT,
+                boxSizing: "border-box",
+                overflow: "hidden",
               }}
             >
               {child}
@@ -302,11 +304,12 @@ function Cell({
   return (
     <div
       style={{
-        height: 56,
+        height: "100%",
         display: "flex",
         alignItems: "center",
         justifyContent: align === "right" ? "flex-end" : "flex-start",
-        padding: "0 16px",
+        padding: "0 12px",
+        minWidth: 0,
       }}
     >
       {children}
