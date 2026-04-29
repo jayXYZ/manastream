@@ -635,7 +635,7 @@ export default function MatchBraunDarkOverlay({
           }}
         >
           {tournamentInfo.eventName}{" "}
-          <span style={{ color: theme.accent }}>|</span> PREMODERN
+          {/* <span style={{ color: theme.accent }}>|</span> PREMODERN */}
         </div>
       </div>
 

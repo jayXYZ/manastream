@@ -7,6 +7,7 @@ import {
   type BraunDarkPalette,
 } from "@/lib/braun-dark-palettes";
 import { useQuery } from "convex/react";
+import { Mic } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 
 const PAGE_SIZE = 16;
@@ -29,6 +30,12 @@ export default function StandingsOverlay({
   const tournamentInfo = useQuery(api.tournaments.getTournamentInfo, {
     tournamentId: data.tournamentId,
   });
+  const commentators = [
+    tournamentInfo?.commentatorLeft,
+    tournamentInfo?.commentatorRight,
+  ]
+    .filter(Boolean)
+    .join(" & ");
 
   const standings = data.standingsDataWithPlayers ?? [];
   const searchParams = useSearchParams();
@@ -201,22 +208,27 @@ export default function StandingsOverlay({
         className="absolute bottom-0 left-0 right-0 flex items-center"
         style={{
           height: BOTTOM_BAR,
+          background: theme.surface,
           borderTop: `1px solid ${theme.rule}`,
-          paddingLeft: SIDE_MARGIN,
-          paddingRight: SIDE_MARGIN,
+          paddingLeft: 40,
+          paddingRight: 40,
         }}
       >
-        <span
-          style={{
-            fontSize: 11,
-            fontWeight: 500,
-            letterSpacing: "0.25em",
-            textTransform: "uppercase",
-            color: theme.muted,
-          }}
-        >
-          {standings.length} Players
-        </span>
+        {commentators && (
+          <div className="flex items-center gap-2">
+            <Mic size={14} color={theme.accent} strokeWidth={2} />
+            <span
+              style={{
+                fontFamily: FONT,
+                fontSize: 14,
+                color: theme.muted,
+                letterSpacing: "0.02em",
+              }}
+            >
+              {commentators}
+            </span>
+          </div>
+        )}
       </div>
 
       <style>{`

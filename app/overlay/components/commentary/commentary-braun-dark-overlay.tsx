@@ -216,7 +216,7 @@ export default function CommentaryBraunDarkOverlay({
             }}
           >
             {tournamentInfo?.eventName ?? "EVENT"}{" "}
-            <span style={{ color: theme.accent }}>|</span> PREMODERN
+            {/* <span style={{ color: theme.accent }}>|</span> PREMODERN */}
           </div>
         </div>
       </div>
