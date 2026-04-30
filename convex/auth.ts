@@ -18,7 +18,7 @@ const ResendMagicLink = Resend({
     // Construct our own URL pointing to the verification page
     // The 'url' param contains the origin, but we want to use our custom page
     const origin = new URL(url).origin;
-    const magicLink = `${origin}/verify-email?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
+    const magicLink = `${origin}/login/verify-email?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
 
     const { error } = await resend.emails.send({
       from: "Duress Crew <email@verification.manastream.app>",
@@ -60,7 +60,7 @@ const ResendPasswordReset = Resend({
     const resend = new ResendAPI(provider.apiKey);
     // Construct our own URL pointing to the password reset confirmation page
     const origin = new URL(url).origin;
-    const resetLink = `${origin}/reset-password/confirm?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
+    const resetLink = `${origin}/login/reset-password/confirm?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
 
     const { error } = await resend.emails.send({
       from: "Duress Crew <email@verification.manastream.app>",

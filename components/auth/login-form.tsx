@@ -21,12 +21,19 @@ import { useState } from "react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import Link from "next/link";
 import { GoogleLogo } from "./GoogleLogo";
+import { useRouter } from "next/navigation";
+import {
+  getPasswordAuthFlow,
+  getPasswordAuthSuccessResult,
+  shouldShowInlineAuthError,
+} from "./login-form-flow";
 
 export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
   const { signIn } = useAuthActions();
+  const router = useRouter();
   const [step, setStep] = useState<"login" | "signup" | { email: string }>(
     "login",
   );
@@ -68,6 +75,7 @@ export function LoginForm({
           <form
             onSubmit={(e) => {
               e.preventDefault();
+              setError(null);
 
               // Validate passwords for signup
               if (
@@ -78,12 +86,26 @@ export function LoginForm({
               }
 
               const formData = new FormData(e.currentTarget);
+              formData.set("flow", getPasswordAuthFlow(step));
               void signIn("password", formData)
-                .then(() => {
-                  setStep({ email: formData.get("email") as string });
+                .then((result) => {
+                  const authResult = getPasswordAuthSuccessResult({
+                    step,
+                    signingIn: result.signingIn,
+                    email: formData.get("email") as string,
+                  });
+                  if (authResult.type === "redirect") {
+                    router.push(authResult.href);
+                    return;
+                  }
+                  setStep({ email: authResult.email });
                 })
                 .catch((error) => {
-                  setError(error.message);
+                  setError(
+                    error instanceof Error
+                      ? error.message
+                      : "Unable to sign in. Please try again.",
+                  );
                 });
             }}
           >
@@ -110,7 +132,7 @@ export function LoginForm({
                   <FieldLabel htmlFor="password">Password</FieldLabel>
                   {step === "login" && (
                     <Link
-                      href="/reset-password"
+                      href="/login/reset-password"
                       className="ml-auto text-sm underline-offset-4 hover:underline"
                     >
                       Forgot your password?
@@ -139,9 +161,9 @@ export function LoginForm({
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
                   />
-                  {(passwordError || error) && (
+                  {passwordError && (
                     <FieldDescription className="text-red-500">
-                      {passwordError || error}
+                      {passwordError}
                     </FieldDescription>
                   )}
                 </Field>
@@ -150,6 +172,14 @@ export function LoginForm({
                 <Button type="submit">
                   {step === "login" ? "Login" : "Sign up"}
                 </Button>
+                {shouldShowInlineAuthError(step, error) && (
+                  <FieldDescription
+                    className="text-center text-red-500"
+                    aria-live="polite"
+                  >
+                    {error}
+                  </FieldDescription>
+                )}
                 <FieldDescription className="text-center">
                   {step === "login"
                     ? "Don't have an account?"
