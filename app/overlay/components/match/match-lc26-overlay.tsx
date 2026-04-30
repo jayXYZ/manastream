@@ -50,7 +50,7 @@ const CARD_WIDTH = 300;
 const GUTTER = 32;
 const CARD_ASPECT_W = 745;
 const CARD_ASPECT_H = 1040;
-const P2_CARD_LOGO_MAX_WIDTH = "55%";
+const P2_CARD_LOGO_MAX_WIDTH = "70%";
 const CARD_LOGO_MAX_HEIGHT = "70%";
 
 // ── Bezel border tokens ──
@@ -116,7 +116,7 @@ function GameWinDot({ won, index }: { won: number; index: number }) {
         height: 24,
         borderRadius: "50%",
         background: index < won ? "white" : "transparent",
-        border: "1.5px solid white",
+        border: "2px solid white",
         transition: "all 0.3s ease",
       }}
     />
@@ -428,7 +428,7 @@ export default function MatchLC26Overlay({
           <div
             style={{
               fontFamily: `${plantinItalic.style.fontFamily}, sans-serif`,
-              fontSize: 24,
+              fontSize: 36,
               color: "black",
               fontWeight: 600,
             }}
@@ -438,9 +438,9 @@ export default function MatchLC26Overlay({
           <div
             style={{
               fontFamily: `${plantinRegular.style.fontFamily}, sans-serif`,
-              fontSize: 24,
+              fontSize: 32,
               color: "black",
-              textAlign: "right",
+              textAlign: "center",
               lineHeight: 1.2,
             }}
           >
@@ -451,7 +451,7 @@ export default function MatchLC26Overlay({
           <div
             style={{
               fontFamily: `${plantinItalic.style.fontFamily}, sans-serif`,
-              fontSize: 24,
+              fontSize: 36,
               color: "black",
               fontWeight: 600,
             }}
@@ -461,9 +461,9 @@ export default function MatchLC26Overlay({
           <div
             style={{
               fontFamily: `${plantinRegular.style.fontFamily}, sans-serif`,
-              fontSize: 24,
+              fontSize: 32,
               color: "black",
-              textAlign: "right",
+              textAlign: "center",
               lineHeight: 1.2,
             }}
           >
@@ -713,9 +713,21 @@ export default function MatchLC26Overlay({
             letterSpacing: "0.05em",
             textTransform: "uppercase",
             textShadow: "2px 2px 2px black",
+            alignItems: "baseline",
           }}
         >
-          LOBSTERCON 2026
+          LOBSTERCON
+          <span
+            style={{
+              display: "inline-block",
+              lineHeight: 1,
+              transform: "scaleY(1.16)",
+              transformOrigin: "bottom center",
+              marginLeft: "0.28em",
+            }}
+          >
+            2026
+          </span>
         </div>
       </div>
       {/* ── LOGO ── */}
