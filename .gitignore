@@ -40,5 +40,13 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# local AI agent tooling
+/.agents/
+/.claude/
+/convex/_generated/ai/
+/AGENTS.md
+/CLAUDE.md
+/skills-lock.json
+
 # Ignored for the template, you probably want to remove it:
 package-lock.json

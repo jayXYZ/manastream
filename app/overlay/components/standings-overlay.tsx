@@ -2,33 +2,40 @@
 
 import { api } from "@/convex/_generated/api";
 import { StandingsOverlay as StandingsOverlayType } from "@/convex/types";
+import {
+  getBraunDarkPalette,
+  type BraunDarkPalette,
+} from "@/lib/braun-dark-palettes";
 import { useQuery } from "convex/react";
+import { Mic } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 
 const PAGE_SIZE = 16;
 
-const THEME = {
-  surface: "#1C1B19",
-  text: "#D4CFC5",
-  muted: "#918A84",
-  accent: "#E8642C",
-  rule: "rgba(210,200,185,0.18)",
-  rowAlt: "rgba(210,200,185,0.025)",
-};
-
 const FONT = "'Instrument Sans', 'Helvetica Neue', sans-serif";
 const TOP_BAR = 120;
 const BOTTOM_BAR = 48;
-const SIDE_MARGIN = 80;
+const SIDE_MARGIN = 140;
+const TABLE_PADDING_TOP = 28;
+const TABLE_PADDING_BOTTOM = 18;
+const HEADER_HEIGHT = 32;
+const ROW_HEIGHT = 48;
 
 export default function StandingsOverlay({
   data,
 }: {
   data: StandingsOverlayType;
 }) {
+  const theme = getBraunDarkPalette(data.braunDarkPalette);
   const tournamentInfo = useQuery(api.tournaments.getTournamentInfo, {
     tournamentId: data.tournamentId,
   });
+  const commentators = [
+    tournamentInfo?.commentatorLeft,
+    tournamentInfo?.commentatorRight,
+  ]
+    .filter(Boolean)
+    .join(" & ");
 
   const standings = data.standingsDataWithPlayers ?? [];
   const searchParams = useSearchParams();
@@ -48,14 +55,14 @@ export default function StandingsOverlay({
   return (
     <div
       className="w-[1920px] h-[1080px] relative overflow-hidden"
-      style={{ background: THEME.surface, color: THEME.text, fontFamily: FONT }}
+      style={{ background: theme.surface, color: theme.text, fontFamily: FONT }}
     >
       {/* ── TOP BAR ── */}
       <div
         className="absolute top-0 left-0 right-0 flex items-center"
         style={{
           height: TOP_BAR,
-          borderBottom: `1px solid ${THEME.rule}`,
+          borderBottom: `1px solid ${theme.rule}`,
           paddingLeft: SIDE_MARGIN,
           paddingRight: SIDE_MARGIN,
         }}
@@ -65,12 +72,12 @@ export default function StandingsOverlay({
             style={{
               fontSize: 56,
               fontWeight: 600,
-              letterSpacing: "-0.02em",
+              letterSpacing: 0,
               lineHeight: 1,
-              color: THEME.text,
+              color: theme.text,
             }}
           >
-            Standings
+            {tournamentInfo?.eventName ?? ""}
           </span>
           <span
             style={{
@@ -78,7 +85,7 @@ export default function StandingsOverlay({
               fontWeight: 500,
               letterSpacing: "0.18em",
               textTransform: "uppercase",
-              color: THEME.accent,
+              color: theme.accent,
             }}
           >
             {tournamentInfo?.currentRoundDisplayName ?? ""}
@@ -86,25 +93,15 @@ export default function StandingsOverlay({
         </div>
 
         <div className="ml-auto flex items-center gap-4">
-          <div
-            style={{
-              width: 24,
-              height: 2,
-              background: THEME.accent,
-              borderRadius: 1,
-            }}
-          />
           <span
             style={{
               fontSize: 13,
               fontWeight: 500,
               letterSpacing: "0.25em",
               textTransform: "uppercase",
-              color: THEME.muted,
+              color: theme.muted,
             }}
-          >
-            {tournamentInfo?.eventName ?? ""}
-          </span>
+          ></span>
         </div>
       </div>
 
@@ -116,35 +113,43 @@ export default function StandingsOverlay({
           bottom: BOTTOM_BAR,
           paddingLeft: SIDE_MARGIN,
           paddingRight: SIDE_MARGIN,
-          paddingTop: 36,
-          paddingBottom: 24,
+          paddingTop: TABLE_PADDING_TOP,
+          paddingBottom: TABLE_PADDING_BOTTOM,
         }}
       >
         <div
           className="grid w-full"
           style={{
-            gridTemplateColumns: "120px 1fr 1fr 200px",
-            columnGap: 32,
+            gridTemplateColumns: "100px minmax(0, 1fr) minmax(0, 1fr) 170px",
+            columnGap: 28,
             rowGap: 0,
           }}
         >
           {/* Header */}
-          <HeaderCell align="left">Rank</HeaderCell>
-          <HeaderCell align="left">Name</HeaderCell>
-          <HeaderCell align="left">Deck</HeaderCell>
-          <HeaderCell align="right">Record</HeaderCell>
+          <HeaderCell align="left" theme={theme}>
+            Rank
+          </HeaderCell>
+          <HeaderCell align="left" theme={theme}>
+            Name
+          </HeaderCell>
+          <HeaderCell align="left" theme={theme}>
+            Deck
+          </HeaderCell>
+          <HeaderCell align="right" theme={theme}>
+            Record
+          </HeaderCell>
 
           {paginatedStandings.map((standing, idx) => {
-            const rowBg = idx % 2 === 1 ? THEME.rowAlt : "transparent";
+            const rowBg = idx % 2 === 1 ? theme.rowAlt : "transparent";
             return (
-              <Row key={standing.player_id} bg={rowBg}>
+              <Row key={standing.player_id} bg={rowBg} theme={theme}>
                 <Cell align="left">
                   <span
                     style={{
-                      fontSize: 32,
+                      fontSize: 28,
                       fontWeight: 600,
-                      letterSpacing: "-0.01em",
-                      color: THEME.text,
+                      letterSpacing: 0,
+                      color: theme.text,
                       fontVariantNumeric: "tabular-nums",
                     }}
                   >
@@ -154,10 +159,10 @@ export default function StandingsOverlay({
                 <Cell align="left">
                   <span
                     style={{
-                      fontSize: 30,
+                      fontSize: 28,
                       fontWeight: 500,
-                      letterSpacing: "-0.01em",
-                      color: THEME.text,
+                      letterSpacing: 0,
+                      color: theme.text,
                     }}
                   >
                     {standing.name}
@@ -166,9 +171,9 @@ export default function StandingsOverlay({
                 <Cell align="left">
                   <span
                     style={{
-                      fontSize: 26,
+                      fontSize: 24,
                       fontWeight: 400,
-                      color: THEME.muted,
+                      color: theme.muted,
                       letterSpacing: "0.01em",
                     }}
                   >
@@ -178,9 +183,9 @@ export default function StandingsOverlay({
                 <Cell align="right">
                   <span
                     style={{
-                      fontSize: 30,
+                      fontSize: 28,
                       fontWeight: 500,
-                      color: THEME.text,
+                      color: theme.text,
                       fontVariantNumeric: "tabular-nums",
                       letterSpacing: "0.02em",
                     }}
@@ -203,22 +208,27 @@ export default function StandingsOverlay({
         className="absolute bottom-0 left-0 right-0 flex items-center"
         style={{
           height: BOTTOM_BAR,
-          borderTop: `1px solid ${THEME.rule}`,
-          paddingLeft: SIDE_MARGIN,
-          paddingRight: SIDE_MARGIN,
+          background: theme.surface,
+          borderTop: `1px solid ${theme.rule}`,
+          paddingLeft: 40,
+          paddingRight: 40,
         }}
       >
-        <span
-          style={{
-            fontSize: 11,
-            fontWeight: 500,
-            letterSpacing: "0.25em",
-            textTransform: "uppercase",
-            color: THEME.muted,
-          }}
-        >
-          {standings.length} Players
-        </span>
+        {commentators && (
+          <div className="flex items-center gap-2">
+            <Mic size={14} color={theme.accent} strokeWidth={2} />
+            <span
+              style={{
+                fontFamily: FONT,
+                fontSize: 14,
+                color: theme.muted,
+                letterSpacing: "0.02em",
+              }}
+            >
+              {commentators}
+            </span>
+          </div>
+        )}
       </div>
 
       <style>{`
@@ -231,21 +241,28 @@ export default function StandingsOverlay({
 function HeaderCell({
   children,
   align,
+  theme,
 }: {
   children: React.ReactNode;
   align: "left" | "right";
+  theme: BraunDarkPalette;
 }) {
   return (
     <div
       style={{
-        padding: "0 16px 14px 16px",
-        borderBottom: `1px solid ${THEME.rule}`,
+        padding: "0 12px",
+        height: HEADER_HEIGHT,
+        boxSizing: "border-box",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: align === "right" ? "flex-end" : "flex-start",
+        borderBottom: `1px solid ${theme.rule}`,
         textAlign: align,
         fontSize: 13,
         fontWeight: 500,
         letterSpacing: "0.25em",
         textTransform: "uppercase",
-        color: THEME.muted,
+        color: theme.muted,
       }}
     >
       {children}
@@ -256,9 +273,11 @@ function HeaderCell({
 function Row({
   children,
   bg,
+  theme,
 }: {
   children: React.ReactNode;
   bg: string;
+  theme: BraunDarkPalette;
 }) {
   return (
     <div
@@ -273,7 +292,10 @@ function Row({
               key={i}
               style={{
                 background: bg,
-                borderBottom: `1px solid ${THEME.rule}`,
+                borderBottom: `1px solid ${theme.rule}`,
+                height: ROW_HEIGHT,
+                boxSizing: "border-box",
+                overflow: "hidden",
               }}
             >
               {child}
@@ -294,11 +316,12 @@ function Cell({
   return (
     <div
       style={{
-        height: 56,
+        height: "100%",
         display: "flex",
         alignItems: "center",
         justifyContent: align === "right" ? "flex-end" : "flex-start",
-        padding: "0 16px",
+        padding: "0 12px",
+        minWidth: 0,
       }}
     >
       {children}

@@ -15,18 +15,10 @@ export default function OverlayPreview({
   overlayType,
   className = "",
 }: OverlayPreviewProps) {
-  const [isLoading, setIsLoading] = useState(!!overlayUrl);
+  const [loadedOverlayUrl, setLoadedOverlayUrl] = useState<string | null>(null);
   const [containerSize, setContainerSize] = useState({ width: 480, height: 270 });
   const containerRef = useRef<HTMLDivElement>(null);
-  const prevOverlayUrlRef = useRef(overlayUrl);
-
-  // Synchronously detect overlay change and set loading state during render
-  if (prevOverlayUrlRef.current !== overlayUrl) {
-    prevOverlayUrlRef.current = overlayUrl;
-    if (overlayUrl && !isLoading) {
-      setIsLoading(true);
-    }
-  }
+  const isLoading = !!overlayUrl && loadedOverlayUrl !== overlayUrl;
 
   // Determine original dimensions based on overlay type
   const isCardOverlay = overlayType === "card";
@@ -101,7 +93,7 @@ export default function OverlayPreview({
           <iframe
             key={overlayUrl}
             src={overlayUrl}
-            onLoad={() => setIsLoading(false)}
+            onLoad={() => setLoadedOverlayUrl(overlayUrl)}
             style={{
               width: `${originalWidth}px`,
               height: `${originalHeight}px`,

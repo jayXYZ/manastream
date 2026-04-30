@@ -32,15 +32,40 @@ export function parseCurrentSpicerackRound(
     return undefined;
   }
 
-  const currentRound = currentPhase.rounds.find(
-    (round) =>
-      round.status === "IN_PROGRESS" ||
-      (round.status === "UPCOMING" && round.matches.length > 0),
+  const inProgressRoundIndex = currentPhase.rounds.findIndex(
+    (round) => round.status === "IN_PROGRESS",
   );
+
+  if (inProgressRoundIndex >= 0) {
+    const inProgressRound = currentPhase.rounds[inProgressRoundIndex];
+    const nextRound = currentPhase.rounds[inProgressRoundIndex + 1];
+    if (
+      roundHasAllMatchesComplete(inProgressRound) &&
+      roundIsUpcomingWithMatches(nextRound)
+    ) {
+      return nextRound;
+    }
+    return inProgressRound;
+  }
+
+  const currentRound = currentPhase.rounds.find(roundIsUpcomingWithMatches);
   if (!currentRound) {
     return undefined;
   }
   return currentRound;
+}
+
+function roundHasAllMatchesComplete(round: SpicerackRound): boolean {
+  return (
+    round.matches.length > 0 &&
+    round.matches.every((match) => match.status === "COMPLETE")
+  );
+}
+
+function roundIsUpcomingWithMatches(
+  round: SpicerackRound | undefined,
+): round is SpicerackRound {
+  return !!round && round.status === "UPCOMING" && round.matches.length > 0;
 }
 
 export function getRoundDisplayName(
@@ -70,15 +95,7 @@ export function getRoundDisplayName(
     phase.round_type === "RANKED_SINGLE_ELIMINATION"
   ) {
     // TODO: Make this more adaptable to single elim cuts that aren't just top 8's
-    const swissPhase = jsonData.tournament_phases.find(
-      (phase) => phase.round_type === "SWISS",
-    ) || { rounds: [] };
-    // Use the round_number of the last round, not the array length
-    // This correctly handles the player meeting (round 0) being in the array
-    const swissLength =
-      swissPhase.rounds.length > 0
-        ? swissPhase.rounds[swissPhase.rounds.length - 1].round_number
-        : 0;
+    const swissLength = getLastSwissRoundNumberBeforePhase(jsonData, phase);
 
     switch (round.round_number - swissLength) {
       case 1:
@@ -117,15 +134,10 @@ export function getCurrentRoundDisplayName(
     currentPhase.round_type === "RANKED_SINGLE_ELIMINATION"
   ) {
     // TODO: Make this more adaptable to single elim cuts that aren't just top 8's
-    const swissPhase = jsonData.tournament_phases.find(
-      (phase) => phase.round_type === "SWISS",
-    ) || { rounds: [] };
-    // Use the round_number of the last round, not the array length
-    // This correctly handles the player meeting (round 0) being in the array
-    const swissLength =
-      swissPhase.rounds.length > 0
-        ? swissPhase.rounds[swissPhase.rounds.length - 1].round_number
-        : 0;
+    const swissLength = getLastSwissRoundNumberBeforePhase(
+      jsonData,
+      currentPhase,
+    );
     switch (currentRound.round_number - swissLength) {
       case 1:
         return "Quarterfinals";
@@ -137,6 +149,33 @@ export function getCurrentRoundDisplayName(
         return "Round " + currentRound.round_number;
     }
   }
+
+  return "Round " + currentRound.round_number;
+}
+
+function getLastSwissRoundNumberBeforePhase(
+  jsonData: SpicerackEventResponse,
+  targetPhase: SpicerackTournamentPhase,
+): number {
+  const targetPhaseIndex = jsonData.tournament_phases.findIndex(
+    (phase) => phase.id === targetPhase.id,
+  );
+  const phasesBeforeTarget =
+    targetPhaseIndex >= 0
+      ? jsonData.tournament_phases.slice(0, targetPhaseIndex)
+      : jsonData.tournament_phases;
+
+  return phasesBeforeTarget.reduce((lastSwissRoundNumber, phase) => {
+    if (phase.round_type !== "SWISS") {
+      return lastSwissRoundNumber;
+    }
+
+    return phase.rounds.reduce(
+      (phaseLastSwissRoundNumber, round) =>
+        Math.max(phaseLastSwissRoundNumber, round.round_number),
+      lastSwissRoundNumber,
+    );
+  }, 0);
 }
 
 /**

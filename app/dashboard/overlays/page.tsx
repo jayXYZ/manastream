@@ -2,12 +2,13 @@
 
 import { api } from "@/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   CommentaryOverlay,
   DeckOverlay,
   MatchOverlay,
   Overlay,
+  StandingsOverlay,
   TemplateType,
 } from "@/convex/types";
 import OverlaysTable from "./components/overlays-table";
@@ -22,15 +23,53 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Save, ExternalLink, Copy, Check, Proportions } from "lucide-react";
-import {
-  getAvailableTemplates,
-} from "@/lib/overlay-templates";
+import { getAvailableTemplates } from "@/lib/overlay-templates";
 import { Id } from "@/convex/_generated/dataModel";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  BRAUN_DARK_PALETTE_OPTIONS,
+  DEFAULT_BRAUN_DARK_PALETTE,
+  type BraunDarkPaletteName,
+} from "@/lib/braun-dark-palettes";
+
+function getInitialTemplate(overlay: Overlay | null): TemplateType | undefined {
+  if (!overlay) return undefined;
+
+  if (overlay.overlayType === "match" || overlay.overlayType === "commentary") {
+    return overlay.template as TemplateType;
+  }
+
+  if (overlay.overlayType === "card") {
+    return ((overlay as { template?: string }).template ??
+      "Default") as TemplateType;
+  }
+
+  if (overlay.overlayType === "deck") {
+    return ((overlay as { template?: string }).template ??
+      "Duress Crew") as TemplateType;
+  }
+
+  return undefined;
+}
+
+function getInitialBraunDarkPalette(
+  overlay: Overlay | null,
+): BraunDarkPaletteName {
+  return (
+    (overlay as (Overlay & { braunDarkPalette?: BraunDarkPaletteName }) | null)
+      ?.braunDarkPalette ?? DEFAULT_BRAUN_DARK_PALETTE
+  );
+}
+
+function isBraunDarkTemplate(
+  template: TemplateType | undefined,
+): template is "Braun Dark" | "Braun Dark Duo" {
+  return template === "Braun Dark" || template === "Braun Dark Duo";
+}
 
 export default function OverlaysPage() {
   const tournament = useQuery(api.tournaments.getUserTournament);
@@ -39,13 +78,14 @@ export default function OverlaysPage() {
   const [selectedPlayerNumber, setSelectedPlayerNumber] = useState<
     1 | 2 | null
   >(null);
-  const [selectedOverlayUrl, setSelectedOverlayUrl] = useState<string | null>(
-    null,
-  );
-  const [origin, setOrigin] = useState<string>("");
   const [selectedTemplate, setSelectedTemplate] = useState<
     TemplateType | undefined
   >(undefined);
+  const [selectedBraunDarkPalette, setSelectedBraunDarkPalette] =
+    useState<BraunDarkPaletteName>(DEFAULT_BRAUN_DARK_PALETTE);
+  const [origin] = useState(() =>
+    typeof window === "undefined" ? "" : window.location.origin,
+  );
   const setMatchOverlaySettings = useMutation(
     api.overlays.setMatchOverlaySettings,
   );
@@ -58,76 +98,63 @@ export default function OverlaysPage() {
   const setDeckOverlaySettings = useMutation(
     api.overlays.setDeckOverlaySettings,
   );
+  const setStandingsOverlaySettings = useMutation(
+    api.overlays.setStandingsOverlaySettings,
+  );
 
   const handleSaveTemplate = () => {
-    if (selectedOverlay && selectedTemplate) {
+    if (selectedOverlay) {
+      const braunDarkPalette =
+        isBraunDarkTemplate(selectedTemplate) ||
+        selectedOverlay.overlayType === "standings"
+          ? selectedBraunDarkPalette
+          : undefined;
+
       if (selectedOverlay.overlayType === "match") {
+        if (!selectedTemplate) return;
         setMatchOverlaySettings({
           overlayId: selectedOverlay._id as Id<"overlays">,
           template: selectedTemplate as MatchOverlay["template"],
+          ...(braunDarkPalette ? { braunDarkPalette } : {}),
         });
       } else if (selectedOverlay.overlayType === "commentary") {
+        if (!selectedTemplate) return;
         setCommentaryOverlaySettings({
           overlayId: selectedOverlay._id as Id<"overlays">,
           template: selectedTemplate as CommentaryOverlay["template"],
+          ...(braunDarkPalette ? { braunDarkPalette } : {}),
         });
       } else if (selectedOverlay.overlayType === "card") {
+        if (!selectedTemplate) return;
         setCardOverlaySettings({
           overlayId: selectedOverlay._id as Id<"overlays">,
           template: selectedTemplate as "Default" | "Braun Dark",
+          ...(braunDarkPalette ? { braunDarkPalette } : {}),
         });
       } else if (selectedOverlay.overlayType === "deck") {
+        if (!selectedTemplate) return;
         setDeckOverlaySettings({
           overlayId: selectedOverlay._id as Id<"overlays">,
           template: selectedTemplate as DeckOverlay["template"],
+          ...(braunDarkPalette ? { braunDarkPalette } : {}),
+        });
+      } else if (selectedOverlay.overlayType === "standings") {
+        setStandingsOverlaySettings({
+          overlayId: selectedOverlay._id as Id<"overlays">,
+          braunDarkPalette:
+            selectedBraunDarkPalette as StandingsOverlay["braunDarkPalette"],
         });
       }
     }
   };
 
-  // Initialize selected template when overlay changes
-  useEffect(() => {
-    if (selectedOverlay) {
-      if (
-        selectedOverlay.overlayType === "match" ||
-        selectedOverlay.overlayType === "commentary"
-      ) {
-        setSelectedTemplate(selectedOverlay.template as TemplateType);
-      } else if (selectedOverlay.overlayType === "card") {
-        setSelectedTemplate(
-          ((selectedOverlay as { template?: string }).template ??
-            "Default") as TemplateType,
-        );
-      } else if (selectedOverlay.overlayType === "deck") {
-        setSelectedTemplate(
-          ((selectedOverlay as { template?: string }).template ??
-            "Duress Crew") as TemplateType,
-        );
-      } else {
-        setSelectedTemplate(undefined);
-      }
-    } else {
-      setSelectedTemplate(undefined);
-    }
-  }, [selectedOverlay]);
-
-  useEffect(() => {
-    setOrigin(window.location.origin);
-  }, []);
-
-  // Update the overlay URL when selection changes
-  useEffect(() => {
-    if (selectedOverlay) {
-      const baseUrl = `${origin}/overlay/${selectedOverlay.publicUuid}`;
-      if (selectedOverlay.overlayType === "deck" && selectedPlayerNumber) {
-        setSelectedOverlayUrl(`${baseUrl}?player=${selectedPlayerNumber}`);
-      } else {
-        setSelectedOverlayUrl(baseUrl);
-      }
-    } else {
-      setSelectedOverlayUrl(null);
-    }
-  }, [selectedOverlay, selectedPlayerNumber, origin]);
+  const selectedOverlayUrl = selectedOverlay
+    ? `${origin}/overlay/${selectedOverlay.publicUuid}${
+        selectedOverlay.overlayType === "deck" && selectedPlayerNumber
+          ? `?player=${selectedPlayerNumber}`
+          : ""
+      }`
+    : null;
 
   if (!tournament || !overlays) {
     return (
@@ -156,6 +183,8 @@ export default function OverlaysPage() {
             setSelectedOverlay={(overlay, playerNumber) => {
               setSelectedOverlay(overlay);
               setSelectedPlayerNumber(playerNumber ?? null);
+              setSelectedTemplate(getInitialTemplate(overlay));
+              setSelectedBraunDarkPalette(getInitialBraunDarkPalette(overlay));
             }}
           />
         </div>
@@ -179,6 +208,8 @@ export default function OverlaysPage() {
             selectedOverlayUrl={selectedOverlayUrl}
             selectedTemplate={selectedTemplate}
             setSelectedTemplate={setSelectedTemplate}
+            selectedBraunDarkPalette={selectedBraunDarkPalette}
+            setSelectedBraunDarkPalette={setSelectedBraunDarkPalette}
             handleSaveTemplate={handleSaveTemplate}
           />
         </div>
@@ -193,27 +224,27 @@ function OverlayDetailsPanel({
   selectedOverlayUrl,
   selectedTemplate,
   setSelectedTemplate,
+  selectedBraunDarkPalette,
+  setSelectedBraunDarkPalette,
   handleSaveTemplate,
 }: {
   selectedOverlay: Overlay | null;
   selectedOverlayUrl: string | null;
   selectedTemplate: TemplateType | undefined;
   setSelectedTemplate: (template: TemplateType) => void;
+  selectedBraunDarkPalette: BraunDarkPaletteName;
+  setSelectedBraunDarkPalette: (palette: BraunDarkPaletteName) => void;
   handleSaveTemplate: () => void;
 }) {
-  const [copied, setCopied] = useState(false);
-
-  // Reset copied state when the selected overlay URL changes
-  useEffect(() => {
-    setCopied(false);
-  }, [selectedOverlayUrl]);
+  const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
+  const copied = copiedUrl === selectedOverlayUrl;
 
   const handleCopyUrl = async () => {
     if (!selectedOverlayUrl || copied) return;
     try {
       await navigator.clipboard.writeText(selectedOverlayUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setCopiedUrl(selectedOverlayUrl);
+      setTimeout(() => setCopiedUrl(null), 2000);
     } catch (err) {
       console.error("Failed to copy:", err);
     }
@@ -231,6 +262,10 @@ function OverlayDetailsPanel({
 
   const hasTemplates =
     getAvailableTemplates(selectedOverlay.overlayType).length > 0;
+  const hasBraunDarkPalette =
+    selectedOverlay.overlayType === "standings" ||
+    isBraunDarkTemplate(selectedTemplate);
+  const showPaletteSaveButton = hasBraunDarkPalette && !hasTemplates;
   const resolution =
     selectedOverlay.overlayType === "card" ? "745×1040" : "1920×1080";
 
@@ -344,6 +379,43 @@ function OverlayDetailsPanel({
                 <Save className="size-3 mr-1" />
                 Save
               </Button>
+            </div>
+          </div>
+        )}
+
+        {hasBraunDarkPalette && (
+          <div className="space-y-1.5 pt-2.5 border-t border-border/50">
+            <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
+              Palette
+            </span>
+            <div className="flex items-center gap-1.5">
+              <Select
+                value={selectedBraunDarkPalette}
+                onValueChange={(value) =>
+                  setSelectedBraunDarkPalette(value as BraunDarkPaletteName)
+                }
+              >
+                <SelectTrigger className="flex-1 h-8 text-sm">
+                  <SelectValue placeholder="Select a palette" />
+                </SelectTrigger>
+                <SelectContent>
+                  {BRAUN_DARK_PALETTE_OPTIONS.map((palette) => (
+                    <SelectItem key={palette.value} value={palette.value}>
+                      {palette.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {showPaletteSaveButton && (
+                <Button
+                  size="sm"
+                  className="shrink-0 h-8"
+                  onClick={handleSaveTemplate}
+                >
+                  <Save className="size-3 mr-1" />
+                  Save
+                </Button>
+              )}
             </div>
           </div>
         )}

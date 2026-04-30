@@ -4,7 +4,10 @@ import {
   internalAction,
   mutation,
 } from "../_generated/server";
-import { spicerackRoundStandingsDataValidator } from "../validators";
+import {
+  braunDarkPaletteValidator,
+  spicerackRoundStandingsDataValidator,
+} from "../validators";
 import { updateSpicerackRoundStandingsHelper } from "../lib/spicerack/standings";
 import { fetchSpicerackRoundStandingsData } from "../lib/spicerack/api";
 import { internal } from "../_generated/api";
@@ -14,6 +17,7 @@ import {
 } from "../lib/auth";
 import { getSpicerackRoundStandingsHelper } from "../lib/spicerack/standings";
 import { createStandingsOverlayHelper } from "../lib/overlays";
+import { filterUndefined } from "../lib/utils";
 
 export const updateSpicerackRoundStandings = internalMutation({
   args: {
@@ -54,10 +58,7 @@ export const updateStandingsOverlay = mutation({
     spicerackRoundId: v.number(),
   },
   handler: async (ctx, args) => {
-    const { userId, overlay, tournament } = await requireStandingsOverlayAccess(
-      ctx,
-      args.overlayId,
-    );
+    await requireStandingsOverlayAccess(ctx, args.overlayId);
     const standings = await getSpicerackRoundStandingsHelper(
       ctx,
       args.spicerackRoundId,
@@ -66,6 +67,22 @@ export const updateStandingsOverlay = mutation({
       roundStandingsId: standings,
       spicerackRoundId: args.spicerackRoundId,
     });
+  },
+});
+
+export const setStandingsOverlaySettings = mutation({
+  args: {
+    overlayId: v.id("overlays"),
+    name: v.optional(v.string()),
+    braunDarkPalette: v.optional(braunDarkPaletteValidator),
+  },
+  handler: async (ctx, args) => {
+    await requireStandingsOverlayAccess(ctx, args.overlayId);
+
+    const { overlayId, ...updateFields } = args;
+    const updates = filterUndefined(updateFields);
+
+    await ctx.db.patch(overlayId, updates);
   },
 });
 

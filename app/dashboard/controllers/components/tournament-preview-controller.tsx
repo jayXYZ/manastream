@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import {
   Tooltip,
   TooltipContent,
@@ -150,6 +150,7 @@ export function TournamentPreviewController() {
         </CardContent>
       </Card>
       <TournamentOverlayPreviewDialog
+        key={isOpen ? "open" : "closed"}
         tournament={tournament}
         userOverlays={userOverlays}
         isOpen={isOpen}
@@ -191,38 +192,6 @@ function TournamentOverlayPreviewDialog({
     deckOverlayMatchId: deckOverlay?.matchId,
     standingsOverlayRoundId: standingsOverlay?.spicerackRoundId ?? -1,
   });
-
-  // Track previous isOpen state to detect dialog open transition
-  const prevIsOpenRef = useRef(false);
-
-  // Reset inputs only when dialog opens (transitions from closed to open)
-  useEffect(() => {
-    const justOpened = isOpen && !prevIsOpenRef.current;
-    prevIsOpenRef.current = isOpen;
-
-    if (justOpened) {
-      setInputs({
-        eventName: tournament.eventName ?? "",
-        currentRoundDisplayName: tournament.currentRoundDisplayName ?? "",
-        commentatorLeft: tournament.commentatorLeft ?? "",
-        commentatorLeftSubText: tournament.commentatorLeftSubText ?? "",
-        commentatorRight: tournament.commentatorRight ?? "",
-        commentatorRightSubText: tournament.commentatorRightSubText ?? "",
-        deckOverlayMatchId: deckOverlay?.matchId,
-        standingsOverlayRoundId: standingsOverlay?.spicerackRoundId ?? -1,
-      });
-    }
-  }, [
-    isOpen,
-    tournament.eventName,
-    tournament.currentRoundDisplayName,
-    tournament.commentatorLeft,
-    tournament.commentatorLeftSubText,
-    tournament.commentatorRight,
-    tournament.commentatorRightSubText,
-    deckOverlay?.matchId,
-    standingsOverlay?.spicerackRoundId,
-  ]);
 
   const updateDeckOverlay = useMutation(api.overlays.updateDeckOverlay);
   const updateTournament = useMutation(api.tournaments.updateTournamentInfo);

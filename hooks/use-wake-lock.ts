@@ -1,6 +1,19 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
+
+const getWakeLockSupportSnapshot = () =>
+  typeof navigator !== "undefined" && "wakeLock" in navigator;
+
+const getWakeLockServerSnapshot = () => null;
+
+const subscribeToWakeLockSupport = () => () => {};
 
 /**
  * Custom hook to manage screen wake lock functionality
@@ -8,24 +21,24 @@ import { useEffect, useRef, useState } from "react";
  */
 export function useWakeLock() {
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
-  const [isSupported, setIsSupported] = useState<boolean>(false);
+  const wakeLockSupport = useSyncExternalStore(
+    subscribeToWakeLockSupport,
+    getWakeLockSupportSnapshot,
+    getWakeLockServerSnapshot,
+  );
+  const isSupported = wakeLockSupport === true;
   const [isActive, setIsActive] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // Check if Wake Lock API is supported
-  useEffect(() => {
-    if (typeof window !== "undefined" && "wakeLock" in navigator) {
-      setIsSupported(true);
-    } else {
-      setIsSupported(false);
-      setError("Wake Lock API is not supported in this browser");
-    }
-  }, []);
+  const [wakeLockError, setWakeLockError] = useState<string | null>(null);
+  const error =
+    wakeLockError ??
+    (wakeLockSupport === false
+      ? "Wake Lock API is not supported in this browser"
+      : null);
 
   // Function to request wake lock
-  const requestWakeLock = async () => {
+  const requestWakeLock = useCallback(async () => {
     if (!isSupported) {
-      setError("Wake Lock API is not supported");
+      setWakeLockError("Wake Lock API is not supported");
       return false;
     }
 
@@ -38,7 +51,7 @@ export function useWakeLock() {
       // Request new wake lock
       wakeLockRef.current = await navigator.wakeLock.request("screen");
       setIsActive(true);
-      setError(null);
+      setWakeLockError(null);
 
       // Handle wake lock release (e.g., when tab becomes inactive)
       wakeLockRef.current.addEventListener("release", () => {
@@ -50,28 +63,28 @@ export function useWakeLock() {
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to request wake lock";
-      setError(errorMessage);
+      setWakeLockError(errorMessage);
       setIsActive(false);
       wakeLockRef.current = null;
       return false;
     }
-  };
+  }, [isSupported]);
 
   // Function to release wake lock
-  const releaseWakeLock = async () => {
+  const releaseWakeLock = useCallback(async () => {
     if (wakeLockRef.current) {
       try {
         await wakeLockRef.current.release();
         wakeLockRef.current = null;
         setIsActive(false);
-        setError(null);
+        setWakeLockError(null);
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : "Failed to release wake lock";
-        setError(errorMessage);
+        setWakeLockError(errorMessage);
       }
     }
-  };
+  }, []);
 
   // Re-request wake lock when page becomes visible again
   useEffect(() => {
@@ -92,7 +105,7 @@ export function useWakeLock() {
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [isSupported, isActive]);
+  }, [isSupported, isActive, requestWakeLock]);
 
   // Cleanup on unmount
   useEffect(() => {

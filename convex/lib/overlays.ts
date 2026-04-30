@@ -1,5 +1,8 @@
 import { Doc, Id } from "../_generated/dataModel";
 import { MutationCtx, QueryCtx } from "../_generated/server";
+import type { Infer } from "convex/values";
+import type { getOverlayByIdValidator } from "../validators";
+import { getPlayerData } from "./playerData";
 import { getPlayersForMatch } from "./players";
 import { getTournamentTimerAndRoundInfo } from "./tournaments";
 import { generatePublicUuid } from "./utils";
@@ -22,6 +25,7 @@ export async function createCardOverlayHelper(
     overlayType: "card",
     tournamentId,
     publicUuid,
+    braunDarkPalette: "Dark",
     cardUrl:
       "https://cards.scryfall.io/png/front/c/a/ca367f49-0f4a-4b7f-8104-851893fbcd8a.png?1562937711",
     createdAt: Date.now(),
@@ -48,6 +52,7 @@ export async function createCommentaryOverlayHelper(
     publicUuid,
     template: "Default",
     templateId: undefined,
+    braunDarkPalette: "Dark",
     commentatorLeft: "Commentator Left",
     commentatorLeftSubText: undefined,
     commentatorRight: "Commentator Right",
@@ -73,6 +78,7 @@ export async function createDeckOverlayHelper(
     name,
     overlayType: "deck",
     template: "Duress Crew",
+    braunDarkPalette: "Dark",
     tournamentId,
     publicUuid,
     matchId: undefined,
@@ -98,6 +104,7 @@ export async function createMatchOverlayHelper(
     overlayType: "match",
     template: "Default",
     templateId: undefined,
+    braunDarkPalette: "Dark",
     tournamentId,
     publicUuid,
     player1: undefined,
@@ -106,6 +113,8 @@ export async function createMatchOverlayHelper(
     player2Life: 20,
     player1GamesWon: 0,
     player2GamesWon: 0,
+    player1Lc26BackgroundColor: undefined,
+    player2Lc26BackgroundColor: undefined,
     createdAt: Date.now(),
   });
 
@@ -124,6 +133,7 @@ export async function createStandingsOverlayHelper(
     overlayType: "standings",
     tournamentId,
     publicUuid,
+    braunDarkPalette: "Dark",
     roundStandingsId: undefined,
     spicerackRoundId: undefined,
     createdAt: Date.now(),
@@ -190,8 +200,8 @@ export async function enrichDeckOverlay(
     ...overlay,
     matchData: {
       ...featureMatch,
-      player1Data: player1,
-      player2Data: player2,
+      player1Data: await getPlayerData(ctx, player1),
+      player2Data: await getPlayerData(ctx, player2),
     },
   };
 }
@@ -230,7 +240,7 @@ export async function enrichStandingsOverlay(
 
       return {
         ...standing,
-        playerData: player ?? undefined,
+        playerData: player ? await getPlayerData(ctx, player) : undefined,
       };
     }),
   );
@@ -241,6 +251,8 @@ export async function enrichStandingsOverlay(
   };
 }
 
+type EnrichedOverlay = Infer<typeof getOverlayByIdValidator>;
+
 /**
  * Helper function to enrich an overlay based on its type.
  * Returns the enriched overlay if it needs enrichment, otherwise returns the original overlay.
@@ -248,7 +260,7 @@ export async function enrichStandingsOverlay(
 export async function enrichOverlay(
   ctx: QueryCtx,
   overlay: Doc<"overlays">,
-): Promise<any> {
+): Promise<EnrichedOverlay> {
   if (overlay.overlayType === "match") {
     return await enrichMatchOverlay(ctx, overlay);
   }

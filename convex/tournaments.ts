@@ -4,7 +4,6 @@ import {
   mutation,
   query,
 } from "./_generated/server";
-import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { filterUndefined } from "./lib/utils";
@@ -34,7 +33,7 @@ export const createTournament = internalMutation({
 export const getUserTournament = query({
   args: {},
   returns: v.union(v.any(), v.null()),
-  handler: async (ctx, args) => {
+  handler: async (ctx) => {
     return await getOwnTournament(ctx);
   },
 });
@@ -86,11 +85,16 @@ export const setTournamentTimer = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    const tournament = await requireTournamentAccess(ctx, args.tournamentId);
+    await requireTournamentAccess(ctx, args.tournamentId);
 
     const { tournamentId, ...updateFields } = args;
     // Handle manualTimerPausedAt separately to allow clearing (null) or setting (number)
-    const updates: Record<string, any> = {};
+    const updates: {
+      manualTimerExpiry?: number;
+      manualTimerRunning?: boolean;
+      manualTimerPausedAt?: number | null;
+      manualTimerCountDirection?: "up" | "down";
+    } = {};
     if (updateFields.manualTimerExpiry !== undefined) {
       updates.manualTimerExpiry = updateFields.manualTimerExpiry;
     }
@@ -121,10 +125,16 @@ export const updateTournamentInfo = mutation({
     commentatorRightSubText: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const tournament = await requireTournamentAccess(ctx, args.tournamentId);
+    await requireTournamentAccess(ctx, args.tournamentId);
 
-    const { tournamentId, ...updateFields } = args;
-    const updates = filterUndefined(updateFields);
+    const updates = filterUndefined({
+      eventName: args.eventName,
+      currentRoundDisplayName: args.currentRoundDisplayName,
+      commentatorLeft: args.commentatorLeft,
+      commentatorLeftSubText: args.commentatorLeftSubText,
+      commentatorRight: args.commentatorRight,
+      commentatorRightSubText: args.commentatorRightSubText,
+    });
 
     await ctx.db.patch(args.tournamentId, updates);
   },

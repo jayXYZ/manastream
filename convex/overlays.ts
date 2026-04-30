@@ -51,4 +51,5 @@ export {
   updateSpicerackRoundStandings,
   fetchAndUpdateSpicerackRoundStandings,
   updateStandingsOverlay,
+  setStandingsOverlaySettings,
 } from "./_overlays/standings";

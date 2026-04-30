@@ -68,6 +68,7 @@ export const featureMatchValidator = v.object({
   externalId: v.string(), // Spicerack Tournament ID + Round ID + Player 1 Name + Player 2 Name
   spicerackTournamentId: v.optional(v.number()),
   tournamentId: v.optional(v.id("tournaments")),
+  spicerackRoundId: v.optional(v.number()),
   roundNumber: v.number(),
   player1: v.id("players"),
   player2: v.id("players"),
@@ -76,6 +77,26 @@ export const featureMatchValidator = v.object({
   tableNumber: v.optional(v.number()),
   spicerackTimerExpiry: v.optional(v.number()), // Unix timestamp
   spicerackTimerRunning: v.optional(v.boolean()),
+  createdAt: v.number(),
+});
+
+export const pairingValidator = v.object({
+  _id: v.id("pairings"),
+  _creationTime: v.number(),
+  externalId: v.string(),
+  spicerackTournamentId: v.number(),
+  tournamentId: v.id("tournaments"),
+  spicerackRoundId: v.number(),
+  roundNumber: v.number(),
+  spicerackMatchId: v.number(),
+  player1: v.id("players"),
+  player2: v.id("players"),
+  player1TournamentRecord: v.string(),
+  player2TournamentRecord: v.string(),
+  player1TotalMatchPoints: v.optional(v.number()),
+  player2TotalMatchPoints: v.optional(v.number()),
+  tableNumber: v.optional(v.number()),
+  status: v.string(),
   createdAt: v.number(),
 });
 
@@ -171,6 +192,20 @@ export const overlayTypeValidator = v.union(
   v.literal("commentary"),
 );
 
+export const lc26BackgroundColorValidator = v.union(
+  v.literal("White"),
+  v.literal("Blue"),
+  v.literal("Black"),
+  v.literal("Red"),
+  v.literal("Green"),
+  v.literal("Gold"),
+);
+
+export const braunDarkPaletteValidator = v.union(
+  v.literal("Dark"),
+  v.literal("Maroon"),
+);
+
 // Different overlay validators
 export const matchOverlayValidator = v.object({
   _id: v.id("overlays"),
@@ -183,6 +218,7 @@ export const matchOverlayValidator = v.object({
     v.literal("Default"),
     v.literal("Custom"),
     v.literal("Braun Dark"),
+    v.literal("LC26"),
   ),
   templateId: v.optional(v.id("templates")),
   tournamentId: v.id("tournaments"),
@@ -200,6 +236,9 @@ export const matchOverlayValidator = v.object({
   player2DisplayDeck: v.optional(v.string()),
   player1TournamentRecord: v.optional(v.string()),
   player2TournamentRecord: v.optional(v.string()),
+  player1Lc26BackgroundColor: v.optional(lc26BackgroundColorValidator),
+  player2Lc26BackgroundColor: v.optional(lc26BackgroundColorValidator),
+  braunDarkPalette: v.optional(braunDarkPaletteValidator),
   createdAt: v.number(),
 });
 
@@ -219,6 +258,7 @@ export const cardOverlayValidator = v.object({
   name: v.string(),
   overlayType: v.literal("card"),
   template: v.optional(cardTemplatesValidator),
+  braunDarkPalette: v.optional(braunDarkPaletteValidator),
   tournamentId: v.id("tournaments"),
   publicUuid: v.string(), // Direct UUID string for public access
   cardUrl: v.string(),
@@ -231,6 +271,7 @@ export const deckOverlayValidator = v.object({
   name: v.string(),
   overlayType: v.literal("deck"),
   template: v.optional(deckTemplatesValidator),
+  braunDarkPalette: v.optional(braunDarkPaletteValidator),
   tournamentId: v.id("tournaments"),
   publicUuid: v.string(), // Direct UUID string for public access
   matchId: v.optional(v.id("featureMatches")),
@@ -243,6 +284,7 @@ export const standingsOverlayValidator = v.object({
   name: v.string(),
   overlayType: v.literal("standings"),
   tournamentId: v.id("tournaments"),
+  braunDarkPalette: v.optional(braunDarkPaletteValidator),
 
   publicUuid: v.string(), // Direct UUID string for public access
   roundStandingsId: v.optional(v.id("roundStandings")), // Reference to the round standings
@@ -266,6 +308,7 @@ export const commentaryOverlayValidator = v.object({
     v.literal("Braun Dark Duo"),
   ),
   templateId: v.optional(v.id("templates")),
+  braunDarkPalette: v.optional(braunDarkPaletteValidator),
   commentatorLeft: v.string(),
   commentatorLeftSubText: v.optional(v.string()),
   commentatorRight: v.string(),
@@ -296,6 +339,7 @@ export const matchTemplatesValidator = v.union(
   v.literal("Default"),
   v.literal("Custom"),
   v.literal("Braun Dark"),
+  v.literal("LC26"),
 );
 
 export const commentaryTemplatesValidator = v.union(
@@ -319,8 +363,36 @@ export const playerValidator = v.object({
   _creationTime: v.number(),
   name: v.string(),
   spicerackPlayerId: v.number(),
+  // Deprecated during player data split migration. Use playerStatuses.
+  registrationStatus: v.optional(v.string()),
   tournamentId: v.optional(v.id("tournaments")),
   spicerackTournamentId: v.optional(v.number()),
+  // Deprecated during player data split migration. Use playerDecklists.
+  deckId: v.optional(v.number()),
+  decklistStatus: v.optional(decklistStatusValidator),
+  deckName: v.optional(v.string()), // Archetype name
+  deckList: v.optional(v.string()), // Plaintext deck list
+  deckCardsStatus: v.optional(deckCardsStatusValidator),
+  deckCards: v.optional(resolvedDeckCardsValidator),
+  updatedAt: v.number(),
+});
+
+export const playerStatusValidator = v.object({
+  _id: v.id("playerStatuses"),
+  _creationTime: v.number(),
+  playerId: v.id("players"),
+  spicerackTournamentId: v.number(),
+  spicerackPlayerId: v.number(),
+  registrationStatus: v.optional(v.string()),
+  updatedAt: v.number(),
+});
+
+export const playerDecklistValidator = v.object({
+  _id: v.id("playerDecklists"),
+  _creationTime: v.number(),
+  playerId: v.id("players"),
+  spicerackTournamentId: v.number(),
+  spicerackPlayerId: v.number(),
   deckId: v.number(),
   decklistStatus: v.optional(decklistStatusValidator),
   deckName: v.string(), // Archetype name
@@ -328,6 +400,40 @@ export const playerValidator = v.object({
   deckCardsStatus: v.optional(deckCardsStatusValidator),
   deckCards: v.optional(resolvedDeckCardsValidator),
   updatedAt: v.number(),
+});
+
+export const playerWithDataValidator = v.object({
+  ...playerValidator.fields,
+  registrationStatus: v.optional(v.string()),
+  deckId: v.number(),
+  decklistStatus: v.optional(decklistStatusValidator),
+  deckName: v.string(),
+  deckList: v.string(),
+});
+
+export const rankedPairingWithPlayersValidator = v.object({
+  ...pairingValidator.fields,
+  player1Data: v.optional(playerWithDataValidator),
+  player2Data: v.optional(playerWithDataValidator),
+  rank: v.number(),
+  player1MacroArchetype: v.optional(v.string()),
+  player2MacroArchetype: v.optional(v.string()),
+  uniquenessScore: v.optional(v.number()),
+  hasKnownDecks: v.boolean(),
+});
+
+export const currentRoundPairingsResultValidator = v.object({
+  status: v.union(
+    v.literal("ready"),
+    v.literal("no_tournament"),
+    v.literal("no_spicerack_tournament"),
+    v.literal("no_current_round"),
+    v.literal("no_pairings"),
+  ),
+  roundNumber: v.optional(v.number()),
+  roundName: v.optional(v.string()),
+  pairingCount: v.number(),
+  pairings: v.array(rankedPairingWithPlayersValidator),
 });
 
 export const spicerackLogValidator = v.object({
@@ -350,8 +456,8 @@ export const spicerackLogValidator = v.object({
 // Expanded Validators
 export const matchOverlayWithPlayersValidator = v.object({
   ...matchOverlayValidator.fields,
-  player1Data: v.optional(playerValidator),
-  player2Data: v.optional(playerValidator),
+  player1Data: v.optional(playerWithDataValidator),
+  player2Data: v.optional(playerWithDataValidator),
   manualTimerExpiry: v.optional(v.number()),
   manualTimerRunning: v.optional(v.boolean()),
 });
@@ -359,8 +465,8 @@ export const matchOverlayWithPlayersValidator = v.object({
 export const featureMatchWithPlayersValidator = v.union(
   v.object({
     ...featureMatchValidator.fields,
-    player1Data: v.optional(playerValidator),
-    player2Data: v.optional(playerValidator),
+    player1Data: v.optional(playerWithDataValidator),
+    player2Data: v.optional(playerWithDataValidator),
   }),
   v.null(),
 );
@@ -376,7 +482,7 @@ export const standingsOverlayWithPlayersValidator = v.object({
     v.array(
       v.object({
         ...playerInStandingsValidator.fields,
-        playerData: v.optional(playerValidator),
+        playerData: v.optional(playerWithDataValidator),
       }),
     ),
   ),
@@ -434,6 +540,8 @@ export const updateMatchOverlayArgsValidator = v.object({
   player2DisplayDeck: v.optional(v.string()),
   player1TournamentRecord: v.optional(v.string()),
   player2TournamentRecord: v.optional(v.string()),
+  player1Lc26BackgroundColor: v.optional(lc26BackgroundColorValidator),
+  player2Lc26BackgroundColor: v.optional(lc26BackgroundColorValidator),
 });
 
 // Spicerack API Validators

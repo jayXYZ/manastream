@@ -2,6 +2,7 @@ import { api } from "@/convex/_generated/api";
 import { CommentaryOverlay as CommentaryOverlayType } from "@/convex/types";
 import { useQuery } from "convex/react";
 import Image from "next/image";
+import { getBraunDarkPalette } from "@/lib/braun-dark-palettes";
 
 /**
  * Braun Dark — Commentary Connected Bar Overlay
@@ -11,17 +12,6 @@ import Image from "next/image";
  * Follows the Braun T 1000 receiver aesthetic — matte anthracite surface,
  * warm stone type, precise bezel borders, functional orange accents.
  */
-
-// ── Dark theme palette (shared with match overlay) ──
-const THEME = {
-  surface: "#1C1B19",
-  surfaceRaised: "#222120",
-  text: "#D4CFC5",
-  muted: "#918A84",
-  accent: "#E8642C",
-  rule: "rgba(210,200,185,0.18)",
-  frameBorder: "#8A8378",
-};
 
 // ── Layout constants ──
 const BAR_WIDTH = 1200;
@@ -38,6 +28,7 @@ export default function CommentaryBraunDarkOverlay({
 }: {
   data: CommentaryOverlayType;
 }) {
+  const theme = getBraunDarkPalette(data.braunDarkPalette);
   const tournamentInfo = useQuery(api.tournaments.getTournamentInfo, {
     tournamentId: data.tournamentId,
   });
@@ -64,8 +55,8 @@ export default function CommentaryBraunDarkOverlay({
           left: BAR_LEFT,
           bottom: 40,
           width: BAR_WIDTH,
-          border: `1px solid ${THEME.frameBorder}`,
-          background: THEME.surface,
+          border: `1px solid ${theme.frameBorder}`,
+          background: theme.surface,
           boxShadow:
             "0 4px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.03)",
         }}
@@ -89,7 +80,7 @@ export default function CommentaryBraunDarkOverlay({
                 fontFamily: FONT,
                 fontSize: 40,
                 fontWeight: 500,
-                color: THEME.text,
+                color: theme.text,
                 letterSpacing: "-0.01em",
                 lineHeight: 1.15,
               }}
@@ -101,14 +92,14 @@ export default function CommentaryBraunDarkOverlay({
                 fontFamily: FONT,
                 fontSize: 20,
                 fontWeight: 400,
-                color: THEME.muted,
+                color: theme.muted,
                 letterSpacing: "0.02em",
                 marginTop: 4,
                 minHeight: 24,
                 visibility: commentatorLeftSubText ? "visible" : "hidden",
               }}
             >
-              <span style={{ color: THEME.accent }}>
+              <span style={{ color: theme.accent }}>
                 {(commentatorLeftSubText || "\u00A0").charAt(0)}
               </span>
               {(commentatorLeftSubText || "").slice(1)}
@@ -123,8 +114,8 @@ export default function CommentaryBraunDarkOverlay({
               flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              borderLeft: `1px solid ${THEME.rule}`,
-              borderRight: `1px solid ${THEME.rule}`,
+              borderLeft: `1px solid ${theme.rule}`,
+              borderRight: `1px solid ${theme.rule}`,
               gap: 6,
             }}
           >
@@ -158,7 +149,7 @@ export default function CommentaryBraunDarkOverlay({
                 fontFamily: FONT,
                 fontSize: 40,
                 fontWeight: 500,
-                color: THEME.text,
+                color: theme.text,
                 letterSpacing: "-0.01em",
                 lineHeight: 1.15,
                 textAlign: "center",
@@ -171,7 +162,7 @@ export default function CommentaryBraunDarkOverlay({
                 fontFamily: FONT,
                 fontSize: 20,
                 fontWeight: 400,
-                color: THEME.muted,
+                color: theme.muted,
                 letterSpacing: "0.02em",
                 marginTop: 4,
                 textAlign: "center",
@@ -179,7 +170,7 @@ export default function CommentaryBraunDarkOverlay({
                 visibility: commentatorRightSubText ? "visible" : "hidden",
               }}
             >
-              <span style={{ color: THEME.accent }}>
+              <span style={{ color: theme.accent }}>
                 {(commentatorRightSubText || "\u00A0").charAt(0)}
               </span>
               {(commentatorRightSubText || "").slice(1)}
@@ -193,8 +184,8 @@ export default function CommentaryBraunDarkOverlay({
             height: ACCENT_STRIP_HEIGHT,
             display: "flex",
             alignItems: "center",
-            borderTop: `1px solid ${THEME.rule}`,
-            background: THEME.surfaceRaised,
+            borderTop: `1px solid ${theme.rule}`,
+            background: theme.surfaceRaised,
           }}
         >
           {/* Round name */}
@@ -204,7 +195,7 @@ export default function CommentaryBraunDarkOverlay({
               fontFamily: FONT,
               fontSize: 10,
               fontWeight: 500,
-              color: THEME.muted,
+              color: theme.muted,
               letterSpacing: "0.25em",
               textTransform: "uppercase" as const,
             }}
@@ -219,13 +210,13 @@ export default function CommentaryBraunDarkOverlay({
               fontFamily: FONT,
               fontSize: 10,
               fontWeight: 500,
-              color: THEME.muted,
+              color: theme.muted,
               letterSpacing: "0.25em",
               textTransform: "uppercase" as const,
             }}
           >
             {tournamentInfo?.eventName ?? "EVENT"}{" "}
-            <span style={{ color: THEME.accent }}>|</span> PREMODERN
+            {/* <span style={{ color: theme.accent }}>|</span> PREMODERN */}
           </div>
         </div>
       </div>

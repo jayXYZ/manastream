@@ -29,6 +29,7 @@ export function TimerController({
   const tournament = useQuery(api.tournaments.getUserTournament);
   const setTimer = useMutation(api.tournaments.setTournamentTimer);
 
+  const tournamentId = tournament?._id;
   const countDirection = tournament?.manualTimerCountDirection || "down";
 
   // Create initial timestamp based on count direction
@@ -53,7 +54,10 @@ export function TimerController({
 
   // Store timer functions in ref to avoid circular dependencies
   const timerRef = useRef(timer);
-  timerRef.current = timer;
+
+  useEffect(() => {
+    timerRef.current = timer;
+  }, [timer]);
 
   // Sync timer state with backend when component mounts or tournament changes
   // Note: The hook (use-timer.ts) handles initialization and paused time adjustment locally.
@@ -84,8 +88,8 @@ export function TimerController({
         tournamentId: tournament._id,
         manualTimerExpiry: tournament.manualTimerExpiry,
         manualTimerRunning: tournament.manualTimerRunning,
-        timerTotalSeconds: timerRef.current.totalSeconds,
-        timerIsRunning: timerRef.current.isRunning,
+        timerTotalSeconds: timer.totalSeconds,
+        timerIsRunning: timer.isRunning,
         isEditing,
       });
     }
@@ -94,8 +98,8 @@ export function TimerController({
     tournament?._id,
     tournament?.manualTimerExpiry,
     tournament?.manualTimerRunning,
-    timerRef.current.totalSeconds,
-    timerRef.current.isRunning,
+    timer.totalSeconds,
+    timer.isRunning,
     isEditing,
   ]);
 
@@ -179,10 +183,10 @@ export function TimerController({
   // Handle count direction toggle
   const handleCountDirectionToggle = useCallback(
     (checked: boolean) => {
-      if (tournament?._id) {
+      if (tournamentId) {
         const newDirection = checked ? "up" : "down";
         setTimer({
-          tournamentId: tournament._id,
+          tournamentId,
           manualTimerCountDirection: newDirection,
         });
 
@@ -200,7 +204,7 @@ export function TimerController({
         }
       }
     },
-    [tournament?._id, setTimer],
+    [tournamentId, setTimer],
   );
 
   if (!tournament) {
@@ -285,15 +289,12 @@ export function TimerController({
             <div
               className="cursor-pointer group"
               onClick={handleTimerClick}
-              title={!timerRef.current.isRunning ? "Click to edit timer" : ""}
+              title={!timer.isRunning ? "Click to edit timer" : ""}
             >
               <div className="text-6xl font-mono font-bold text-center group-hover:text-muted-foreground transition-colors">
-                {formatTime(
-                  timerRef.current.totalSeconds,
-                  countDirection === "down",
-                )}
+                {formatTime(timer.totalSeconds, countDirection === "down")}
               </div>
-              {!timerRef.current.isRunning && (
+              {!timer.isRunning && (
                 <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground mt-2">
                   <Edit3 size={14} />
                   <span>Click to edit</span>
@@ -305,7 +306,7 @@ export function TimerController({
 
         {/* Timer Controls */}
         <div className="flex gap-3">
-          {timerRef.current.isRunning ? (
+          {timer.isRunning ? (
             <Button
               onClick={() => timerRef.current.pause()}
               size="lg"
@@ -320,7 +321,7 @@ export function TimerController({
               size="lg"
               className="px-6"
               disabled={
-                countDirection === "down" && timerRef.current.totalSeconds === 0
+                countDirection === "down" && timer.totalSeconds === 0
               }
             >
               <Play className="w-5 h-5 mr-2" />
@@ -328,7 +329,7 @@ export function TimerController({
             </Button>
           )}
 
-          {timerRef.current.isRunning ? (
+          {timer.isRunning ? (
             <Button
               onClick={handleStop}
               variant="outline"
@@ -344,7 +345,7 @@ export function TimerController({
               variant="outline"
               size="lg"
               className="px-6"
-              disabled={timerRef.current.totalSeconds === getResetTarget()}
+              disabled={timer.totalSeconds === getResetTarget()}
             >
               <Square className="w-5 h-5 mr-2" />
               Reset
@@ -354,10 +355,9 @@ export function TimerController({
 
         {/* Timer Status */}
         <div className="text-center text-sm text-muted-foreground">
-          {timerRef.current.isRunning ? (
+          {timer.isRunning ? (
             <span className="text-green-600">Running</span>
-          ) : countDirection === "down" &&
-            timerRef.current.totalSeconds <= 0 ? (
+          ) : countDirection === "down" && timer.totalSeconds <= 0 ? (
             <span className="text-red-600">Finished</span>
           ) : (
             <span className="text-yellow-600">Paused</span>

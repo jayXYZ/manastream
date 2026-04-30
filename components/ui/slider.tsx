@@ -5,14 +5,19 @@ import * as SliderPrimitive from "@radix-ui/react-slider"
 
 import { cn } from "@/lib/utils"
 
+type SliderProps = React.ComponentProps<typeof SliderPrimitive.Root> & {
+  rangeSide?: "minimum" | "maximum"
+}
+
 function Slider({
   className,
   defaultValue,
   value,
   min = 0,
   max = 100,
+  rangeSide = "minimum",
   ...props
-}: React.ComponentProps<typeof SliderPrimitive.Root>) {
+}: SliderProps) {
   const _values = React.useMemo(
     () =>
       Array.isArray(value)
@@ -22,6 +27,14 @@ function Slider({
           : [min, max],
     [value, defaultValue, min, max]
   )
+  const maximumRangeStart = React.useMemo(() => {
+    if (rangeSide !== "maximum") {
+      return undefined
+    }
+
+    const highestValue = Math.max(..._values)
+    return `${getValuePercentage(highestValue, min, max)}%`
+  }, [_values, max, min, rangeSide])
 
   return (
     <SliderPrimitive.Root
@@ -42,12 +55,20 @@ function Slider({
           "bg-muted relative grow overflow-hidden rounded-full data-[orientation=horizontal]:h-1.5 data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-1.5"
         )}
       >
-        <SliderPrimitive.Range
-          data-slot="slider-range"
-          className={cn(
-            "bg-primary absolute data-[orientation=horizontal]:h-full data-[orientation=vertical]:w-full"
-          )}
-        />
+        {rangeSide === "maximum" ? (
+          <span
+            data-slot="slider-range"
+            className="bg-primary absolute right-0 h-full"
+            style={{ left: maximumRangeStart }}
+          />
+        ) : (
+          <SliderPrimitive.Range
+            data-slot="slider-range"
+            className={cn(
+              "bg-primary absolute data-[orientation=horizontal]:h-full data-[orientation=vertical]:w-full"
+            )}
+          />
+        )}
       </SliderPrimitive.Track>
       {Array.from({ length: _values.length }, (_, index) => (
         <SliderPrimitive.Thumb
@@ -58,6 +79,14 @@ function Slider({
       ))}
     </SliderPrimitive.Root>
   )
+}
+
+function getValuePercentage(value: number, min: number, max: number) {
+  if (max <= min) {
+    return 0
+  }
+
+  return Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100))
 }
 
 export { Slider }

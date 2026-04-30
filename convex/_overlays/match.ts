@@ -2,6 +2,8 @@ import { mutation, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
 import { filterUndefined } from "../lib/utils";
 import {
+  braunDarkPaletteValidator,
+  lc26BackgroundColorValidator,
   matchTemplatesValidator,
   updateMatchOverlayArgsValidator,
 } from "../validators";
@@ -75,6 +77,8 @@ export const updateMatchOverlayDisplayInfo = mutation({
     player2DisplayDeck: v.optional(v.string()),
     player1TournamentRecord: v.optional(v.string()),
     player2TournamentRecord: v.optional(v.string()),
+    player1Lc26BackgroundColor: v.optional(lc26BackgroundColorValidator),
+    player2Lc26BackgroundColor: v.optional(lc26BackgroundColorValidator),
   },
   handler: async (ctx, args) => {
     await requireMatchOverlayAccess(ctx, args.overlayId);
@@ -87,6 +91,8 @@ export const updateMatchOverlayDisplayInfo = mutation({
       player2DisplayDeck: args.player2DisplayDeck,
       player1TournamentRecord: args.player1TournamentRecord,
       player2TournamentRecord: args.player2TournamentRecord,
+      player1Lc26BackgroundColor: args.player1Lc26BackgroundColor,
+      player2Lc26BackgroundColor: args.player2Lc26BackgroundColor,
     });
   },
 });
@@ -159,6 +165,8 @@ export const swapPlayers = mutation({
       player2DisplayDeck: overlay.player1DisplayDeck,
       player1TournamentRecord: overlay.player2TournamentRecord,
       player2TournamentRecord: overlay.player1TournamentRecord,
+      player1Lc26BackgroundColor: overlay.player2Lc26BackgroundColor,
+      player2Lc26BackgroundColor: overlay.player1Lc26BackgroundColor,
     });
   },
 });
@@ -218,6 +226,7 @@ export const setMatchOverlaySettings = mutation({
     overlayId: v.id("overlays"),
     name: v.optional(v.string()),
     template: v.optional(matchTemplatesValidator),
+    braunDarkPalette: v.optional(braunDarkPaletteValidator),
   },
   handler: async (ctx, args) => {
     await requireMatchOverlayAccess(ctx, args.overlayId);

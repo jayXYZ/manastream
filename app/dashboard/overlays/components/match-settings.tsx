@@ -33,10 +33,11 @@ export default function MatchSettings({
   );
   const [editingName, setEditingName] = useState(false);
   const [overlayName, setOverlayName] = useState(overlay.name);
-  const [isChanges, setIsChanges] = useState(false);
   const [nameError, setNameError] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const isChanges =
+    overlayName !== overlay.name || selectedTemplate !== overlay.template;
 
   const setMatchOverlaySettings = useMutation(
     api.overlays.setMatchOverlaySettings,
@@ -57,7 +58,6 @@ export default function MatchSettings({
       name: overlayName.trim(),
       template: selectedTemplate,
     });
-    setIsChanges(false);
     onOpenChange(false);
   };
 
@@ -73,26 +73,18 @@ export default function MatchSettings({
   };
 
   useEffect(() => {
-    if (overlayName !== overlay.name || selectedTemplate !== overlay.template) {
-      setIsChanges(true);
-    } else {
-      setIsChanges(false);
-    }
-  }, [overlayName, overlay.name, selectedTemplate, overlay.template]);
-
-  useEffect(() => {
     if (editingName && inputRef.current) {
       inputRef.current.focus();
       inputRef.current.select();
     }
   }, [editingName]);
 
-  // Clear error when user starts typing
-  useEffect(() => {
-    if (nameError && overlayName.trim()) {
+  const handleNameChange = (value: string) => {
+    setOverlayName(value);
+    if (nameError && value.trim()) {
       setNameError("");
     }
-  }, [overlayName, nameError]);
+  };
 
   return (
     <>
@@ -102,7 +94,7 @@ export default function MatchSettings({
             <Input
               ref={inputRef}
               value={overlayName}
-              onChange={(e) => setOverlayName(e.target.value)}
+              onChange={(e) => handleNameChange(e.target.value)}
               onBlur={() => setEditingName(false)}
               className={`w-[80%] ${nameError ? "border-red-500" : ""}`}
             />

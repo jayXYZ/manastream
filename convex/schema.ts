@@ -4,6 +4,8 @@ import { authTables } from "@convex-dev/auth/server";
 import {
   overlayValidator,
   playerValidator,
+  playerStatusValidator,
+  playerDecklistValidator,
   tournamentValidator,
   settingsValidator,
   featureMatchValidator,
@@ -11,6 +13,7 @@ import {
   spicerackLogValidator,
   spicerackTournamentValidator,
   roundStandingsValidator,
+  pairingValidator,
   scryfallCardCacheValidator,
 } from "./validators";
 
@@ -65,11 +68,40 @@ export default defineSchema({
     .index("by_external_id", ["externalId"])
     .index("by_spicerack_tournament_id", ["spicerackTournamentId"]),
 
+  pairings: defineTable(pairingValidator)
+    .index("by_tournament_and_round", ["tournamentId", "roundNumber"])
+    .index("by_spicerack_round", ["spicerackRoundId"])
+    .index("by_external_id", ["externalId"]),
+
   // Players table
   players: defineTable(playerValidator)
     .index("by_spicerack_tournament_id", ["spicerackTournamentId"])
     .index("by_tournament", ["tournamentId"])
-    .index("by_spicerack_player_id", ["spicerackPlayerId"]),
+    .index("by_spicerack_player_id", ["spicerackPlayerId"])
+    .index("by_spicerack_tournament_id_and_spicerack_player_id", [
+      "spicerackTournamentId",
+      "spicerackPlayerId",
+    ]),
+
+  playerStatuses: defineTable(playerStatusValidator)
+    .index("by_player_id", ["playerId"])
+    .index("by_spicerack_tournament_id", ["spicerackTournamentId"])
+    .index("by_spicerack_tournament_id_and_spicerack_player_id", [
+      "spicerackTournamentId",
+      "spicerackPlayerId",
+    ]),
+
+  playerDecklists: defineTable(playerDecklistValidator)
+    .index("by_player_id", ["playerId"])
+    .index("by_spicerack_tournament_id", ["spicerackTournamentId"])
+    .index("by_spicerack_tournament_id_and_spicerack_player_id", [
+      "spicerackTournamentId",
+      "spicerackPlayerId",
+    ])
+    .index("by_spicerack_tournament_id_and_decklist_status", [
+      "spicerackTournamentId",
+      "decklistStatus",
+    ]),
 
   scryfallCardCache: defineTable(scryfallCardCacheValidator)
     .index("by_cache_key", ["cacheKey"])

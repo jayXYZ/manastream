@@ -20,9 +20,12 @@ export default function DeckOverlay({ data }: { data: DeckOverlayType }) {
   const tournamentInfo = useQuery(api.tournaments.getTournamentInfo, {
     tournamentId: data.tournamentId,
   });
-  const matchInfo = useQuery(api.featurematches.getFeatureMatchPlayersAndDecks, {
-    id: data.matchId!,
-  });
+  const matchInfo = useQuery(
+    api.featurematches.getFeatureMatchPlayersAndDecks,
+    {
+      id: data.matchId!,
+    },
+  );
 
   if (!data.matchId) {
     return <div>No match ID found</div>;
@@ -53,11 +56,14 @@ function DeckTemplateRenderer({
   data: DeckOverlayType;
   matchInfo: NonNullable<FeatureMatchWithPlayers>;
   playerNumber: "1" | "2";
-  tournamentInfo: {
-    eventName?: string;
-    commentatorLeft?: string;
-    commentatorRight?: string;
-  } | null | undefined;
+  tournamentInfo:
+    | {
+        eventName?: string;
+        commentatorLeft?: string;
+        commentatorRight?: string;
+      }
+    | null
+    | undefined;
 }) {
   const playerData =
     playerNumber === "1" ? matchInfo.player1Data : matchInfo.player2Data;
@@ -75,9 +81,7 @@ function DeckTemplateRenderer({
   const templateName = data.template ?? "Duress Crew";
   const TemplateComponent =
     templateName in TEMPLATE_COMPONENTS
-      ? TEMPLATE_COMPONENTS[
-          templateName as keyof typeof TEMPLATE_COMPONENTS
-        ]
+      ? TEMPLATE_COMPONENTS[templateName as keyof typeof TEMPLATE_COMPONENTS]
       : DeckDuressCrewOverlay;
 
   return (
@@ -85,6 +89,7 @@ function DeckTemplateRenderer({
       parsedDecklist={playerData.deckCards}
       playerData={playerData as DeckPlayerData}
       tournamentInfo={tournamentInfo}
+      braunDarkPalette={data.braunDarkPalette}
     />
   );
 }

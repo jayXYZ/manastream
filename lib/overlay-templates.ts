@@ -8,14 +8,15 @@ export type TemplateName =
   | "Duress Crew"
   | "Lobstercon"
   | "Braun Dark"
-  | "Braun Dark Duo";
+  | "Braun Dark Duo"
+  | "LC26";
 
 /**
  * Configuration mapping overlay types to their available templates.
  * This is the source of truth for which templates are implemented for each overlay type.
  */
 export const OVERLAY_TEMPLATES: Record<OverlayType, TemplateName[]> = {
-  match: ["Default", "Duress Crew", "Lobstercon", "Braun Dark"],
+  match: ["Default", "Duress Crew", "Lobstercon", "Braun Dark", "LC26"],
   commentary: ["Duress Crew", "Lobstercon", "Braun Dark", "Braun Dark Duo"],
   deck: ["Duress Crew", "Braun Dark"],
   card: ["Default", "Braun Dark"],

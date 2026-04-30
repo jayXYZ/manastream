@@ -24,6 +24,7 @@ import {
   resolvedDeckCardsValidator,
   scryfallCardCacheValidator,
 } from "./validators";
+import { getPlayerData } from "./lib/playerData";
 
 const SCRYFALL_REQUEST_DELAY_MS = 250;
 const SCRYFALL_MAX_ATTEMPTS = 3;
@@ -97,10 +98,11 @@ export const getPlayerDecklistForResolution = internalQuery({
     if (!player) {
       return null;
     }
+    const playerData = await getPlayerData(ctx, player);
 
     return {
       playerId: player._id,
-      deckList: player.deckList,
+      deckList: playerData.deckList,
     };
   },
 });
@@ -121,13 +123,15 @@ export const getPlayersMissingDeckCards = internalQuery({
             .collect()
         : await ctx.db.query("players").collect();
 
-    return players
+    const playersWithData = await Promise.all(
+      players.map((player) => getPlayerData(ctx, player)),
+    );
+
+    return playersWithData
       .filter(
         (player) =>
           player.deckCardsStatus !== "ready" &&
-          player.deckList !== "PENDING" &&
-          player.deckList !== "MISSING_DECKLIST" &&
-          player.deckList !== "Unknown",
+          isResolvableDeckList(player.deckList),
       )
       .map((player) => player._id);
   },
@@ -401,6 +405,16 @@ function getDeckCardsStatus(
     return "failed" as const;
   }
   return "partial" as const;
+}
+
+function isResolvableDeckList(deckList: string) {
+  const trimmed = deckList.trim();
+  return (
+    trimmed.length > 0 &&
+    trimmed !== "PENDING" &&
+    trimmed !== "MISSING_DECKLIST" &&
+    trimmed !== "Unknown"
+  );
 }
 
 function getUniqueCardNames(decklist: {

@@ -1,17 +1,19 @@
 import { CardOverlay as CardOverlayType } from "@/convex/types";
+import { getBraunDarkPalette } from "@/lib/braun-dark-palettes";
 import Image from "next/image";
 
 const BEZEL_BORDER = 1;
 const BEZEL_PAD = 5;
-const FRAME_BORDER_COLOR = "#8A8378";
 
 function CardBraunDarkOverlay({ data }: { data: CardOverlayType }) {
+  const theme = getBraunDarkPalette(data.braunDarkPalette);
+
   return (
     <div
       style={{
         display: "inline-block",
         padding: BEZEL_PAD,
-        border: `${BEZEL_BORDER}px solid ${FRAME_BORDER_COLOR}`,
+        border: `${BEZEL_BORDER}px solid ${theme.frameBorder}`,
         background: "transparent",
         boxSizing: "border-box",
       }}

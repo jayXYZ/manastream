@@ -4,7 +4,10 @@ import {
   requireCommentaryOverlayAccess,
   requireTournamentAccess,
 } from "../lib/auth";
-import { commentaryTemplatesValidator } from "../validators";
+import {
+  braunDarkPaletteValidator,
+  commentaryTemplatesValidator,
+} from "../validators";
 import { filterUndefined } from "../lib/utils";
 import { createCommentaryOverlayHelper } from "../lib/overlays";
 
@@ -75,6 +78,7 @@ export const setCommentaryOverlaySettings = mutation({
     overlayId: v.id("overlays"),
     name: v.optional(v.string()),
     template: v.optional(commentaryTemplatesValidator),
+    braunDarkPalette: v.optional(braunDarkPaletteValidator),
   },
   handler: async (ctx, args) => {
     await requireCommentaryOverlayAccess(ctx, args.overlayId);
