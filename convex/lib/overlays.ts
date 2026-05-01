@@ -214,6 +214,7 @@ export async function enrichStandingsOverlay(
   if (!overlay.roundStandingsId) {
     return {
       ...overlay,
+      roundDisplayName: undefined,
       standingsDataWithPlayers: undefined,
     };
   }
@@ -223,9 +224,24 @@ export async function enrichStandingsOverlay(
   if (!roundStandings || roundStandings.standings === "PENDING") {
     return {
       ...overlay,
+      roundDisplayName: undefined,
       standingsDataWithPlayers: undefined,
     };
   }
+
+  const spicerackTournament = await ctx.db
+    .query("spicerackTournaments")
+    .withIndex("by_spicerack_tournament_id", (q) =>
+      q.eq("spicerackTournamentId", roundStandings.spicerackTournamentId),
+    )
+    .unique();
+  const roundDisplayName =
+    spicerackTournament?.completedRounds?.find(
+      (round) => round.roundId === roundStandings.spicerackRoundId,
+    )?.roundName ??
+    (typeof roundStandings.roundNumber === "number"
+      ? `Round ${roundStandings.roundNumber}`
+      : undefined);
 
   // Enrich standings with player data
   const standingsDataWithPlayers = await Promise.all(
@@ -247,6 +263,7 @@ export async function enrichStandingsOverlay(
 
   return {
     ...overlay,
+    roundDisplayName,
     standingsDataWithPlayers,
   };
 }

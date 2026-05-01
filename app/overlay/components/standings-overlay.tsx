@@ -88,7 +88,9 @@ export default function StandingsOverlay({
               color: theme.accent,
             }}
           >
-            {tournamentInfo?.currentRoundDisplayName ?? ""}
+            {data.roundDisplayName ??
+              tournamentInfo?.currentRoundDisplayName ??
+              ""}
           </span>
         </div>
 
