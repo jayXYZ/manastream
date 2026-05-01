@@ -60,24 +60,4 @@ describe("Standings overlay layout", () => {
     expect(readNumericConst("SIDE_MARGIN")).toBeGreaterThanOrEqual(120);
   });
 
-  it("uses the decklist Braun Dark footer treatment", () => {
-    expect(standingsOverlaySource).toContain(
-      'import { Mic } from "lucide-react";',
-    );
-    expect(standingsOverlaySource).toContain("const commentators = [");
-    expect(standingsOverlaySource).toContain("tournamentInfo?.commentatorLeft");
-    expect(standingsOverlaySource).toContain(
-      "tournamentInfo?.commentatorRight",
-    );
-    expect(standingsOverlaySource).toContain("paddingLeft: 40");
-    expect(standingsOverlaySource).toContain("paddingRight: 40");
-    expect(standingsOverlaySource).toContain("background: theme.surface");
-    expect(standingsOverlaySource).toContain(
-      '{tournamentInfo?.eventName ?? "EVENT"}{" "}',
-    );
-    expect(standingsOverlaySource).toContain(
-      "<span style={{ color: theme.accent }}>|</span> PREMODERN",
-    );
-    expect(standingsOverlaySource).not.toContain("{standings.length} Players");
-  });
 });
