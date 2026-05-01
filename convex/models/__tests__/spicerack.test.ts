@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getCurrentRoundDisplayName,
   getRoundDisplayName,
+  parseCompletedRounds,
   parseCurrentSpicerackRound,
 } from "../spicerack";
 import {
@@ -76,6 +77,38 @@ describe("getRoundDisplayName", () => {
     expect(getRoundDisplayName(801, event)).toBe("Quarterfinals");
     expect(getRoundDisplayName(802, event)).toBe("Semifinals");
     expect(getRoundDisplayName(803, event)).toBe("Finals");
+  });
+});
+
+describe("parseCompletedRounds", () => {
+  it("lists actual completed standings rounds before the derived current round", () => {
+    const event = makeEvent([
+      makeRound({
+        id: 400,
+        roundNumber: 0,
+        status: "COMPLETE",
+        matches: [makeMatch({ id: 4000, status: "COMPLETE" })],
+      }),
+      makeRound({
+        id: 101,
+        roundNumber: 1,
+        status: "IN_PROGRESS",
+        matches: [
+          makeMatch({ id: 1001, status: "COMPLETE" }),
+          makeMatch({ id: 1002, status: "COMPLETE" }),
+        ],
+      }),
+      makeRound({
+        id: 102,
+        roundNumber: 2,
+        status: "UPCOMING",
+        matches: [makeMatch({ id: 2001, status: "UPCOMING" })],
+      }),
+    ]);
+
+    expect(parseCompletedRounds(event)).toEqual([
+      { roundId: 101, roundName: "Round 1" },
+    ]);
   });
 });
 

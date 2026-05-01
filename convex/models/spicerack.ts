@@ -312,10 +312,16 @@ export function generateFeatureMatchExternalId(
 export function parseCompletedRounds(
   jsonData: SpicerackEventResponse,
 ): { roundId: number; roundName: string }[] {
+  const currentRound = parseCurrentSpicerackRound(jsonData);
   const completedRounds: number[] = [];
   for (const phase of jsonData.tournament_phases) {
     for (const round of phase.rounds) {
-      if (round.status === "COMPLETE") {
+      if (
+        round.round_number > 0 &&
+        (currentRound
+          ? round.round_number < currentRound.round_number
+          : round.status === "COMPLETE")
+      ) {
         completedRounds.push(round.id);
       }
     }
