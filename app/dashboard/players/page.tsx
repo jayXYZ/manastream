@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import {
   applyMetaBreakdownSettings,
   buildMetaBreakdown,
+  getMetaBreakdownKeyCardName,
   MetaBreakdownRow,
 } from "@/lib/meta-breakdown";
 import {
@@ -29,7 +30,6 @@ import {
 import { Kbd } from "@/components/ui/kbd";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -54,7 +54,6 @@ type MetaBreakdownDialogSettings = {
   minMetaPercent: number;
   maxRows: number;
   decimalPlaces: number;
-  includeCountColumn: boolean;
 };
 
 const defaultMetaBreakdownSettings: MetaBreakdownDialogSettings = {
@@ -63,7 +62,6 @@ const defaultMetaBreakdownSettings: MetaBreakdownDialogSettings = {
   minMetaPercent: 0,
   maxRows: 15,
   decimalPlaces: 1,
-  includeCountColumn: true,
 };
 
 const ELIMINATED_REGISTRATION_STATUSES = new Set([
@@ -76,6 +74,7 @@ const ELIMINATED_REGISTRATION_STATUSES = new Set([
 
 export default function PlayersPage() {
   const players = useQuery(api.player.getAllSpicerackTournamentPlayers);
+  const tournament = useQuery(api.tournaments.getUserTournament);
   const updatePlayerInfo = useMutation(api.player.updatePlayerInfo);
   const [editingRowId, setEditingRowId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
@@ -150,8 +149,7 @@ export default function PlayersPage() {
         title: metaBreakdownSettings.title,
         filename: metaBreakdownSettings.filename,
         decimalPlaces: metaBreakdownSettings.decimalPlaces,
-        includeCountColumn: metaBreakdownSettings.includeCountColumn,
-        totalKnownDecklists: breakdown.totalKnownDecklists,
+        eventName: tournament?.eventName ?? null,
         rows,
       });
       setIsMetaBreakdownDialogOpen(false);
@@ -352,26 +350,6 @@ export default function PlayersPage() {
                 }
               />
             </div>
-            <div className="flex items-end justify-between gap-3 rounded-md border p-3">
-              <div>
-                <Label htmlFor="meta-breakdown-count-column">
-                  Include Count Column
-                </Label>
-                <p className="text-sm text-muted-foreground">
-                  Adds a players column in the exported table.
-                </p>
-              </div>
-              <Switch
-                id="meta-breakdown-count-column"
-                checked={metaBreakdownSettings.includeCountColumn}
-                onCheckedChange={(checked) =>
-                  setMetaBreakdownSettings((previous) => ({
-                    ...previous,
-                    includeCountColumn: checked,
-                  }))
-                }
-              />
-            </div>
           </div>
           <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
             {metaBreakdownPreview
@@ -491,30 +469,97 @@ type DownloadMetaBreakdownImageOptions = {
   title: string;
   filename: string;
   decimalPlaces: number;
-  includeCountColumn: boolean;
-  totalKnownDecklists: number;
+  eventName: string | null;
   rows: MetaBreakdownRow[];
 };
+
+const META_BREAKDOWN_CANVAS_WIDTH = 1920;
+const META_BREAKDOWN_CANVAS_HEIGHT = 1080;
+
+const BRAUN_DARK = {
+  surface: "#1C1B19",
+  text: "#D4CFC5",
+  muted: "#918A84",
+  accent: "#E8642C",
+  rule: "rgba(210,200,185,0.18)",
+};
+
+const META_BREAKDOWN_FONT_FAMILY =
+  "'Instrument Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif";
+
+const META_BREAKDOWN_FONT_LINK_ID = "meta-breakdown-instrument-sans-link";
+
+type MetaBreakdownArtImageByArchetype = Map<string, HTMLImageElement>;
+
+type ScryfallCardImageUris = {
+  art_crop?: string;
+};
+
+type ScryfallNamedCardResponse = {
+  image_uris?: ScryfallCardImageUris;
+  card_faces?: { image_uris?: ScryfallCardImageUris }[];
+};
+
+async function ensureInstrumentSansLoaded(): Promise<void> {
+  if (typeof document === "undefined") return;
+  if (!document.getElementById(META_BREAKDOWN_FONT_LINK_ID)) {
+    const preconnect = document.createElement("link");
+    preconnect.rel = "preconnect";
+    preconnect.href = "https://fonts.gstatic.com";
+    preconnect.crossOrigin = "anonymous";
+    document.head.appendChild(preconnect);
+
+    const link = document.createElement("link");
+    link.id = META_BREAKDOWN_FONT_LINK_ID;
+    link.rel = "stylesheet";
+    link.href =
+      "https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap";
+    document.head.appendChild(link);
+  }
+
+  if (document.fonts?.load) {
+    await Promise.all([
+      document.fonts.load("400 16px 'Instrument Sans'"),
+      document.fonts.load("500 16px 'Instrument Sans'"),
+      document.fonts.load("600 16px 'Instrument Sans'"),
+      document.fonts.load("700 16px 'Instrument Sans'"),
+    ]).catch(() => undefined);
+    await document.fonts.ready.catch(() => undefined);
+  }
+}
+
+function truncateToWidth(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+): string {
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  const ellipsis = "…";
+  let lo = 0;
+  let hi = text.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (ctx.measureText(text.slice(0, mid) + ellipsis).width <= maxWidth) {
+      lo = mid;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  return text.slice(0, lo).trimEnd() + ellipsis;
+}
 
 async function downloadMetaBreakdownImage({
   title,
   filename,
   decimalPlaces,
-  includeCountColumn,
-  totalKnownDecklists,
+  eventName,
   rows,
 }: DownloadMetaBreakdownImageOptions): Promise<void> {
-  const horizontalPadding = 72;
-  const titleHeight = 112;
-  const headerHeight = 52;
-  const rowHeight = 42;
-  const footerHeight = 56;
-  const width = 1100;
-  const tableWidth = width - horizontalPadding * 2;
-  const tableX = horizontalPadding;
-  const tableY = titleHeight;
-  const height =
-    titleHeight + headerHeight + rowHeight * rows.length + footerHeight;
+  await ensureInstrumentSansLoaded();
+  const artImagesByArchetype = await loadMetaBreakdownArtImages(rows);
+
+  const width = META_BREAKDOWN_CANVAS_WIDTH;
+  const height = META_BREAKDOWN_CANVAS_HEIGHT;
 
   const canvas = document.createElement("canvas");
   const dpr = window.devicePixelRatio || 1;
@@ -527,92 +572,195 @@ async function downloadMetaBreakdownImage({
   if (!ctx) {
     throw new Error("Canvas context unavailable");
   }
-
   ctx.scale(dpr, dpr);
+  ctx.imageSmoothingEnabled = true;
 
-  ctx.fillStyle = "#0B1220";
+  // ── Surface ──
+  ctx.fillStyle = BRAUN_DARK.surface;
   ctx.fillRect(0, 0, width, height);
 
-  ctx.fillStyle = "#F8FAFC";
-  ctx.font = "700 40px system-ui, sans-serif";
-  ctx.textAlign = "left";
-  ctx.textBaseline = "middle";
-  ctx.fillText(title.trim() || "Meta Breakdown", tableX, 54);
-
-  ctx.fillStyle = "#94A3B8";
-  ctx.font = "500 20px system-ui, sans-serif";
-  ctx.fillText(
-    `${totalKnownDecklists} players with known decklists`,
-    tableX,
-    86,
+  // Subtle vignette to add depth without breaking flatness
+  const vignette = ctx.createRadialGradient(
+    width / 2,
+    height * 0.55,
+    width * 0.25,
+    width / 2,
+    height * 0.55,
+    width * 0.85,
   );
+  vignette.addColorStop(0, "rgba(0,0,0,0)");
+  vignette.addColorStop(1, "rgba(0,0,0,0.35)");
+  ctx.fillStyle = vignette;
+  ctx.fillRect(0, 0, width, height);
 
-  ctx.fillStyle = "#1E293B";
-  ctx.fillRect(tableX, tableY, tableWidth, headerHeight);
-
-  const archetypeColumnWidth = Math.floor(
-    tableWidth * (includeCountColumn ? 0.58 : 0.73),
-  );
-  const countColumnWidth = includeCountColumn
-    ? Math.floor(tableWidth * 0.16)
-    : 0;
-  const archetypeTextX = tableX + 20;
-  const countTextX = tableX + archetypeColumnWidth + countColumnWidth - 20;
-  const percentageTextX = tableX + tableWidth - 20;
-
-  ctx.fillStyle = "#E2E8F0";
-  ctx.font = "600 18px system-ui, sans-serif";
-  ctx.fillText("Archetype", archetypeTextX, tableY + headerHeight / 2);
-  if (includeCountColumn) {
-    ctx.textAlign = "right";
-    ctx.fillText("Players", countTextX, tableY + headerHeight / 2);
-  }
-  ctx.textAlign = "right";
-  ctx.fillText("Meta %", percentageTextX, tableY + headerHeight / 2);
-
-  for (const [index, row] of rows.entries()) {
-    const y = tableY + headerHeight + index * rowHeight;
-    ctx.fillStyle = index % 2 === 0 ? "#111827" : "#0F172A";
-    ctx.fillRect(tableX, y, tableWidth, rowHeight);
-
-    ctx.fillStyle = "#F8FAFC";
-    ctx.font = "500 18px system-ui, sans-serif";
-    ctx.textAlign = "left";
-    ctx.fillText(row.archetype, archetypeTextX, y + rowHeight / 2);
-    if (includeCountColumn) {
-      ctx.textAlign = "right";
-      ctx.fillText(`${row.count}`, countTextX, y + rowHeight / 2);
-    }
-    ctx.textAlign = "right";
-    ctx.fillText(
-      formatMetaPercentage(row.percentage, decimalPlaces),
-      percentageTextX,
-      y + rowHeight / 2,
-    );
-  }
-
-  ctx.strokeStyle = "#334155";
+  // ── Outer frame inset ──
+  const frameInset = 32;
+  ctx.strokeStyle = BRAUN_DARK.rule;
   ctx.lineWidth = 1;
   ctx.strokeRect(
-    tableX,
-    tableY,
-    tableWidth,
-    headerHeight + rowHeight * rows.length,
+    frameInset + 0.5,
+    frameInset + 0.5,
+    width - frameInset * 2 - 1,
+    height - frameInset * 2 - 1,
   );
-  ctx.beginPath();
-  ctx.moveTo(tableX + archetypeColumnWidth, tableY);
-  ctx.lineTo(
-    tableX + archetypeColumnWidth,
-    tableY + headerHeight + rowHeight * rows.length,
-  );
-  if (includeCountColumn) {
-    ctx.moveTo(tableX + archetypeColumnWidth + countColumnWidth, tableY);
-    ctx.lineTo(
-      tableX + archetypeColumnWidth + countColumnWidth,
-      tableY + headerHeight + rowHeight * rows.length,
-    );
+
+  // ── Layout constants ──
+  const sideMargin = 140;
+  const contentX = sideMargin;
+  const contentWidth = width - sideMargin * 2;
+
+  // ── Title block ──
+  const titleText = title.trim() || "Meta Breakdown";
+  const titleBaselineY = 176;
+  drawTrackedText(ctx, titleText, contentX, titleBaselineY, {
+    font: `600 96px ${META_BREAKDOWN_FONT_FAMILY}`,
+    color: BRAUN_DARK.text,
+    tracking: -0.022,
+    align: "left",
+    baseline: "alphabetic",
+  });
+
+  // Sub-header: event name in accent color (if present)
+  const trimmedEventName = eventName?.trim() ?? "";
+  if (trimmedEventName) {
+    drawTrackedText(ctx, trimmedEventName, contentX, titleBaselineY + 50, {
+      font: `400 36px ${META_BREAKDOWN_FONT_FAMILY}`,
+      color: BRAUN_DARK.accent,
+      tracking: 0.01,
+      align: "left",
+      baseline: "alphabetic",
+    });
   }
-  ctx.stroke();
+
+  // ── Table region ──
+  const tableTop = trimmedEventName ? 280 : 232;
+  const tableBottom = height - 96;
+  const tableX = contentX;
+  const tableWidth = contentWidth;
+  const availableTableHeight = tableBottom - tableTop;
+
+  // Two side-by-side sub-columns. Left column holds rows 1..ceil(N/2); right
+  // column holds the remainder, displayed at the same vertical position so
+  // visual row 1 shows archetypes #1 and #(ceil(N/2)+1).
+  const halfPoint = Math.ceil(rows.length / 2);
+  const visualRowCount = halfPoint;
+
+  const columnGap = 96;
+  const subColumnWidth = Math.floor((tableWidth - columnGap) / 2);
+  const leftSubColumnX = tableX;
+  const rightSubColumnX = tableX + subColumnWidth + columnGap;
+
+  const headerRatio = 1.35;
+  const maxRowHeight = 86;
+  // No min clamp — must always fit inside availableTableHeight.
+  const idealRowHeight = Math.floor(
+    availableTableHeight / (visualRowCount + headerRatio),
+  );
+  const rowHeight = Math.max(8, Math.min(maxRowHeight, idealRowHeight));
+  const headerHeight = Math.floor(rowHeight * headerRatio);
+
+  // Always anchor at the top so the eye-line above the table is consistent.
+  const tableY = tableTop;
+
+  // Within each sub-column: a narrower archetype/art cell (left) + meta % (right).
+  const percentW = Math.round(subColumnWidth * 0.22);
+  const archetypeW = Math.min(
+    subColumnWidth - percentW,
+    Math.round(subColumnWidth * 0.58),
+  );
+
+  // ── Header row ──
+  const headerFontSize = Math.max(9, Math.round(rowHeight * 0.32));
+  const headerLabelOpts = {
+    font: `500 ${headerFontSize}px ${META_BREAKDOWN_FONT_FAMILY}`,
+    color: BRAUN_DARK.muted,
+    tracking: 0.24,
+    baseline: "middle" as const,
+  };
+  const headerCenterY = tableY + headerHeight / 2;
+  const cellPadding = Math.max(0, Math.round(rowHeight * 0.1));
+
+  for (const subColumnX of [leftSubColumnX, rightSubColumnX]) {
+    drawTrackedText(
+      ctx,
+      "ARCHETYPE",
+      subColumnX + cellPadding,
+      headerCenterY,
+      { ...headerLabelOpts, align: "left" },
+    );
+    drawTrackedText(
+      ctx,
+      "META %",
+      subColumnX + subColumnWidth - cellPadding,
+      headerCenterY,
+      { ...headerLabelOpts, align: "right" },
+    );
+
+    // Hairline beneath each sub-column header
+    ctx.strokeStyle = BRAUN_DARK.rule;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(subColumnX, tableY + headerHeight + 0.5);
+    ctx.lineTo(subColumnX + subColumnWidth, tableY + headerHeight + 0.5);
+    ctx.stroke();
+  }
+
+  // ── Data rows ──
+  const bodyFontSize = Math.max(11, Math.round(rowHeight * 0.46));
+  const numericFontSize = Math.max(11, Math.round(rowHeight * 0.5));
+
+  const drawRow = (
+    row: MetaBreakdownRow,
+    subColumnX: number,
+    centerY: number,
+  ) => {
+    const isOther = row.archetype === "Other";
+    const rowY = centerY - rowHeight / 2;
+    const artImage = artImagesByArchetype.get(row.archetype.toLowerCase());
+
+    if (artImage) {
+      drawMetaBreakdownCellArt(
+        ctx,
+        artImage,
+        subColumnX,
+        rowY,
+        archetypeW,
+        rowHeight,
+      );
+    }
+
+    ctx.font = `500 ${bodyFontSize}px ${META_BREAKDOWN_FONT_FAMILY}`;
+    const archetypeMaxWidth = archetypeW - cellPadding * 2;
+    const archetypeLabel = truncateToWidth(
+      ctx,
+      row.archetype,
+      archetypeMaxWidth,
+    );
+    ctx.fillStyle = isOther ? BRAUN_DARK.muted : BRAUN_DARK.text;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText(archetypeLabel, subColumnX + cellPadding, centerY);
+
+    ctx.font = `500 ${numericFontSize}px ${META_BREAKDOWN_FONT_FAMILY}`;
+    ctx.fillStyle = isOther ? BRAUN_DARK.muted : BRAUN_DARK.text;
+    ctx.textAlign = "right";
+    ctx.textBaseline = "middle";
+    ctx.fillText(
+      formatMetaPercentage(row.percentage, decimalPlaces),
+      subColumnX + subColumnWidth - cellPadding,
+      centerY,
+    );
+  };
+
+  for (let i = 0; i < visualRowCount; i++) {
+    const centerY = tableY + headerHeight + i * rowHeight + rowHeight / 2;
+
+    const leftRow = rows[i];
+    if (leftRow) drawRow(leftRow, leftSubColumnX, centerY);
+
+    const rightRow = rows[i + halfPoint];
+    if (rightRow) drawRow(rightRow, rightSubColumnX, centerY);
+  }
 
   const safeFilename = sanitizeFilename(filename.trim() || "meta-breakdown");
   const outputFilename = `${safeFilename}-${new Date().toISOString().slice(0, 10)}.png`;
@@ -635,6 +783,174 @@ async function downloadMetaBreakdownImage({
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
+
+async function loadMetaBreakdownArtImages(
+  rows: MetaBreakdownRow[],
+): Promise<MetaBreakdownArtImageByArchetype> {
+  const artByArchetype = new Map<string, HTMLImageElement>();
+  const cardNameByArchetype = new Map<string, string>();
+
+  for (const row of rows) {
+    const keyCardName = getMetaBreakdownKeyCardName(row.archetype);
+    if (keyCardName) {
+      cardNameByArchetype.set(row.archetype.toLowerCase(), keyCardName);
+    }
+  }
+
+  const imageByCardName = new Map<string, HTMLImageElement | null>();
+  await Promise.all(
+    Array.from(new Set(cardNameByArchetype.values())).map(async (cardName) => {
+      imageByCardName.set(cardName, await loadScryfallArtCropImage(cardName));
+    }),
+  );
+
+  for (const [archetypeKey, cardName] of cardNameByArchetype) {
+    const image = imageByCardName.get(cardName);
+    if (image) {
+      artByArchetype.set(archetypeKey, image);
+    }
+  }
+
+  return artByArchetype;
+}
+
+async function loadScryfallArtCropImage(
+  cardName: string,
+): Promise<HTMLImageElement | null> {
+  const artCropUrl = await fetchScryfallArtCropUrl(cardName);
+  if (!artCropUrl) {
+    return null;
+  }
+  return loadCanvasImage(artCropUrl);
+}
+
+async function fetchScryfallArtCropUrl(
+  cardName: string,
+): Promise<string | null> {
+  try {
+    const url = new URL("https://api.scryfall.com/cards/named");
+    url.searchParams.set("exact", cardName);
+    const response = await fetch(url, {
+      headers: {
+        Accept: "application/json",
+      },
+    });
+    if (!response.ok) {
+      return null;
+    }
+    const card = (await response.json()) as ScryfallNamedCardResponse;
+    return (
+      card.image_uris?.art_crop ??
+      card.card_faces?.[0]?.image_uris?.art_crop ??
+      null
+    );
+  } catch {
+    return null;
+  }
+}
+
+function loadCanvasImage(src: string): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.onload = () => resolve(image);
+    image.onerror = () => resolve(null);
+    image.src = src;
+  });
+}
+
+function drawMetaBreakdownCellArt(
+  ctx: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+): void {
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, y, width, height);
+  ctx.clip();
+
+  const imageAspect = image.naturalWidth / image.naturalHeight;
+  const cellAspect = width / height;
+  let drawWidth = width;
+  let drawHeight = height;
+  if (imageAspect > cellAspect) {
+    drawHeight = height;
+    drawWidth = height * imageAspect;
+  } else {
+    drawWidth = width;
+    drawHeight = width / imageAspect;
+  }
+
+  ctx.globalAlpha = 0.42;
+  ctx.drawImage(
+    image,
+    x + (width - drawWidth) / 2,
+    y + (height - drawHeight) / 2,
+    drawWidth,
+    drawHeight,
+  );
+  ctx.globalAlpha = 1;
+
+  const overlay = ctx.createLinearGradient(x, y, x + width, y);
+  overlay.addColorStop(0, "rgba(28,27,25,0.66)");
+  overlay.addColorStop(0.72, "rgba(28,27,25,0.5)");
+  overlay.addColorStop(1, "rgba(28,27,25,0.76)");
+  ctx.fillStyle = overlay;
+  ctx.fillRect(x, y, width, height);
+  ctx.restore();
+}
+
+type TrackedTextOptions = {
+  font: string;
+  color: string;
+  tracking?: number;
+  align?: "left" | "right" | "center";
+  baseline?: CanvasTextBaseline;
+};
+
+function drawTrackedText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  options: TrackedTextOptions,
+): void {
+  const tracking = options.tracking ?? 0;
+  ctx.font = options.font;
+  ctx.fillStyle = options.color;
+  ctx.textBaseline = options.baseline ?? "alphabetic";
+
+  if (tracking === 0) {
+    ctx.textAlign = options.align ?? "left";
+    ctx.fillText(text, x, y);
+    return;
+  }
+
+  const fontSizeMatch = options.font.match(/(\d+(?:\.\d+)?)px/);
+  const fontSize = fontSizeMatch ? Number(fontSizeMatch[1]) : 16;
+  const trackPx = fontSize * tracking;
+
+  ctx.textAlign = "left";
+  let totalWidth = 0;
+  for (let i = 0; i < text.length; i++) {
+    totalWidth += ctx.measureText(text[i]).width;
+    if (i < text.length - 1) totalWidth += trackPx;
+  }
+
+  let cursor = x;
+  if (options.align === "right") cursor = x - totalWidth;
+  else if (options.align === "center") cursor = x - totalWidth / 2;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    ctx.fillText(ch, cursor, y);
+    cursor += ctx.measureText(ch).width + trackPx;
+  }
+}
+
 
 function sanitizeFilename(filename: string): string {
   const sanitized = filename

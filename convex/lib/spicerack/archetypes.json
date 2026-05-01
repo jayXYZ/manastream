@@ -9,7 +9,7 @@
   "angry_hermit": {
     "deckname": "Angry Hermit",
     "macro": null,
-    "required": ["Hermit Druid", "Dragon Breath"],
+    "required": ["Sutured Ghoul", "Hermit Druid", "Dragon Breath"],
     "conflicts": [],
     "color": "Gold"
   },
@@ -23,7 +23,7 @@
   "broccoli_soup": {
     "deckname": "Broccoli Soup",
     "macro": null,
-    "required": ["Carnophage", "Rancor"],
+    "required": ["Rancor", "Carnophage"],
     "conflicts": [],
     "color": "Gold"
   },
@@ -31,10 +31,10 @@
     "deckname": "Black/White Control",
     "macro": null,
     "required": [
+      "Eternal Dragon",
       "Swords to Plowshares",
       "Vindicate",
-      "Gerrard's Verdict",
-      "Eternal Dragon"
+      "Gerrard's Verdict"
     ],
     "conflicts": ["Hypnotic Specter", "Dark Ritual"],
     "color": "Gold"
@@ -49,7 +49,7 @@
   "dance_academy": {
     "deckname": "Dance Academy",
     "macro": null,
-    "required": ["Academy Rector", "Corpse Dance"],
+    "required": ["Corpse Dance", "Academy Rector"],
     "conflicts": [],
     "color": "Gold"
   },
@@ -395,7 +395,7 @@
   "rg_aggro": {
     "deckname": "Red/Green Aggro",
     "macro": null,
-    "required": ["Treetop Village", "Lightning Bolt", "Call of the Herd"],
+    "required": ["Call of the Herd", "Treetop Village", "Lightning Bolt"],
     "conflicts": [""],
     "color": "Gold"
   },
@@ -561,7 +561,7 @@
   "tradewind_survival": {
     "deckname": "Tradewind Survival",
     "macro": null,
-    "required": ["Survival of the Fittest", "Tradewind Rider"],
+    "required": ["Tradewind Rider", "Survival of the Fittest"],
     "conflicts": [],
     "color": "Gold"
   },

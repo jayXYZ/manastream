@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   applyMetaBreakdownSettings,
   buildMetaBreakdown,
+  getMetaBreakdownKeyCardName,
 } from "../meta-breakdown";
 
 describe("buildMetaBreakdown", () => {
@@ -150,5 +151,23 @@ describe("buildMetaBreakdown", () => {
         percentage: 40,
       },
     ]);
+  });
+});
+
+describe("getMetaBreakdownKeyCardName", () => {
+  it("returns the first required card for a direct archetype match", () => {
+    expect(getMetaBreakdownKeyCardName("Aluren")).toBe("Aluren");
+    expect(getMetaBreakdownKeyCardName("  Angry Hermit  ")).toBe(
+      "Sutured Ghoul",
+    );
+  });
+
+  it("uses the first matching macro archetype when the row is a macro name", () => {
+    expect(getMetaBreakdownKeyCardName("Storm Combo")).toBe("Ill-Gotten Gains");
+  });
+
+  it("returns null when no key card can be resolved", () => {
+    expect(getMetaBreakdownKeyCardName("Other")).toBeNull();
+    expect(getMetaBreakdownKeyCardName("Not A Real Archetype")).toBeNull();
   });
 });

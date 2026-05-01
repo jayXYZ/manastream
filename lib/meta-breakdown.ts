@@ -28,6 +28,7 @@ export type MetaBreakdownSettings = {
 type ArchetypeDefinition = {
   deckname?: string;
   macro?: string | null;
+  required?: string[];
 };
 
 const UNKNOWN_DECK_MARKERS = new Set([
@@ -38,6 +39,7 @@ const UNKNOWN_DECK_MARKERS = new Set([
 ]);
 
 const defaultMacroByArchetype = buildMacroLookupFromArchetypesJson();
+const defaultKeyCardByArchetype = buildKeyCardLookupFromArchetypesJson();
 
 function isKnownValue(value: string): boolean {
   const normalized = value.trim().toUpperCase();
@@ -129,6 +131,37 @@ function buildMacroLookupFromArchetypesJson(): Map<string, string | null> {
     lookup.set(deckname.toLowerCase(), normalizedMacro ? normalizedMacro : null);
   }
   return lookup;
+}
+
+function buildKeyCardLookupFromArchetypesJson(): Map<string, string> {
+  const lookup = new Map<string, string>();
+  for (const archetypeData of Object.values(
+    archetypes as Record<string, ArchetypeDefinition>,
+  )) {
+    const keyCardName = archetypeData.required?.[0]?.trim();
+    if (!keyCardName) {
+      continue;
+    }
+
+    const deckname = archetypeData.deckname?.trim();
+    if (deckname) {
+      lookup.set(deckname.toLowerCase(), keyCardName);
+    }
+
+    const macro = archetypeData.macro?.trim();
+    if (macro && !lookup.has(macro.toLowerCase())) {
+      lookup.set(macro.toLowerCase(), keyCardName);
+    }
+  }
+  return lookup;
+}
+
+export function getMetaBreakdownKeyCardName(archetype: string): string | null {
+  const archetypeKey = archetype.trim().toLowerCase();
+  if (!archetypeKey || archetypeKey === "other") {
+    return null;
+  }
+  return defaultKeyCardByArchetype.get(archetypeKey) ?? null;
 }
 
 export function applyMetaBreakdownSettings(
