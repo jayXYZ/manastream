@@ -557,7 +557,7 @@ export const spicerackUserEventStatusValidator = v.object({
   id: v.number(),
   user: spicerackUserValidator,
   decklist: v.union(v.number(), v.null()),
-  registration_status: v.string(),
+  registration_status: v.optional(v.string()),
   final_place_in_standings: v.union(v.number(), v.null()),
   matches_won: v.number(),
   matches_lost: v.number(),
