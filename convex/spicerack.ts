@@ -375,10 +375,16 @@ export const validateAndStartPolling = internalAction({
       );
       await ctx.runMutation(internal.player.updatePlayerRegistrationStatuses, {
         spicerackTournamentId: spicerackTournament.spicerackTournamentId,
-        players: spicerackRegisteredPlayers.map((player) => ({
-          spicerackPlayerId: player.id,
-          registrationStatus: player.registration_status,
-        })),
+        players: spicerackRegisteredPlayers.flatMap((player) =>
+          typeof player.registration_status === "string"
+            ? [
+                {
+                  spicerackPlayerId: player.id,
+                  registrationStatus: player.registration_status,
+                },
+              ]
+            : [],
+        ),
       });
       const cachedSpicerackPlayers = await ctx.runQuery(
         internal.player.getAllSpicerackTournamentPlayerSpicerackIds,
@@ -396,7 +402,7 @@ export const validateAndStartPolling = internalAction({
               name: player.user_identifier,
               spicerackPlayerId: player.id,
               spicerackTournamentId: spicerackTournament.spicerackTournamentId,
-              registrationStatus: player.registration_status,
+              registrationStatus: player.registration_status ?? undefined,
               deckId: player.decklist?.id ?? -1,
               decklistStatus: player.decklist?.id
                 ? ("pending" as const)
@@ -697,10 +703,16 @@ export const pollTournamentAndScheduleNext = internalAction({
       );
       await ctx.runMutation(internal.player.updatePlayerRegistrationStatuses, {
         spicerackTournamentId: spicerackTournament.spicerackTournamentId,
-        players: spicerackData.user_statuses.map((playerStatus) => ({
-          spicerackPlayerId: playerStatus.id,
-          registrationStatus: playerStatus.registration_status,
-        })),
+        players: spicerackData.user_statuses.flatMap((playerStatus) =>
+          typeof playerStatus.registration_status === "string"
+            ? [
+                {
+                  spicerackPlayerId: playerStatus.id,
+                  registrationStatus: playerStatus.registration_status,
+                },
+              ]
+            : [],
+        ),
       });
       console.log(`New player and deck ids: ${newPlayerAndDeckIds}`);
 

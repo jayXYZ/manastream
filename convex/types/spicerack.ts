@@ -44,7 +44,8 @@ export interface SpicerackUserEventStatus {
   id: number;
   user: SpicerackUser;
   decklist: number; // ID reference to decklist
-  registration_status: string; // e.g., "IN_PROGRESS", "REGISTERED", "DROPPED"
+  // Spicerack occasionally returns null when a registration row exists without a status.
+  registration_status: string | null; // e.g., "IN_PROGRESS", "REGISTERED", "DROPPED"
   final_place_in_standings: number; // -1 if not finished
   matches_won: number;
   matches_lost: number;
@@ -161,7 +162,8 @@ export type RoundStatus = "UPCOMING" | "IN_PROGRESS" | "COMPLETE";
 export interface SpicerackRegisteredPlayersResponse {
   id: number;
   user_identifier: string;
-  registration_status: string;
+  // Spicerack occasionally returns null when a registration row exists without a status.
+  registration_status: string | null;
   decklist: {
     id: number;
     archetype: string;
