@@ -100,7 +100,7 @@ export default function StandingsOverlay({
   const standings = data.standingsDataWithPlayers ?? [];
   const bracketStandings = isMockTop8Preview
     ? MOCK_TOP_8_STANDINGS
-    : standings;
+    : data.bracketDataWithPlayers ?? standings;
   const roundName =
     (isMockTop8Preview
       ? "Quarterfinals"

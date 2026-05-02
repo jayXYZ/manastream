@@ -2,7 +2,8 @@ import { Id } from "../_generated/dataModel";
 import { MutationCtx, QueryCtx } from "../_generated/server";
 import {
   parseCurrentSpicerackRound,
-  parsePlayerRecord,
+  parsePlayerSeed,
+  parsePlayerTournamentRecord,
 } from "../models/spicerack";
 import { SpicerackEventResponse, SpicerackMatch } from "../types/spicerack";
 import { createPendingPlayerEntry, createPlayer } from "./players";
@@ -113,12 +114,16 @@ export async function snapshotCurrentRoundPairings(
       spicerackMatchId: match.id,
       player1,
       player2,
-      player1TournamentRecord: parsePlayerRecord(
+      player1TournamentRecord: parsePlayerTournamentRecord(
+        args.jsonData,
         player1Relationship.user_event_status,
       ),
-      player2TournamentRecord: parsePlayerRecord(
+      player2TournamentRecord: parsePlayerTournamentRecord(
+        args.jsonData,
         player2Relationship.user_event_status,
       ),
+      player1Seed: parsePlayerSeed(player1Relationship.user_event_status),
+      player2Seed: parsePlayerSeed(player2Relationship.user_event_status),
       player1TotalMatchPoints:
         player1Relationship.user_event_status.total_match_points,
       player2TotalMatchPoints:

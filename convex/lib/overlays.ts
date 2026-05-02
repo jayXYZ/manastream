@@ -3,6 +3,7 @@ import { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Infer } from "convex/values";
 import type { getOverlayByIdValidator } from "../validators";
 import { getPlayerData } from "./playerData";
+import { getCurrentRoundPairingsWithPlayerData } from "./pairings";
 import { getPlayersForMatch } from "./players";
 import { getTournamentTimerAndRoundInfo } from "./tournaments";
 import { generatePublicUuid } from "./utils";
@@ -216,11 +217,24 @@ export async function enrichStandingsOverlay(
   ctx: QueryCtx,
   overlay: Doc<"overlays"> & { overlayType: "standings" },
 ) {
+  const spicerackTournament = await getSpicerackTournamentForStandingsOverlay(
+    ctx,
+    overlay,
+  );
+  const isEliminationPhase = ELIMINATION_ROUND_NAMES.has(
+    spicerackTournament?.currentRoundName ?? "",
+  );
+  const bracketDataWithPlayers = isEliminationPhase
+    ? await getEliminationBracketDataWithPlayers(ctx, overlay, spicerackTournament)
+    : undefined;
+
   // If no roundStandingsId is set, return overlay without standings data
   if (!overlay.roundStandingsId) {
     return {
       ...overlay,
-      roundDisplayName: undefined,
+      roundDisplayName: spicerackTournament?.currentRoundName ?? undefined,
+      isEliminationPhase,
+      bracketDataWithPlayers,
       standingsDataWithPlayers: undefined,
     };
   }
@@ -230,17 +244,13 @@ export async function enrichStandingsOverlay(
   if (!roundStandings || roundStandings.standings === "PENDING") {
     return {
       ...overlay,
-      roundDisplayName: undefined,
+      roundDisplayName: spicerackTournament?.currentRoundName ?? undefined,
+      isEliminationPhase,
+      bracketDataWithPlayers,
       standingsDataWithPlayers: undefined,
     };
   }
 
-  const spicerackTournament = await ctx.db
-    .query("spicerackTournaments")
-    .withIndex("by_spicerack_tournament_id", (q) =>
-      q.eq("spicerackTournamentId", roundStandings.spicerackTournamentId),
-    )
-    .unique();
   const roundDisplayName =
     spicerackTournament?.completedRounds?.find(
       (round) => round.roundId === roundStandings.spicerackRoundId,
@@ -248,9 +258,6 @@ export async function enrichStandingsOverlay(
     (typeof roundStandings.roundNumber === "number"
       ? `Round ${roundStandings.roundNumber}`
       : undefined);
-  const isEliminationPhase = ELIMINATION_ROUND_NAMES.has(
-    spicerackTournament?.currentRoundName ?? "",
-  );
 
   // Enrich standings with player data
   const standingsDataWithPlayers = await Promise.all(
@@ -275,8 +282,76 @@ export async function enrichStandingsOverlay(
     ...overlay,
     roundDisplayName,
     isEliminationPhase,
+    bracketDataWithPlayers,
     standingsDataWithPlayers,
   };
+}
+
+async function getSpicerackTournamentForStandingsOverlay(
+  ctx: QueryCtx,
+  overlay: Doc<"overlays"> & { overlayType: "standings" },
+) {
+  const tournament = await ctx.db.get(overlay.tournamentId);
+  if (!tournament?.spicerackTournamentId) {
+    return null;
+  }
+  const spicerackTournamentId = tournament.spicerackTournamentId;
+
+  return await ctx.db
+    .query("spicerackTournaments")
+    .withIndex("by_spicerack_tournament_id", (q) =>
+      q.eq("spicerackTournamentId", spicerackTournamentId),
+    )
+    .unique();
+}
+
+async function getEliminationBracketDataWithPlayers(
+  ctx: QueryCtx,
+  overlay: Doc<"overlays"> & { overlayType: "standings" },
+  spicerackTournament:
+    | (Doc<"spicerackTournaments"> & {
+        currentRoundId?: number;
+        currentRoundNumber?: number;
+      })
+    | null,
+) {
+  if (!spicerackTournament?.currentRoundId) {
+    return undefined;
+  }
+
+  const pairings = await getCurrentRoundPairingsWithPlayerData(
+    ctx,
+    overlay.tournamentId,
+    {
+      spicerackRoundId: spicerackTournament.currentRoundId,
+      roundNumber: spicerackTournament.currentRoundNumber,
+    },
+  );
+  if (pairings.length === 0) {
+    return undefined;
+  }
+
+  return pairings
+    .flatMap((pairing) => [
+      pairing.player1Seed
+        ? {
+            name: pairing.player1Data?.name ?? "Player 1",
+            rank: pairing.player1Seed,
+            seed: pairing.player1Seed,
+            playerData: pairing.player1Data,
+          }
+        : undefined,
+      pairing.player2Seed
+        ? {
+            name: pairing.player2Data?.name ?? "Player 2",
+            rank: pairing.player2Seed,
+            seed: pairing.player2Seed,
+            playerData: pairing.player2Data,
+          }
+        : undefined,
+    ])
+    .filter((player) => player !== undefined)
+    .sort((left, right) => left.seed - right.seed);
 }
 
 type EnrichedOverlay = Infer<typeof getOverlayByIdValidator>;

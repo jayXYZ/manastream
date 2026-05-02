@@ -72,6 +72,9 @@ describe("Standings overlay elimination metadata", () => {
       "isEliminationPhase: v.optional(v.boolean())",
     );
     expect(validatorsSource).toContain("seed: v.optional(v.number())");
+    expect(validatorsSource).toContain("bracketDataWithPlayers");
+    expect(validatorsSource).toContain("player1Seed: v.optional(v.number())");
+    expect(validatorsSource).toContain("player2Seed: v.optional(v.number())");
   });
 });
 
@@ -98,6 +101,13 @@ describe("Top 8 bracket overlay", () => {
     expect(standingsOverlaySource).toContain("MOCK_TOP_8_STANDINGS");
     expect(standingsOverlaySource).toContain('searchParams.get("mockTop8")');
     expect(standingsOverlaySource).toContain("isMockTop8Preview");
+  });
+
+  it("prefers current elimination bracket pairings over completed standings", () => {
+    expect(standingsOverlaySource).toContain("data.bracketDataWithPlayers");
+    expect(standingsOverlaySource).toMatch(
+      /data\.bracketDataWithPlayers\s*\?\?\s*standings/,
+    );
   });
 
   it("does not render a top event header or round name", () => {

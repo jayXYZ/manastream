@@ -93,6 +93,8 @@ export const pairingValidator = v.object({
   player2: v.id("players"),
   player1TournamentRecord: v.string(),
   player2TournamentRecord: v.string(),
+  player1Seed: v.optional(v.number()),
+  player2Seed: v.optional(v.number()),
   player1TotalMatchPoints: v.optional(v.number()),
   player2TotalMatchPoints: v.optional(v.number()),
   tableNumber: v.optional(v.number()),
@@ -480,6 +482,16 @@ export const standingsOverlayWithPlayersValidator = v.object({
   ...standingsOverlayValidator.fields,
   roundDisplayName: v.optional(v.string()),
   isEliminationPhase: v.optional(v.boolean()),
+  bracketDataWithPlayers: v.optional(
+    v.array(
+      v.object({
+        name: v.string(),
+        rank: v.number(),
+        seed: v.optional(v.number()),
+        playerData: v.optional(playerWithDataValidator),
+      }),
+    ),
+  ),
   standingsDataWithPlayers: v.optional(
     v.array(
       v.object({
