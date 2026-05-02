@@ -7,6 +7,12 @@ import { getPlayersForMatch } from "./players";
 import { getTournamentTimerAndRoundInfo } from "./tournaments";
 import { generatePublicUuid } from "./utils";
 
+const ELIMINATION_ROUND_NAMES = new Set([
+  "Quarterfinals",
+  "Semifinals",
+  "Finals",
+]);
+
 // Creation functions
 
 /**
@@ -242,6 +248,9 @@ export async function enrichStandingsOverlay(
     (typeof roundStandings.roundNumber === "number"
       ? `Round ${roundStandings.roundNumber}`
       : undefined);
+  const isEliminationPhase = ELIMINATION_ROUND_NAMES.has(
+    spicerackTournament?.currentRoundName ?? "",
+  );
 
   // Enrich standings with player data
   const standingsDataWithPlayers = await Promise.all(
@@ -256,6 +265,7 @@ export async function enrichStandingsOverlay(
 
       return {
         ...standing,
+        seed: standing.rank > 0 ? standing.rank : undefined,
         playerData: player ? await getPlayerData(ctx, player) : undefined,
       };
     }),
@@ -264,6 +274,7 @@ export async function enrichStandingsOverlay(
   return {
     ...overlay,
     roundDisplayName,
+    isEliminationPhase,
     standingsDataWithPlayers,
   };
 }

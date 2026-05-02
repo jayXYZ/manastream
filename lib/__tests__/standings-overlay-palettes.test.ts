@@ -10,6 +10,10 @@ const standingsMutationSource = readFileSync(
   "utf8",
 );
 const validatorsSource = readFileSync("convex/validators.ts", "utf8");
+const bracketOverlaySource = readFileSync(
+  "app/overlay/components/top-8-bracket-overlay.tsx",
+  "utf8",
+);
 
 describe("Standings overlay Braun Dark palette", () => {
   it("renders with the shared Braun Dark palette instead of a local theme", () => {
@@ -60,4 +64,33 @@ describe("Standings overlay layout", () => {
     expect(readNumericConst("SIDE_MARGIN")).toBeGreaterThanOrEqual(120);
   });
 
+});
+
+describe("Standings overlay elimination metadata", () => {
+  it("exposes elimination phase state and seeds to the standings overlay", () => {
+    expect(validatorsSource).toContain(
+      "isEliminationPhase: v.optional(v.boolean())",
+    );
+    expect(validatorsSource).toContain("seed: v.optional(v.number())");
+  });
+});
+
+describe("Top 8 bracket overlay", () => {
+  it("uses the standard top 8 bracket seed order", () => {
+    expect(bracketOverlaySource).toContain("[1, 8]");
+    expect(bracketOverlaySource).toContain("[4, 5]");
+    expect(bracketOverlaySource).toContain("[2, 7]");
+    expect(bracketOverlaySource).toContain("[3, 6]");
+  });
+
+  it("uses the Braun Dark palette passed from standings", () => {
+    expect(bracketOverlaySource).toContain("theme: BraunDarkPalette");
+    expect(bracketOverlaySource).toContain("theme.surface");
+    expect(bracketOverlaySource).toContain("theme.accent");
+  });
+
+  it("is rendered by standings overlays during elimination phases", () => {
+    expect(standingsOverlaySource).toContain("Top8BracketOverlay");
+    expect(standingsOverlaySource).toContain("data.isEliminationPhase");
+  });
 });

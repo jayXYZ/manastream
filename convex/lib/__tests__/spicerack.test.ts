@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { parsePlayerTournamentRecord } from "../../models/spicerack";
+import {
+  parsePlayerSeed,
+  parsePlayerTournamentRecord,
+} from "../../models/spicerack";
 import type {
   SpicerackEventResponse,
   SpicerackUserEventStatus,
@@ -66,5 +69,22 @@ describe("Spicerack record formatting", () => {
         buildPlayerStatus({ final_place_in_standings: 3 }),
       ),
     ).toBe("#3");
+  });
+});
+
+describe("Spicerack seed parsing", () => {
+  it("returns the final Swiss standing as a seed", () => {
+    expect(
+      parsePlayerSeed(buildPlayerStatus({ final_place_in_standings: 5 })),
+    ).toBe(5);
+  });
+
+  it("ignores missing or invalid final Swiss standings", () => {
+    expect(
+      parsePlayerSeed(buildPlayerStatus({ final_place_in_standings: -1 })),
+    ).toBeUndefined();
+    expect(
+      parsePlayerSeed(buildPlayerStatus({ final_place_in_standings: 0 })),
+    ).toBeUndefined();
   });
 });

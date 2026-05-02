@@ -242,6 +242,16 @@ export function parsePlayerRecord(
   return `${wins}-${losses}`;
 }
 
+export function parsePlayerSeed(
+  playerStatus: SpicerackUserEventStatus,
+): number | undefined {
+  const swissFinish = playerStatus.final_place_in_standings;
+  if (typeof swissFinish === "number" && swissFinish > 0) {
+    return swissFinish;
+  }
+  return undefined;
+}
+
 /**
  * Get the value shown in the match overlay's record slot.
  */
@@ -249,13 +259,9 @@ export function parsePlayerTournamentRecord(
   jsonData: SpicerackEventResponse,
   playerStatus: SpicerackUserEventStatus,
 ): string {
-  const swissFinish = playerStatus.final_place_in_standings;
-  if (
-    isEliminationRound(jsonData) &&
-    typeof swissFinish === "number" &&
-    swissFinish > 0
-  ) {
-    return `#${swissFinish}`;
+  const seed = parsePlayerSeed(playerStatus);
+  if (isEliminationRound(jsonData) && seed) {
+    return `#${seed}`;
   }
 
   return parsePlayerRecord(playerStatus);

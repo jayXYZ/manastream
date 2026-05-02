@@ -479,10 +479,12 @@ export const deckOverlayWithMatchAndPlayersValidator = v.object({
 export const standingsOverlayWithPlayersValidator = v.object({
   ...standingsOverlayValidator.fields,
   roundDisplayName: v.optional(v.string()),
+  isEliminationPhase: v.optional(v.boolean()),
   standingsDataWithPlayers: v.optional(
     v.array(
       v.object({
         ...playerInStandingsValidator.fields,
+        seed: v.optional(v.number()),
         playerData: v.optional(playerWithDataValidator),
       }),
     ),

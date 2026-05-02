@@ -9,6 +9,7 @@ import {
 import { useQuery } from "convex/react";
 import { Mic } from "lucide-react";
 import { useSearchParams } from "next/navigation";
+import Top8BracketOverlay from "./top-8-bracket-overlay";
 
 const PAGE_SIZE = 16;
 
@@ -20,6 +21,11 @@ const TABLE_PADDING_TOP = 28;
 const TABLE_PADDING_BOTTOM = 18;
 const HEADER_HEIGHT = 32;
 const ROW_HEIGHT = 48;
+const ELIMINATION_ROUND_NAMES = new Set([
+  "Quarterfinals",
+  "Semifinals",
+  "Finals",
+]);
 
 export default function StandingsOverlay({
   data,
@@ -38,6 +44,10 @@ export default function StandingsOverlay({
     .join(" & ");
 
   const standings = data.standingsDataWithPlayers ?? [];
+  const roundName =
+    data.roundDisplayName ?? tournamentInfo?.currentRoundDisplayName ?? "";
+  const isEliminationPhase =
+    data.isEliminationPhase || ELIMINATION_ROUND_NAMES.has(roundName);
   const searchParams = useSearchParams();
   const parsedPage = parseInt(searchParams.get("page") ?? "1", 10);
   const pageNumber =
@@ -51,6 +61,18 @@ export default function StandingsOverlay({
 
   const formatRecord = (wins: number, losses: number, draws: number) =>
     `${wins}-${losses}${draws > 0 ? `-${draws}` : ""}`;
+
+  if (isEliminationPhase) {
+    return (
+      <Top8BracketOverlay
+        eventName={tournamentInfo?.eventName ?? ""}
+        roundName={roundName}
+        commentators={commentators}
+        standings={standings}
+        theme={theme}
+      />
+    );
+  }
 
   return (
     <div
@@ -88,9 +110,7 @@ export default function StandingsOverlay({
               color: theme.accent,
             }}
           >
-            {data.roundDisplayName ??
-              tournamentInfo?.currentRoundDisplayName ??
-              ""}
+            {roundName}
           </span>
         </div>
 
