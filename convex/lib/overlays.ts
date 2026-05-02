@@ -310,12 +310,7 @@ async function getSpicerackTournamentForStandingsOverlay(
 async function getEliminationBracketDataWithPlayers(
   ctx: QueryCtx,
   overlay: Doc<"overlays"> & { overlayType: "standings" },
-  spicerackTournament:
-    | (Doc<"spicerackTournaments"> & {
-        currentRoundId?: number;
-        currentRoundNumber?: number;
-      })
-    | null,
+  spicerackTournament: Doc<"spicerackTournaments"> | null,
 ) {
   if (!spicerackTournament?.currentRoundId) {
     return undefined;
@@ -333,27 +328,105 @@ async function getEliminationBracketDataWithPlayers(
     return undefined;
   }
 
+  const seedBySpicerackPlayerId = await getLatestSwissSeedMap(
+    ctx,
+    spicerackTournament,
+  );
+
   return pairings
-    .flatMap((pairing) => [
-      pairing.player1Seed
-        ? {
-            name: pairing.player1Data?.name ?? "Player 1",
-            rank: pairing.player1Seed,
-            seed: pairing.player1Seed,
-            playerData: pairing.player1Data,
-          }
-        : undefined,
-      pairing.player2Seed
-        ? {
-            name: pairing.player2Data?.name ?? "Player 2",
-            rank: pairing.player2Seed,
-            seed: pairing.player2Seed,
-            playerData: pairing.player2Data,
-          }
-        : undefined,
-    ])
+    .flatMap((pairing) => {
+      const player1Seed = resolvePairingSeed({
+        storedSeed: pairing.player1Seed,
+        tournamentRecord: pairing.player1TournamentRecord,
+        spicerackPlayerId: pairing.player1Data?.spicerackPlayerId,
+        seedBySpicerackPlayerId,
+      });
+      const player2Seed = resolvePairingSeed({
+        storedSeed: pairing.player2Seed,
+        tournamentRecord: pairing.player2TournamentRecord,
+        spicerackPlayerId: pairing.player2Data?.spicerackPlayerId,
+        seedBySpicerackPlayerId,
+      });
+
+      return [
+        player1Seed
+          ? {
+              name: pairing.player1Data?.name ?? "Player 1",
+              rank: player1Seed,
+              seed: player1Seed,
+              playerData: pairing.player1Data,
+            }
+          : undefined,
+        player2Seed
+          ? {
+              name: pairing.player2Data?.name ?? "Player 2",
+              rank: player2Seed,
+              seed: player2Seed,
+              playerData: pairing.player2Data,
+            }
+          : undefined,
+      ];
+    })
     .filter((player) => player !== undefined)
     .sort((left, right) => left.seed - right.seed);
+}
+
+async function getLatestSwissSeedMap(
+  ctx: QueryCtx,
+  spicerackTournament: Doc<"spicerackTournaments">,
+) {
+  const latestSwissRound = [...(spicerackTournament.completedRounds ?? [])]
+    .reverse()
+    .find((round) => !ELIMINATION_ROUND_NAMES.has(round.roundName));
+
+  if (!latestSwissRound) {
+    return new Map<number, number>();
+  }
+
+  const roundStandings = await ctx.db
+    .query("roundStandings")
+    .withIndex("by_spicerackRoundId", (q) =>
+      q.eq("spicerackRoundId", latestSwissRound.roundId),
+    )
+    .first();
+
+  if (!roundStandings || roundStandings.standings === "PENDING") {
+    return new Map<number, number>();
+  }
+
+  return new Map(
+    roundStandings.standings.flatMap((standing) =>
+      standing.rank > 0
+        ? standing.user_event_status_ids.map((spicerackPlayerId) => [
+            spicerackPlayerId,
+            standing.rank,
+          ])
+        : [],
+    ),
+  );
+}
+
+function resolvePairingSeed(args: {
+  storedSeed?: number;
+  tournamentRecord: string;
+  spicerackPlayerId?: number;
+  seedBySpicerackPlayerId: Map<number, number>;
+}) {
+  return (
+    args.storedSeed ??
+    parseSeedRecord(args.tournamentRecord) ??
+    (args.spicerackPlayerId !== undefined
+      ? args.seedBySpicerackPlayerId.get(args.spicerackPlayerId)
+      : undefined)
+  );
+}
+
+function parseSeedRecord(record: string) {
+  const match = record.trim().match(/^#(\d+)$/);
+  if (!match) {
+    return undefined;
+  }
+  return Number(match[1]);
 }
 
 type EnrichedOverlay = Infer<typeof getOverlayByIdValidator>;
