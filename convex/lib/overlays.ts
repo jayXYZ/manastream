@@ -224,7 +224,9 @@ export async function enrichStandingsOverlay(
   const isEliminationPhase = ELIMINATION_ROUND_NAMES.has(
     spicerackTournament?.currentRoundName ?? "",
   );
-  const bracketDataWithPlayers = isEliminationPhase
+  const showCurrentBracket = overlay.showCurrentBracket === true;
+  const shouldShowBracket = showCurrentBracket && isEliminationPhase;
+  const bracketDataWithPlayers = shouldShowBracket
     ? await getEliminationBracketDataWithPlayers(ctx, overlay, spicerackTournament)
     : undefined;
 
@@ -233,7 +235,7 @@ export async function enrichStandingsOverlay(
     return {
       ...overlay,
       roundDisplayName: spicerackTournament?.currentRoundName ?? undefined,
-      isEliminationPhase,
+      isEliminationPhase: shouldShowBracket,
       bracketDataWithPlayers,
       standingsDataWithPlayers: undefined,
     };
@@ -245,7 +247,7 @@ export async function enrichStandingsOverlay(
     return {
       ...overlay,
       roundDisplayName: spicerackTournament?.currentRoundName ?? undefined,
-      isEliminationPhase,
+      isEliminationPhase: shouldShowBracket,
       bracketDataWithPlayers,
       standingsDataWithPlayers: undefined,
     };
@@ -281,7 +283,7 @@ export async function enrichStandingsOverlay(
   return {
     ...overlay,
     roundDisplayName,
-    isEliminationPhase,
+    isEliminationPhase: shouldShowBracket,
     bracketDataWithPlayers,
     standingsDataWithPlayers,
   };

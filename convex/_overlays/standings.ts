@@ -55,10 +55,25 @@ export const fetchAndUpdateSpicerackRoundStandings = internalAction({
 export const updateStandingsOverlay = mutation({
   args: {
     overlayId: v.id("overlays"),
-    spicerackRoundId: v.number(),
+    spicerackRoundId: v.optional(v.number()),
+    showCurrentBracket: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     await requireStandingsOverlayAccess(ctx, args.overlayId);
+    if (args.showCurrentBracket) {
+      await ctx.db.patch(args.overlayId, {
+        showCurrentBracket: true,
+      });
+      return;
+    }
+
+    if (args.spicerackRoundId === undefined) {
+      await ctx.db.patch(args.overlayId, {
+        showCurrentBracket: false,
+      });
+      return;
+    }
+
     const standings = await getSpicerackRoundStandingsHelper(
       ctx,
       args.spicerackRoundId,
@@ -66,6 +81,7 @@ export const updateStandingsOverlay = mutation({
     await ctx.db.patch(args.overlayId, {
       roundStandingsId: standings,
       spicerackRoundId: args.spicerackRoundId,
+      showCurrentBracket: false,
     });
   },
 });

@@ -291,6 +291,7 @@ export const standingsOverlayValidator = v.object({
   publicUuid: v.string(), // Direct UUID string for public access
   roundStandingsId: v.optional(v.id("roundStandings")), // Reference to the round standings
   spicerackRoundId: v.optional(v.number()),
+  showCurrentBracket: v.optional(v.boolean()),
   createdAt: v.number(),
 });
 

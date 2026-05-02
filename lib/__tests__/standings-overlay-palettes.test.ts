@@ -14,6 +14,10 @@ const bracketOverlaySource = readFileSync(
   "app/overlay/components/top-8-bracket-overlay.tsx",
   "utf8",
 );
+const tournamentControllerSource = readFileSync(
+  "app/dashboard/controllers/components/tournament-preview-controller.tsx",
+  "utf8",
+);
 
 describe("Standings overlay Braun Dark palette", () => {
   it("renders with the shared Braun Dark palette instead of a local theme", () => {
@@ -108,6 +112,22 @@ describe("Top 8 bracket overlay", () => {
     expect(standingsOverlaySource).toMatch(
       /data\.bracketDataWithPlayers\s*\?\?\s*standings/,
     );
+  });
+
+  it("does not auto-switch selected Swiss standings to the current bracket", () => {
+    expect(standingsOverlaySource).not.toContain(
+      "ELIMINATION_ROUND_NAMES.has(roundName)",
+    );
+    expect(standingsOverlaySource).toContain("data.isEliminationPhase");
+  });
+
+  it("adds current bracket as an explicit standings overlay dropdown option", () => {
+    expect(tournamentControllerSource).toContain("CURRENT_BRACKET_VALUE");
+    expect(tournamentControllerSource).toContain(
+      "api.pairings.getCurrentRoundPairings",
+    );
+    expect(tournamentControllerSource).toContain("showCurrentBracket");
+    expect(tournamentControllerSource).toContain("Current bracket");
   });
 
   it("does not render a top event header or round name", () => {

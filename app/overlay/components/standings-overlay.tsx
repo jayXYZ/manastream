@@ -23,11 +23,6 @@ const TABLE_PADDING_TOP = 28;
 const TABLE_PADDING_BOTTOM = 18;
 const HEADER_HEIGHT = 32;
 const ROW_HEIGHT = 48;
-const ELIMINATION_ROUND_NAMES = new Set([
-  "Quarterfinals",
-  "Semifinals",
-  "Finals",
-]);
 const MOCK_TOP_8_STANDINGS: Top8BracketStanding[] = [
   {
     seed: 1,
@@ -109,9 +104,7 @@ export default function StandingsOverlay({
   const eventName =
     (isMockTop8Preview ? "Top 8 Preview" : tournamentInfo?.eventName) ?? "";
   const isEliminationPhase =
-    isMockTop8Preview ||
-    data.isEliminationPhase ||
-    ELIMINATION_ROUND_NAMES.has(roundName);
+    isMockTop8Preview || data.isEliminationPhase;
   const parsedPage = parseInt(searchParams.get("page") ?? "1", 10);
   const pageNumber =
     Number.isNaN(parsedPage) || parsedPage < 1 ? 1 : parsedPage;

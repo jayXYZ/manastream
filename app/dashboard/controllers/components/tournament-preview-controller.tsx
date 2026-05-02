@@ -34,6 +34,14 @@ import { Separator } from "@/components/ui/separator";
 import { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 
+const CURRENT_BRACKET_VALUE = "current-bracket";
+const NO_STANDINGS_VALUE = "-1";
+const ELIMINATION_ROUND_NAMES = new Set([
+  "Quarterfinals",
+  "Semifinals",
+  "Finals",
+]);
+
 function PreviewRow({
   label,
   value,
@@ -181,6 +189,12 @@ function TournamentOverlayPreviewDialog({
   const completedRounds = useQuery(api.spicerack.getSpicerackCompletedRounds, {
     spicerackTournamentId: tournament.spicerackTournamentId ?? -1,
   });
+  const currentPairings = useQuery(api.pairings.getCurrentRoundPairings);
+  const hasCurrentBracketOption =
+    currentPairings?.status === "ready" &&
+    currentPairings.pairingCount > 0 &&
+    currentPairings.roundName !== undefined &&
+    ELIMINATION_ROUND_NAMES.has(currentPairings.roundName);
   const [inputs, setInputs] = useState({
     eventName: tournament.eventName ?? "",
     currentRoundDisplayName: tournament.currentRoundDisplayName ?? "",
@@ -190,7 +204,9 @@ function TournamentOverlayPreviewDialog({
     commentatorRight: tournament.commentatorRight ?? "",
     commentatorRightSubText: tournament.commentatorRightSubText ?? "",
     deckOverlayMatchId: deckOverlay?.matchId,
-    standingsOverlayRoundId: standingsOverlay?.spicerackRoundId ?? -1,
+    standingsOverlaySelection: standingsOverlay?.showCurrentBracket
+      ? CURRENT_BRACKET_VALUE
+      : (standingsOverlay?.spicerackRoundId?.toString() ?? NO_STANDINGS_VALUE),
   });
 
   const updateDeckOverlay = useMutation(api.overlays.updateDeckOverlay);
@@ -215,10 +231,22 @@ function TournamentOverlayPreviewDialog({
       commentatorRight: inputs.commentatorRight,
       commentatorRightSubText: inputs.commentatorRightSubText,
     });
-    if (standingsOverlay && inputs.standingsOverlayRoundId !== -1) {
+    if (
+      standingsOverlay &&
+      inputs.standingsOverlaySelection === CURRENT_BRACKET_VALUE
+    ) {
       updateStandingsOverlay({
         overlayId: standingsOverlay._id,
-        spicerackRoundId: inputs.standingsOverlayRoundId,
+        showCurrentBracket: true,
+      });
+    } else if (
+      standingsOverlay &&
+      inputs.standingsOverlaySelection !== NO_STANDINGS_VALUE
+    ) {
+      updateStandingsOverlay({
+        overlayId: standingsOverlay._id,
+        spicerackRoundId: Number(inputs.standingsOverlaySelection),
+        showCurrentBracket: false,
       });
     }
   };
@@ -284,11 +312,11 @@ function TournamentOverlayPreviewDialog({
             <div className="flex flex-col gap-2">
               <Label>Standings Overlay Round</Label>
               <Select
-                value={inputs.standingsOverlayRoundId.toString()}
+                value={inputs.standingsOverlaySelection}
                 onValueChange={(value) =>
                   setInputs({
                     ...inputs,
-                    standingsOverlayRoundId: Number(value),
+                    standingsOverlaySelection: value,
                   })
                 }
               >
@@ -296,6 +324,11 @@ function TournamentOverlayPreviewDialog({
                   <SelectValue placeholder="Select a round" />
                 </SelectTrigger>
                 <SelectContent>
+                  {hasCurrentBracketOption && (
+                    <SelectItem value={CURRENT_BRACKET_VALUE}>
+                      Current bracket - {currentPairings.roundName}
+                    </SelectItem>
+                  )}
                   {completedRounds && completedRounds.length > 0 ? (
                     completedRounds.map((round) => (
                       <SelectItem
@@ -306,7 +339,7 @@ function TournamentOverlayPreviewDialog({
                       </SelectItem>
                     ))
                   ) : (
-                    <SelectItem value="-1">N/A</SelectItem>
+                    <SelectItem value={NO_STANDINGS_VALUE}>N/A</SelectItem>
                   )}
                 </SelectContent>
               </Select>

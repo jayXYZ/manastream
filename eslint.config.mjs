@@ -11,6 +11,7 @@ const eslintConfig = [
       "build/**",
       "next-env.d.ts",
       "convex/_generated/**",
+      ".worktrees/**",
       ".claude/**",
       ".cursor/**",
     ],
