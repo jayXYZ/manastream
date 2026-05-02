@@ -128,8 +128,6 @@ export default function StandingsOverlay({
   if (isEliminationPhase) {
     return (
       <Top8BracketOverlay
-        eventName={eventName}
-        roundName={roundName}
         commentators={commentators}
         standings={bracketStandings}
         theme={theme}

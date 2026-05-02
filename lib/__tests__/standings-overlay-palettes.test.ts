@@ -99,4 +99,12 @@ describe("Top 8 bracket overlay", () => {
     expect(standingsOverlaySource).toContain('searchParams.get("mockTop8")');
     expect(standingsOverlaySource).toContain("isMockTop8Preview");
   });
+
+  it("does not render a top event header or round name", () => {
+    expect(bracketOverlaySource).not.toContain("eventName");
+    expect(bracketOverlaySource).not.toContain("roundName");
+    expect(bracketOverlaySource).not.toContain("TOP_BAR");
+    expect(standingsOverlaySource).not.toContain("eventName={eventName}");
+    expect(standingsOverlaySource).not.toContain("roundName={roundName}");
+  });
 });

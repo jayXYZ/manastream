@@ -3,7 +3,6 @@ import type { BraunDarkPalette } from "@/lib/braun-dark-palettes";
 import { Mic } from "lucide-react";
 
 const FONT = "'Instrument Sans', 'Helvetica Neue', sans-serif";
-const TOP_BAR = 120;
 const BOTTOM_BAR = 48;
 const SIDE_MARGIN = 140;
 const TOP_8_PAIRINGS = [
@@ -31,14 +30,10 @@ type BracketPlayer = {
 };
 
 export default function Top8BracketOverlay({
-  eventName,
-  roundName,
   commentators,
   standings,
   theme,
 }: {
-  eventName: string;
-  roundName: string;
   commentators: string;
   standings: Top8BracketStanding[];
   theme: BraunDarkPalette;
@@ -51,61 +46,13 @@ export default function Top8BracketOverlay({
       style={{ background: theme.surface, color: theme.text, fontFamily: FONT }}
     >
       <div
-        className="absolute top-0 left-0 right-0 flex items-center"
-        style={{
-          height: TOP_BAR,
-          borderBottom: `1px solid ${theme.rule}`,
-          paddingLeft: SIDE_MARGIN,
-          paddingRight: SIDE_MARGIN,
-        }}
-      >
-        <div className="flex items-baseline gap-5">
-          <span
-            style={{
-              fontSize: 56,
-              fontWeight: 600,
-              letterSpacing: 0,
-              lineHeight: 1,
-              color: theme.text,
-            }}
-          >
-            {eventName}
-          </span>
-          <span
-            style={{
-              fontSize: 22,
-              fontWeight: 500,
-              letterSpacing: "0.18em",
-              textTransform: "uppercase",
-              color: theme.accent,
-            }}
-          >
-            {roundName}
-          </span>
-        </div>
-
-        <span
-          className="ml-auto"
-          style={{
-            fontSize: 13,
-            fontWeight: 500,
-            letterSpacing: "0.25em",
-            textTransform: "uppercase",
-            color: theme.muted,
-          }}
-        >
-          Top 8
-        </span>
-      </div>
-
-      <div
         className="absolute left-0 right-0"
         style={{
-          top: TOP_BAR,
+          top: 0,
           bottom: BOTTOM_BAR,
           paddingLeft: SIDE_MARGIN,
           paddingRight: SIDE_MARGIN,
-          paddingTop: 54,
+          paddingTop: 76,
           paddingBottom: 46,
         }}
       >
