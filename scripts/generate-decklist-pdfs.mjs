@@ -213,6 +213,10 @@ function parseArgs(argv) {
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i];
 
+    if (token === "--") {
+      continue;
+    }
+
     if (
       token === "--headful" ||
       token === "--dry-run" ||
