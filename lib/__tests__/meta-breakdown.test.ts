@@ -86,6 +86,69 @@ describe("buildMetaBreakdown", () => {
     ]);
   });
 
+  it("computes day 2 percentages and conversion rates from non-eliminated players", () => {
+    const result = buildMetaBreakdown(
+      [
+        { deckName: "A", deckList: "a", registrationStatus: "ELIMINATED" },
+        { deckName: "A", deckList: "b", registrationStatus: "ELIMINATED" },
+        { deckName: "A", deckList: "c", registrationStatus: "REGISTERED" },
+        { deckName: "A", deckList: "d", registrationStatus: "ACTIVE" },
+        { deckName: "B", deckList: "e", registrationStatus: "ELIMINATED" },
+        { deckName: "B", deckList: "f", registrationStatus: "ACTIVE" },
+        {
+          deckName: "Unknown",
+          deckList: "Unknown",
+          registrationStatus: "ACTIVE",
+        },
+      ],
+      {
+        isDay2Player: (player) => player.registrationStatus !== "ELIMINATED",
+      },
+    );
+
+    expect(result.totalKnownDecklists).toBe(6);
+    expect(result.totalDay2KnownDecklists).toBe(3);
+    expect(result.rows).toEqual([
+      {
+        archetype: "A",
+        count: 4,
+        percentage: 66.66666666666666,
+        day2Count: 2,
+        day2Percentage: 66.66666666666666,
+        conversionPercentage: 50,
+      },
+      {
+        archetype: "B",
+        count: 2,
+        percentage: 33.33333333333333,
+        day2Count: 1,
+        day2Percentage: 33.33333333333333,
+        conversionPercentage: 50,
+      },
+    ]);
+  });
+
+  it("sets day 2 percentages to zero when no known decklists converted", () => {
+    const result = buildMetaBreakdown(
+      [{ deckName: "A", deckList: "a", registrationStatus: "ELIMINATED" }],
+      {
+        isDay2Player: () => false,
+      },
+    );
+
+    expect(result.totalDay2KnownDecklists).toBe(0);
+    expect(result.rows).toEqual([
+      {
+        archetype: "A",
+        count: 1,
+        percentage: 100,
+        day2Count: 0,
+        day2Percentage: 0,
+        conversionPercentage: 0,
+      },
+    ]);
+  });
+
   it("applies minimum meta percentage and row limit settings", () => {
     const breakdown = buildMetaBreakdown([
       { deckName: "A", deckList: "a" },
@@ -151,6 +214,108 @@ describe("buildMetaBreakdown", () => {
         percentage: 40,
       },
     ]);
+  });
+
+  it("aggregates day 2 fields into the Other row", () => {
+    const breakdown = buildMetaBreakdown(
+      [
+        { deckName: "A", deckList: "a", registrationStatus: "ACTIVE" },
+        { deckName: "A", deckList: "b", registrationStatus: "ACTIVE" },
+        { deckName: "A", deckList: "c", registrationStatus: "ELIMINATED" },
+        { deckName: "B", deckList: "d", registrationStatus: "ACTIVE" },
+        { deckName: "B", deckList: "e", registrationStatus: "ELIMINATED" },
+        { deckName: "C", deckList: "f", registrationStatus: "ELIMINATED" },
+      ],
+      {
+        isDay2Player: (player) => player.registrationStatus !== "ELIMINATED",
+      },
+    );
+
+    const rows = applyMetaBreakdownSettings(breakdown, {
+      minMetaPercent: 0,
+      maxRows: 1,
+    });
+
+    expect(rows).toEqual([
+      {
+        archetype: "A",
+        count: 3,
+        percentage: 50,
+        day2Count: 2,
+        day2Percentage: 66.66666666666666,
+        conversionPercentage: 66.66666666666666,
+      },
+      {
+        archetype: "Other",
+        count: 3,
+        percentage: 50,
+        day2Count: 1,
+        day2Percentage: 33.33333333333333,
+        conversionPercentage: 33.33333333333333,
+      },
+    ]);
+  });
+
+  it("sorts visible rows by day 2 percentage when requested", () => {
+    const breakdown = buildMetaBreakdown(
+      [
+        { deckName: "A", deckList: "a", registrationStatus: "ACTIVE" },
+        { deckName: "A", deckList: "b", registrationStatus: "ELIMINATED" },
+        { deckName: "A", deckList: "c", registrationStatus: "ELIMINATED" },
+        { deckName: "B", deckList: "d", registrationStatus: "ACTIVE" },
+        { deckName: "B", deckList: "e", registrationStatus: "ACTIVE" },
+        { deckName: "C", deckList: "f", registrationStatus: "ELIMINATED" },
+      ],
+      {
+        isDay2Player: (player) => player.registrationStatus !== "ELIMINATED",
+      },
+    );
+
+    const rows = applyMetaBreakdownSettings(breakdown, {
+      minMetaPercent: 0,
+      maxRows: 2,
+      sortBy: "day2Percentage",
+    });
+
+    expect(rows.map((row) => row.archetype)).toEqual(["B", "A", "Other"]);
+    expect(rows[0]).toMatchObject({
+      archetype: "B",
+      day2Percentage: 66.66666666666666,
+    });
+    expect(rows[1]).toMatchObject({
+      archetype: "A",
+      day2Percentage: 33.33333333333333,
+    });
+  });
+
+  it("applies the minimum meta percentage to day 2 share when sorting by day 2 percentage", () => {
+    const breakdown = buildMetaBreakdown(
+      [
+        { deckName: "A", deckList: "a", registrationStatus: "ACTIVE" },
+        { deckName: "A", deckList: "b", registrationStatus: "ACTIVE" },
+        { deckName: "B", deckList: "c", registrationStatus: "ACTIVE" },
+        { deckName: "B", deckList: "d", registrationStatus: "ELIMINATED" },
+        { deckName: "C", deckList: "e", registrationStatus: "ELIMINATED" },
+        { deckName: "C", deckList: "f", registrationStatus: "ELIMINATED" },
+      ],
+      {
+        isDay2Player: (player) => player.registrationStatus !== "ELIMINATED",
+      },
+    );
+
+    const rows = applyMetaBreakdownSettings(breakdown, {
+      minMetaPercent: 1.5,
+      maxRows: 10,
+      sortBy: "day2Percentage",
+    });
+
+    expect(rows.map((row) => row.archetype)).toEqual(["A", "B", "Other"]);
+    expect(rows.find((row) => row.archetype === "C")).toBeUndefined();
+    expect(rows.at(-1)).toMatchObject({
+      archetype: "Other",
+      day2Count: 0,
+      day2Percentage: 0,
+    });
   });
 });
 

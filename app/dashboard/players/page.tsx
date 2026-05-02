@@ -46,6 +46,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import { Download, Eye, EyeOff, SearchIcon, Settings2, X } from "lucide-react";
 
 type MetaBreakdownDialogSettings = {
@@ -54,6 +55,7 @@ type MetaBreakdownDialogSettings = {
   minMetaPercent: number;
   maxRows: number;
   decimalPlaces: number;
+  includeDay2: boolean;
 };
 
 const defaultMetaBreakdownSettings: MetaBreakdownDialogSettings = {
@@ -62,6 +64,7 @@ const defaultMetaBreakdownSettings: MetaBreakdownDialogSettings = {
   minMetaPercent: 0,
   maxRows: 15,
   decimalPlaces: 1,
+  includeDay2: false,
 };
 
 const ELIMINATED_REGISTRATION_STATUSES = new Set([
@@ -93,19 +96,29 @@ export default function PlayersPage() {
     if (!players) {
       return null;
     }
-    const breakdown = buildMetaBreakdown(players);
+    const breakdown = buildMetaBreakdown(
+      players,
+      metaBreakdownSettings.includeDay2
+        ? { isDay2Player: isDay2MetaBreakdownPlayer }
+        : {},
+    );
     const rows = applyMetaBreakdownSettings(breakdown, {
       minMetaPercent: metaBreakdownSettings.minMetaPercent,
       maxRows: metaBreakdownSettings.maxRows,
+      sortBy: metaBreakdownSettings.includeDay2
+        ? "day2Percentage"
+        : "day1Percentage",
     });
     return {
       totalKnownDecklists: breakdown.totalKnownDecklists,
+      totalDay2KnownDecklists: breakdown.totalDay2KnownDecklists,
       rows,
     };
   }, [
     players,
     metaBreakdownSettings.minMetaPercent,
     metaBreakdownSettings.maxRows,
+    metaBreakdownSettings.includeDay2,
   ]);
 
   const filteredPlayers = useMemo(() => {
@@ -127,7 +140,12 @@ export default function PlayersPage() {
     }
 
     setMetaBreakdownError(null);
-    const breakdown = buildMetaBreakdown(players);
+    const breakdown = buildMetaBreakdown(
+      players,
+      metaBreakdownSettings.includeDay2
+        ? { isDay2Player: isDay2MetaBreakdownPlayer }
+        : {},
+    );
     if (breakdown.totalKnownDecklists === 0) {
       setMetaBreakdownError("No players with known decklists were found.");
       return;
@@ -135,6 +153,9 @@ export default function PlayersPage() {
     const rows = applyMetaBreakdownSettings(breakdown, {
       minMetaPercent: metaBreakdownSettings.minMetaPercent,
       maxRows: metaBreakdownSettings.maxRows,
+      sortBy: metaBreakdownSettings.includeDay2
+        ? "day2Percentage"
+        : "day1Percentage",
     });
     if (rows.length === 0) {
       setMetaBreakdownError(
@@ -151,6 +172,7 @@ export default function PlayersPage() {
         decimalPlaces: metaBreakdownSettings.decimalPlaces,
         eventName: tournament?.eventName ?? null,
         rows,
+        includeDay2Columns: metaBreakdownSettings.includeDay2,
       });
       setIsMetaBreakdownDialogOpen(false);
     } catch {
@@ -350,10 +372,30 @@ export default function PlayersPage() {
                 }
               />
             </div>
+            <div className="flex items-center justify-between gap-4 rounded-md border px-3 py-2">
+              <Label
+                htmlFor="meta-breakdown-day-2"
+                className="text-sm font-medium"
+              >
+                Day 2 columns
+              </Label>
+              <Switch
+                id="meta-breakdown-day-2"
+                checked={metaBreakdownSettings.includeDay2}
+                onCheckedChange={(checked) =>
+                  setMetaBreakdownSettings((previous) => ({
+                    ...previous,
+                    includeDay2: checked,
+                  }))
+                }
+              />
+            </div>
           </div>
           <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
             {metaBreakdownPreview
-              ? `${metaBreakdownPreview.rows.length} archetypes from ${metaBreakdownPreview.totalKnownDecklists} players with known decklists.`
+              ? metaBreakdownSettings.includeDay2
+                ? `${metaBreakdownPreview.rows.length} archetypes from ${metaBreakdownPreview.totalKnownDecklists} day 1 players and ${metaBreakdownPreview.totalDay2KnownDecklists ?? 0} day 2 players with known decklists.`
+                : `${metaBreakdownPreview.rows.length} archetypes from ${metaBreakdownPreview.totalKnownDecklists} players with known decklists.`
               : "Loading players..."}
           </div>
           {metaBreakdownError ? (
@@ -461,6 +503,14 @@ function isEliminatedRegistrationStatus(registrationStatus?: string): boolean {
   );
 }
 
+function isDay2MetaBreakdownPlayer(player: {
+  registrationStatus?: string | null;
+}): boolean {
+  return !isEliminatedRegistrationStatus(
+    player.registrationStatus ?? undefined,
+  );
+}
+
 function formatMetaPercentage(value: number, decimalPlaces: number): string {
   return `${value.toFixed(decimalPlaces)}%`;
 }
@@ -471,6 +521,7 @@ type DownloadMetaBreakdownImageOptions = {
   decimalPlaces: number;
   eventName: string | null;
   rows: MetaBreakdownRow[];
+  includeDay2Columns: boolean;
 };
 
 const META_BREAKDOWN_CANVAS_WIDTH = 1920;
@@ -554,6 +605,7 @@ async function downloadMetaBreakdownImage({
   decimalPlaces,
   eventName,
   rows,
+  includeDay2Columns,
 }: DownloadMetaBreakdownImageOptions): Promise<void> {
   await ensureInstrumentSansLoaded();
   const artImagesByArchetype = await loadMetaBreakdownArtImages(rows);
@@ -662,39 +714,58 @@ async function downloadMetaBreakdownImage({
   // Always anchor at the top so the eye-line above the table is consistent.
   const tableY = tableTop;
 
-  // Within each sub-column: a narrower archetype/art cell (left) + meta % (right).
-  const percentW = Math.round(subColumnWidth * 0.22);
+  // Within each sub-column: archetype/art cell (left) + percent columns (right).
+  const percentW = Math.round(
+    subColumnWidth * (includeDay2Columns ? 0.44 : 0.22),
+  );
   const archetypeW = Math.min(
     subColumnWidth - percentW,
-    Math.round(subColumnWidth * 0.58),
+    Math.round(subColumnWidth * (includeDay2Columns ? 0.56 : 0.58)),
   );
+  const metricColumnCount = includeDay2Columns ? 2 : 1;
+  const metricColumnWidth = (subColumnWidth - archetypeW) / metricColumnCount;
 
   // ── Header row ──
-  const headerFontSize = Math.max(9, Math.round(rowHeight * 0.32));
+  const headerFontSize = Math.max(
+    9,
+    Math.round(rowHeight * (includeDay2Columns ? 0.19 : 0.32)),
+  );
   const headerLabelOpts = {
     font: `500 ${headerFontSize}px ${META_BREAKDOWN_FONT_FAMILY}`,
     color: BRAUN_DARK.muted,
-    tracking: 0.24,
+    tracking: includeDay2Columns ? 0 : 0.24,
     baseline: "middle" as const,
   };
   const headerCenterY = tableY + headerHeight / 2;
   const cellPadding = Math.max(0, Math.round(rowHeight * 0.1));
 
   for (const subColumnX of [leftSubColumnX, rightSubColumnX]) {
-    drawTrackedText(
-      ctx,
-      "ARCHETYPE",
-      subColumnX + cellPadding,
-      headerCenterY,
-      { ...headerLabelOpts, align: "left" },
-    );
-    drawTrackedText(
-      ctx,
-      "META %",
-      subColumnX + subColumnWidth - cellPadding,
-      headerCenterY,
-      { ...headerLabelOpts, align: "right" },
-    );
+    drawTrackedText(ctx, "ARCHETYPE", subColumnX + cellPadding, headerCenterY, {
+      ...headerLabelOpts,
+      align: "left",
+    });
+    if (includeDay2Columns) {
+      ["DAY 2 %", "CONVERSION %"].forEach((label, index) => {
+        drawTrackedText(
+          ctx,
+          label,
+          subColumnX +
+            archetypeW +
+            metricColumnWidth * (index + 1) -
+            cellPadding,
+          headerCenterY,
+          { ...headerLabelOpts, align: "right" },
+        );
+      });
+    } else {
+      drawTrackedText(
+        ctx,
+        "META %",
+        subColumnX + subColumnWidth - cellPadding,
+        headerCenterY,
+        { ...headerLabelOpts, align: "right" },
+      );
+    }
 
     // Hairline beneath each sub-column header
     ctx.strokeStyle = BRAUN_DARK.rule;
@@ -745,11 +816,20 @@ async function downloadMetaBreakdownImage({
     ctx.fillStyle = isOther ? BRAUN_DARK.muted : BRAUN_DARK.text;
     ctx.textAlign = "right";
     ctx.textBaseline = "middle";
-    ctx.fillText(
-      formatMetaPercentage(row.percentage, decimalPlaces),
-      subColumnX + subColumnWidth - cellPadding,
-      centerY,
-    );
+    const drawMetric = (value: number, index: number) => {
+      ctx.fillText(
+        formatMetaPercentage(value, decimalPlaces),
+        subColumnX + archetypeW + metricColumnWidth * (index + 1) - cellPadding,
+        centerY,
+      );
+    };
+
+    if (includeDay2Columns) {
+      drawMetric(row.day2Percentage ?? 0, 0);
+      drawMetric(row.conversionPercentage ?? 0, 1);
+    } else {
+      drawMetric(row.percentage, 0);
+    }
   };
 
   for (let i = 0; i < visualRowCount; i++) {
@@ -950,7 +1030,6 @@ function drawTrackedText(
     cursor += ctx.measureText(ch).width + trackPx;
   }
 }
-
 
 function sanitizeFilename(filename: string): string {
   const sanitized = filename
