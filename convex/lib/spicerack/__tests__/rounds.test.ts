@@ -4,6 +4,7 @@ import { checkForNewSpicerackRound } from "../rounds";
 import type {
   SpicerackEventResponse,
   SpicerackMatch,
+  SpicerackRound,
 } from "../../../types/spicerack";
 
 describe("checkForNewSpicerackRound", () => {
@@ -45,6 +46,43 @@ describe("checkForNewSpicerackRound", () => {
       player1: "player1",
       player2: "player2",
     });
+    expect(ctx.patches).toEqual([]);
+  });
+
+  it("refreshes stale completed rounds when the current round is unchanged", async () => {
+    const ctx = makeRoundCtx({
+      tournament: {
+        _id: "tournament1",
+        userId: "user1",
+        spicerackTournamentId: 999,
+      },
+      spicerackTournament: {
+        _id: "spicerackTournament1",
+        spicerackTournamentId: 999,
+        currentRoundId: 201,
+        currentRoundNumber: 1,
+        completedRounds: [],
+      },
+      players: [
+        { _id: "player1", spicerackPlayerId: 11 },
+        { _id: "player2", spicerackPlayerId: 22 },
+      ],
+    });
+
+    await checkForNewSpicerackRound(
+      ctx as never,
+      "tournament1" as never,
+      makeMultiPhaseEvent(),
+    );
+
+    expect(ctx.patches).toEqual([
+      {
+        id: "spicerackTournament1",
+        value: {
+          completedRounds: [{ roundId: 101, roundName: "Round 1" }],
+        },
+      },
+    ]);
   });
 });
 
@@ -57,9 +95,11 @@ function makeRoundCtx(args: {
     pairings: [],
     players: [],
   };
+  const patches: { id: string; value: Record<string, unknown> }[] = [];
 
   return {
     inserted,
+    patches,
     db: {
       get(id: string) {
         if (id === args.tournament._id) {
@@ -86,8 +126,9 @@ function makeRoundCtx(args: {
         inserted[tableName].push(value);
         return Promise.resolve(`${tableName}${inserted[tableName].length}`);
       },
-      patch() {
-        throw new Error("Patch should not be called for an unchanged round");
+      patch(id: string, value: Record<string, unknown>) {
+        patches.push({ id, value });
+        return Promise.resolve();
       },
     },
   };
@@ -156,6 +197,67 @@ function makeEvent(args: {
         ],
       },
     ],
+  };
+}
+
+function makeMultiPhaseEvent(): SpicerackEventResponse {
+  return {
+    ...makeEvent({
+      roundId: 201,
+      roundNumber: 1,
+      matches: [makeMatch({ id: 501 })],
+    }),
+    current_round_number: 1,
+    tournament_phases: [
+      {
+        id: 1,
+        order_in_phases: 0,
+        round_type: "SWISS",
+        status: "COMPLETE",
+        rounds: [
+          makeRound({
+            id: 100,
+            roundNumber: 0,
+            status: "COMPLETE",
+            matches: [makeMatch({ id: 1000 })],
+          }),
+          makeRound({
+            id: 101,
+            roundNumber: 1,
+            status: "COMPLETE",
+            matches: [makeMatch({ id: 1001 })],
+          }),
+        ],
+      },
+      {
+        id: 2,
+        order_in_phases: 1,
+        round_type: "SWISS",
+        status: "IN_PROGRESS",
+        rounds: [
+          makeRound({
+            id: 201,
+            roundNumber: 1,
+            status: "IN_PROGRESS",
+            matches: [makeMatch({ id: 501 })],
+          }),
+        ],
+      },
+    ],
+  };
+}
+
+function makeRound(args: {
+  id: number;
+  roundNumber: number;
+  status: string;
+  matches: SpicerackMatch[];
+}): SpicerackRound {
+  return {
+    id: args.id,
+    round_number: args.roundNumber,
+    status: args.status,
+    matches: args.matches,
   };
 }
 

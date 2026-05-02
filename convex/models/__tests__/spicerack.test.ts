@@ -110,6 +110,53 @@ describe("parseCompletedRounds", () => {
       { roundId: 101, roundName: "Round 1" },
     ]);
   });
+
+  it("includes completed rounds from earlier phases when Swiss numbering restarts", () => {
+    const event = {
+      ...makeEvent([]),
+      current_round_number: 1,
+      tournament_phases: [
+        {
+          id: 10,
+          order_in_phases: 0,
+          round_type: "SWISS",
+          status: "COMPLETE",
+          rounds: [
+            makeRound({
+              id: 100,
+              roundNumber: 0,
+              status: "COMPLETE",
+              matches: [makeMatch({ id: 1000, status: "COMPLETE" })],
+            }),
+            makeRound({
+              id: 101,
+              roundNumber: 1,
+              status: "COMPLETE",
+              matches: [makeMatch({ id: 1001, status: "COMPLETE" })],
+            }),
+          ],
+        },
+        {
+          id: 20,
+          order_in_phases: 1,
+          round_type: "SWISS",
+          status: "IN_PROGRESS",
+          rounds: [
+            makeRound({
+              id: 201,
+              roundNumber: 1,
+              status: "IN_PROGRESS",
+              matches: [makeMatch({ id: 2001, status: "IN_PROGRESS" })],
+            }),
+          ],
+        },
+      ],
+    } satisfies SpicerackEventResponse;
+
+    expect(parseCompletedRounds(event)).toEqual([
+      { roundId: 101, roundName: "Round 1" },
+    ]);
+  });
 });
 
 function makeEvent(rounds: SpicerackRound[]): SpicerackEventResponse {

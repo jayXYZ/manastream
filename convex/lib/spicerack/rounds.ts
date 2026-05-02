@@ -67,11 +67,37 @@ export async function checkForNewSpicerackRound(
     return;
   }
 
+  const completedRounds = parseCompletedRounds(jsonData);
+  if (
+    !completedRoundsEqual(
+      spicerackTournament.completedRounds ?? [],
+      completedRounds,
+    )
+  ) {
+    await ctx.db.patch(spicerackTournament._id, {
+      completedRounds,
+    });
+  }
+
   await snapshotCurrentRoundPairings(ctx, {
     tournamentId,
     spicerackTournamentId,
     jsonData,
   });
+}
+
+function completedRoundsEqual(
+  left: { roundId: number; roundName: string }[],
+  right: { roundId: number; roundName: string }[],
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every(
+      (round, index) =>
+        round.roundId === right[index].roundId &&
+        round.roundName === right[index].roundName,
+    )
+  );
 }
 
 /**

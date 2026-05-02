@@ -312,22 +312,58 @@ export function generateFeatureMatchExternalId(
 export function parseCompletedRounds(
   jsonData: SpicerackEventResponse,
 ): { roundId: number; roundName: string }[] {
+  const currentPhase = parseCurrentSpicerackPhase(jsonData);
   const currentRound = parseCurrentSpicerackRound(jsonData);
   const completedRounds: number[] = [];
-  for (const phase of jsonData.tournament_phases) {
-    for (const round of phase.rounds) {
+
+  const currentPhaseIndex = currentPhase
+    ? jsonData.tournament_phases.findIndex(
+        (phase) => phase.id === currentPhase.id,
+      )
+    : -1;
+
+  for (const [phaseIndex, phase] of jsonData.tournament_phases.entries()) {
+    const currentRoundIndex =
+      currentPhase?.id === phase.id && currentRound
+        ? phase.rounds.findIndex((round) => round.id === currentRound.id)
+        : -1;
+
+    for (const [roundIndex, round] of phase.rounds.entries()) {
+      if (round.round_number <= 0) {
+        continue;
+      }
+
+      if (!currentRound || currentPhaseIndex < 0) {
+        if (round.status === "COMPLETE") {
+          completedRounds.push(round.id);
+        }
+        continue;
+      }
+
+      if (phaseIndex < currentPhaseIndex) {
+        if (roundIsCompleteForStandings(round)) {
+          completedRounds.push(round.id);
+        }
+        continue;
+      }
+
       if (
-        round.round_number > 0 &&
-        (currentRound
-          ? round.round_number < currentRound.round_number
-          : round.status === "COMPLETE")
+        phaseIndex === currentPhaseIndex &&
+        currentRoundIndex >= 0 &&
+        roundIndex < currentRoundIndex &&
+        roundIsCompleteForStandings(round)
       ) {
         completedRounds.push(round.id);
       }
     }
   }
+
   return completedRounds.map((round) => ({
     roundId: round,
     roundName: getRoundDisplayName(round, jsonData),
   }));
+}
+
+function roundIsCompleteForStandings(round: SpicerackRound): boolean {
+  return round.status === "COMPLETE" || roundHasAllMatchesComplete(round);
 }
