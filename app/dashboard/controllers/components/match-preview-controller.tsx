@@ -43,10 +43,28 @@ interface MatchPreviewControllerProps {
 
 type Lc26ColorSelectValue = "auto" | Lc26BackgroundColor;
 
+const getMatchOverlayDisplayValues = (overlay: MatchOverlayWithPlayers) => ({
+  player1Name:
+    overlay.player1DisplayName || overlay.player1Data?.name || "Player 1",
+  player2Name:
+    overlay.player2DisplayName || overlay.player2Data?.name || "Player 2",
+  player1DeckName:
+    overlay.player1DisplayDeck || overlay.player1Data?.deckName || "Deck 1",
+  player2DeckName:
+    overlay.player2DisplayDeck || overlay.player2Data?.deckName || "Deck 2",
+  player1TournamentRecord: overlay.player1TournamentRecord || "N/A",
+  player2TournamentRecord: overlay.player2TournamentRecord || "N/A",
+  player1Lc26BackgroundColor: (overlay.player1Lc26BackgroundColor ??
+    "auto") as Lc26ColorSelectValue,
+  player2Lc26BackgroundColor: (overlay.player2Lc26BackgroundColor ??
+    "auto") as Lc26ColorSelectValue,
+});
+
 export function MatchPreviewController({
   matchOverlayId,
 }: MatchPreviewControllerProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [dialogResetKey, setDialogResetKey] = useState(0);
   const [tooltipOpen, setTooltipOpen] = useState(false);
   const matchOverlay = useQuery(api.overlays.getOverlayById, {
     overlayId: matchOverlayId,
@@ -58,6 +76,11 @@ export function MatchPreviewController({
     return;
   }
 
+  const handleEditClick = () => {
+    setDialogResetKey((key) => key + 1);
+    setIsOpen(true);
+  };
+
   return (
     <>
       <Card className={cn("group relative")}>
@@ -65,7 +88,7 @@ export function MatchPreviewController({
           <Tooltip open={tooltipOpen} onOpenChange={setTooltipOpen}>
             <TooltipTrigger asChild>
               <button
-                onClick={() => setIsOpen(true)}
+                onClick={handleEditClick}
                 className={cn(
                   "ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
                   tooltipOpen
@@ -90,6 +113,7 @@ export function MatchPreviewController({
         </CardContent>
       </Card>
       <MatchOverlayPreviewDialog
+        key={dialogResetKey}
         matchOverlay={matchOverlay as MatchOverlayWithPlayers}
         isOpen={isOpen}
         setIsOpen={setIsOpen}
@@ -187,29 +211,13 @@ function MatchOverlayPreviewDialog({
     player2Lc26BackgroundColor?: Lc26BackgroundColor;
   }) => Promise<null>;
 }) {
-  // Helper function to compute display values from matchOverlay
-  const getDisplayValues = (overlay: MatchOverlayWithPlayers) => ({
-    player1Name:
-      overlay.player1DisplayName || overlay.player1Data?.name || "Player 1",
-    player2Name:
-      overlay.player2DisplayName || overlay.player2Data?.name || "Player 2",
-    player1DeckName:
-      overlay.player1DisplayDeck || overlay.player1Data?.deckName || "Deck 1",
-    player2DeckName:
-      overlay.player2DisplayDeck || overlay.player2Data?.deckName || "Deck 2",
-    player1TournamentRecord: overlay.player1TournamentRecord || "N/A",
-    player2TournamentRecord: overlay.player2TournamentRecord || "N/A",
-    player1Lc26BackgroundColor: (overlay.player1Lc26BackgroundColor ??
-      "auto") as Lc26ColorSelectValue,
-    player2Lc26BackgroundColor: (overlay.player2Lc26BackgroundColor ??
-      "auto") as Lc26ColorSelectValue,
-  });
-
-  const [inputs, setInputs] = useState(() => getDisplayValues(matchOverlay));
+  const [inputs, setInputs] = useState(() =>
+    getMatchOverlayDisplayValues(matchOverlay),
+  );
 
   const handleDialogOpenChange = (open: boolean) => {
     if (open) {
-      setInputs(getDisplayValues(matchOverlay));
+      setInputs(getMatchOverlayDisplayValues(matchOverlay));
     }
     setIsOpen(open);
   };
