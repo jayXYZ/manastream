@@ -9,7 +9,9 @@ import {
 import { useQuery } from "convex/react";
 import { Mic } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import Top8BracketOverlay from "./top-8-bracket-overlay";
+import Top8BracketOverlay, {
+  type Top8BracketStanding,
+} from "./top-8-bracket-overlay";
 
 const PAGE_SIZE = 16;
 
@@ -26,6 +28,56 @@ const ELIMINATION_ROUND_NAMES = new Set([
   "Semifinals",
   "Finals",
 ]);
+const MOCK_TOP_8_STANDINGS: Top8BracketStanding[] = [
+  {
+    seed: 1,
+    rank: 1,
+    name: "Ari Lax",
+    playerData: { deckName: "Dimir Tempo" },
+  },
+  {
+    seed: 2,
+    rank: 2,
+    name: "Mara Halden",
+    playerData: { deckName: "Jeskai Control" },
+  },
+  {
+    seed: 3,
+    rank: 3,
+    name: "Tomas Rivera",
+    playerData: { deckName: "Golgari Midrange" },
+  },
+  {
+    seed: 4,
+    rank: 4,
+    name: "Noor Patel",
+    playerData: { deckName: "Boros Convoke" },
+  },
+  {
+    seed: 5,
+    rank: 5,
+    name: "Elena Zhang",
+    playerData: { deckName: "Amulet Titan" },
+  },
+  {
+    seed: 6,
+    rank: 6,
+    name: "Sam Okafor",
+    playerData: { deckName: "Rakdos Scam" },
+  },
+  {
+    seed: 7,
+    rank: 7,
+    name: "Jules Martin",
+    playerData: { deckName: "Yawgmoth Combo" },
+  },
+  {
+    seed: 8,
+    rank: 8,
+    name: "Kai Nakamura",
+    playerData: { deckName: "Domain Zoo" },
+  },
+];
 
 export default function StandingsOverlay({
   data,
@@ -43,12 +95,23 @@ export default function StandingsOverlay({
     .filter(Boolean)
     .join(" & ");
 
-  const standings = data.standingsDataWithPlayers ?? [];
-  const roundName =
-    data.roundDisplayName ?? tournamentInfo?.currentRoundDisplayName ?? "";
-  const isEliminationPhase =
-    data.isEliminationPhase || ELIMINATION_ROUND_NAMES.has(roundName);
   const searchParams = useSearchParams();
+  const isMockTop8Preview = searchParams.get("mockTop8") === "1";
+  const standings = data.standingsDataWithPlayers ?? [];
+  const bracketStandings = isMockTop8Preview
+    ? MOCK_TOP_8_STANDINGS
+    : standings;
+  const roundName =
+    (isMockTop8Preview
+      ? "Quarterfinals"
+      : data.roundDisplayName ?? tournamentInfo?.currentRoundDisplayName) ??
+    "";
+  const eventName =
+    (isMockTop8Preview ? "Top 8 Preview" : tournamentInfo?.eventName) ?? "";
+  const isEliminationPhase =
+    isMockTop8Preview ||
+    data.isEliminationPhase ||
+    ELIMINATION_ROUND_NAMES.has(roundName);
   const parsedPage = parseInt(searchParams.get("page") ?? "1", 10);
   const pageNumber =
     Number.isNaN(parsedPage) || parsedPage < 1 ? 1 : parsedPage;
@@ -65,10 +128,10 @@ export default function StandingsOverlay({
   if (isEliminationPhase) {
     return (
       <Top8BracketOverlay
-        eventName={tournamentInfo?.eventName ?? ""}
+        eventName={eventName}
         roundName={roundName}
         commentators={commentators}
-        standings={standings}
+        standings={bracketStandings}
         theme={theme}
       />
     );
@@ -99,7 +162,7 @@ export default function StandingsOverlay({
               color: theme.text,
             }}
           >
-            {tournamentInfo?.eventName ?? ""}
+            {eventName}
           </span>
           <span
             style={{

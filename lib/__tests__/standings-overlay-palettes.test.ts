@@ -93,4 +93,10 @@ describe("Top 8 bracket overlay", () => {
     expect(standingsOverlaySource).toContain("Top8BracketOverlay");
     expect(standingsOverlaySource).toContain("data.isEliminationPhase");
   });
+
+  it("can be forced into a static mock bracket preview from the URL", () => {
+    expect(standingsOverlaySource).toContain("MOCK_TOP_8_STANDINGS");
+    expect(standingsOverlaySource).toContain('searchParams.get("mockTop8")');
+    expect(standingsOverlaySource).toContain("isMockTop8Preview");
+  });
 });

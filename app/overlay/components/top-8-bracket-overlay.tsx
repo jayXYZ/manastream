@@ -17,6 +17,13 @@ type StandingRow = NonNullable<
   StandingsOverlayType["standingsDataWithPlayers"]
 >[number];
 
+export type Top8BracketStanding = Pick<
+  StandingRow,
+  "name" | "rank" | "seed"
+> & {
+  playerData?: Pick<NonNullable<StandingRow["playerData"]>, "deckName">;
+};
+
 type BracketPlayer = {
   seed: number;
   name: string;
@@ -33,7 +40,7 @@ export default function Top8BracketOverlay({
   eventName: string;
   roundName: string;
   commentators: string;
-  standings: StandingRow[];
+  standings: Top8BracketStanding[];
   theme: BraunDarkPalette;
 }) {
   const playersBySeed = buildPlayersBySeed(standings);
@@ -187,7 +194,7 @@ export default function Top8BracketOverlay({
   );
 }
 
-function buildPlayersBySeed(standings: StandingRow[]) {
+function buildPlayersBySeed(standings: Top8BracketStanding[]) {
   const players = standings
     .map((standing): BracketPlayer | undefined => {
       const seed = standing.seed ?? standing.rank;
