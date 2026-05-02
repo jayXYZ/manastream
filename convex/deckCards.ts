@@ -28,6 +28,10 @@ import { getPlayerData } from "./lib/playerData";
 
 const SCRYFALL_REQUEST_DELAY_MS = 250;
 const SCRYFALL_MAX_ATTEMPTS = 3;
+// Cap how many players a single resolvePlayersDeckCards invocation processes
+// before scheduling itself to continue. Each deck takes up to ~15s of Scryfall
+// time on a cold cache, so ~25 fits comfortably inside the 600s action budget.
+const RESOLVE_PLAYERS_BATCH_SIZE = 25;
 
 export const getCachedCards = internalQuery({
   args: {
@@ -264,10 +268,36 @@ export const resolvePlayersDeckCards = internalAction({
     playerIds: v.array(v.id("players")),
   },
   handler: async (ctx, args) => {
-    for (const playerId of args.playerIds) {
-      await ctx.runAction(internal.deckCards.resolvePlayerDeckCards, {
-        playerId,
-      });
+    const chunk = args.playerIds.slice(0, RESOLVE_PLAYERS_BATCH_SIZE);
+    const remaining = args.playerIds.slice(RESOLVE_PLAYERS_BATCH_SIZE);
+
+    // If a single player resolution throws we don't want the rest of the
+    // batch (or the queued continuations) to be lost, so catch and log
+    // per-player errors. The player will be picked up again the next time
+    // backfillDeckCards or updatePlayerDecklists runs.
+    for (const playerId of chunk) {
+      try {
+        await ctx.runAction(internal.deckCards.resolvePlayerDeckCards, {
+          playerId,
+        });
+      } catch (error) {
+        console.error(
+          `Failed to resolve deck cards for player ${playerId}:`,
+          error,
+        );
+      }
+    }
+
+    // Schedule the remainder as a separate scheduled function so each chunk
+    // gets a fresh action time budget. Without this, large tournaments
+    // (~300 players) blow past the 600s action timeout and leave the
+    // unprocessed players stuck in deckCardsStatus: "pending".
+    if (remaining.length > 0) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.deckCards.resolvePlayersDeckCards,
+        { playerIds: remaining },
+      );
     }
   },
 });
