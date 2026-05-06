@@ -11,7 +11,7 @@ export type ArchetypeDefinitions = Record<string, ArchetypeDefinition>;
 const MAINDECK_CARD_LINE_PATTERN = /^(\d+)\s*x?\s+(.+)$/i;
 const SIDEBOARD_HEADER_PATTERN = /^(sideboard|sb)\b[:\s-]*/i;
 const SIDEBOARD_CARD_LINE_PATTERN = /^sb[:\s-]+/i;
-const PREMODERN_FORMAT = "PREMODERN";
+const CLASSIFIABLE_FORMATS = new Set(["PREMODERN", "OTHER"]);
 
 const defaultArchetypes = archetypes as ArchetypeDefinitions;
 
@@ -122,7 +122,7 @@ export function classifyDecknameForFormat(args: {
   plaintextList: string;
   archetypes?: ArchetypeDefinitions;
 }): string {
-  if ((args.eventFormat ?? "").toUpperCase() !== PREMODERN_FORMAT) {
+  if (!CLASSIFIABLE_FORMATS.has((args.eventFormat ?? "").toUpperCase())) {
     return args.existingArchetype ?? "Unknown";
   }
 

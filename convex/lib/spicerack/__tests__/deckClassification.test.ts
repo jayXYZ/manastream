@@ -171,6 +171,22 @@ describe("classifyDecknameForFormat", () => {
     expect(result).toBe("Deadguy Ale");
   });
 
+  it("uses classifier for OTHER", () => {
+    const result = classifyDecknameForFormat({
+      eventFormat: "OTHER",
+      existingArchetype: "Unknown",
+      plaintextList: `
+4 Dark Ritual
+4 Swords to Plowshares
+3 Gerrard's Verdict
+3 Hypnotic Specter
+`,
+      archetypes: SAMPLE_ARCHETYPES,
+    });
+
+    expect(result).toBe("Deadguy Ale");
+  });
+
   it("keeps existing archetype for non-PREMODERN formats", () => {
     const result = classifyDecknameForFormat({
       eventFormat: "LEGACY",
