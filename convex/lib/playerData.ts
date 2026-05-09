@@ -3,6 +3,13 @@ import { MutationCtx, QueryCtx } from "../_generated/server";
 import { NewPlayerEntry, PlayerWithData } from "../types";
 
 const NO_DECK_INFO = "MISSING_DECKLIST" as const;
+const DEPRECATED_PLAYER_DATA_FIELDS = [
+  "registrationStatus",
+  "deckId",
+  "decklistStatus",
+  "deckName",
+  "deckList",
+] as const;
 
 type PlayerDataInput = Pick<
   NewPlayerEntry,
@@ -27,13 +34,31 @@ export function composePlayerData(
 ): PlayerWithData {
   return {
     ...player,
-    registrationStatus:
-      status?.registrationStatus ?? player.registrationStatus ?? undefined,
-    deckId: decklist?.deckId ?? player.deckId ?? -1,
-    decklistStatus: decklist?.decklistStatus ?? player.decklistStatus ?? undefined,
-    deckName: decklist?.deckName ?? player.deckName ?? NO_DECK_INFO,
-    deckList: decklist?.deckList ?? player.deckList ?? NO_DECK_INFO,
+    registrationStatus: status?.registrationStatus ?? undefined,
+    deckId: decklist?.deckId ?? -1,
+    decklistStatus: decklist?.decklistStatus ?? undefined,
+    deckName: decklist?.deckName ?? NO_DECK_INFO,
+    deckList: decklist?.deckList ?? NO_DECK_INFO,
   };
+}
+
+export function getDeprecatedPlayerDataFieldCleanupPatch(
+  player: Partial<
+    Pick<
+      Doc<"players">,
+      "registrationStatus" | "deckId" | "decklistStatus" | "deckName" | "deckList"
+    >
+  >,
+) {
+  const patch: Partial<
+    Record<(typeof DEPRECATED_PLAYER_DATA_FIELDS)[number], undefined>
+  > = {};
+  for (const field of DEPRECATED_PLAYER_DATA_FIELDS) {
+    if (player[field] !== undefined) {
+      patch[field] = undefined;
+    }
+  }
+  return patch;
 }
 
 export function getChangedRegistrationStatuses(
@@ -73,11 +98,7 @@ export function isMissingDecklistData(
   ) {
     return false;
   }
-  return (
-    (decklist.deckName === "MISSING_DECKLIST" &&
-      decklist.deckList === "MISSING_DECKLIST") ||
-    (decklist.deckName === "Unknown" && decklist.deckList === "Unknown")
-  );
+  return false;
 }
 
 export async function getPlayerStatusByPlayerId(
@@ -90,6 +111,57 @@ export async function getPlayerStatusByPlayerId(
     .unique();
 }
 
+export async function getPlayerStatusBySpicerackTournamentAndPlayerId(
+  ctx: QueryCtx | MutationCtx,
+  spicerackTournamentId: number,
+  spicerackPlayerId: number,
+) {
+  return await ctx.db
+    .query("playerStatuses")
+    .withIndex("by_spicerack_tournament_id_and_spicerack_player_id", (q) =>
+      q
+        .eq("spicerackTournamentId", spicerackTournamentId)
+        .eq("spicerackPlayerId", spicerackPlayerId),
+    )
+    .unique();
+}
+
+export async function syncPlayerRegistrationStatuses(
+  ctx: MutationCtx,
+  args: {
+    spicerackTournamentId: number;
+    players: { spicerackPlayerId: number; registrationStatus: string }[];
+  },
+): Promise<void> {
+  for (const player of args.players) {
+    const existing = await getPlayerStatusBySpicerackTournamentAndPlayerId(
+      ctx,
+      args.spicerackTournamentId,
+      player.spicerackPlayerId,
+    );
+    if (!existing || existing.registrationStatus === player.registrationStatus) {
+      continue;
+    }
+    await ctx.db.patch(existing._id, {
+      registrationStatus: player.registrationStatus,
+      updatedAt: Date.now(),
+    });
+  }
+}
+
+export async function getSpicerackPlayerIdsFromStatusRows(
+  ctx: QueryCtx | MutationCtx,
+  spicerackTournamentId: number,
+): Promise<number[]> {
+  const statusRows = await ctx.db
+    .query("playerStatuses")
+    .withIndex("by_spicerack_tournament_id", (q) =>
+      q.eq("spicerackTournamentId", spicerackTournamentId),
+    )
+    .collect();
+  return statusRows.map((player) => player.spicerackPlayerId);
+}
+
 export async function getPlayerDecklistByPlayerId(
   ctx: QueryCtx | MutationCtx,
   playerId: Id<"players">,
@@ -98,6 +170,42 @@ export async function getPlayerDecklistByPlayerId(
     .query("playerDecklists")
     .withIndex("by_player_id", (q) => q.eq("playerId", playerId))
     .unique();
+}
+
+export async function getMissingDecklistRowsForTournament(
+  ctx: QueryCtx | MutationCtx,
+  spicerackTournamentId: number,
+): Promise<
+  {
+    playerId: Id<"players">;
+    spicerackPlayerId: number;
+    deckId: number;
+    decklistStatus?: "pending" | "ready" | "missing" | "fetch_failed" | "manual";
+  }[]
+> {
+  const missingDecklists = [];
+  for (const status of ["missing", "fetch_failed"] as const) {
+    const decklists = await ctx.db
+      .query("playerDecklists")
+      .withIndex("by_spicerack_tournament_id_and_decklist_status", (q) =>
+        q
+          .eq("spicerackTournamentId", spicerackTournamentId)
+          .eq("decklistStatus", status),
+      )
+      .collect();
+    for (const decklist of decklists) {
+      if (!isMissingDecklistData(decklist)) {
+        continue;
+      }
+      missingDecklists.push({
+        playerId: decklist.playerId,
+        spicerackPlayerId: decklist.spicerackPlayerId,
+        deckId: decklist.deckId,
+        decklistStatus: decklist.decklistStatus,
+      });
+    }
+  }
+  return missingDecklists;
 }
 
 export async function getPlayerData(

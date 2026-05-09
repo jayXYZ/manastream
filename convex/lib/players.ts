@@ -84,7 +84,8 @@ export async function createPlayer(
   player: NewPlayerEntry,
 ): Promise<Id<"players">> {
   const playerId = await ctx.db.insert("players", {
-    ...player,
+    name: player.name,
+    spicerackPlayerId: player.spicerackPlayerId,
     spicerackTournamentId,
     deckCardsStatus: getInitialDeckCardsStatus(player.deckList),
     updatedAt: Date.now(),

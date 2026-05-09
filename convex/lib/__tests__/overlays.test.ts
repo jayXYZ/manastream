@@ -101,6 +101,18 @@ function makeOverlayCtx(args: {
   players: Record<string, unknown>[];
   roundStandings: Record<string, unknown>[];
 }) {
+  const playerDecklists = args.players.map((player) => ({
+    _id: `${player._id as string}-decklist`,
+    _creationTime: 1,
+    playerId: player._id,
+    spicerackTournamentId: player.spicerackTournamentId,
+    spicerackPlayerId: player.spicerackPlayerId,
+    deckId: player.deckId,
+    decklistStatus: "ready",
+    deckName: player.deckName,
+    deckList: player.deckList,
+    updatedAt: 1,
+  }));
   const rowsByTable = {
     tournaments: args.tournaments,
     spicerackTournaments: [args.spicerackTournament],
@@ -108,7 +120,7 @@ function makeOverlayCtx(args: {
     players: args.players,
     roundStandings: args.roundStandings,
     playerStatuses: [],
-    playerDecklists: [],
+    playerDecklists,
   };
   const rowsById = new Map(
     Object.values(rowsByTable)
