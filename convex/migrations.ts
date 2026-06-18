@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import { components } from "./_generated/api";
 import { DataModel } from "./_generated/dataModel";
 import { internalMutation, query } from "./_generated/server";
+import { getDeprecatedPlayerDataFieldCleanupPatch } from "./lib/playerData";
 
 export const migrations = new Migrations<DataModel>(components.migrations, {
   internalMutation,
@@ -65,6 +66,18 @@ export const backfillPlayerDecklists = migrations.define({
   },
 });
 
+export const clearDeprecatedPlayerDataFields = migrations.define({
+  table: "players",
+  batchSize: 25,
+  migrateOne: async (ctx, player) => {
+    const patch = getDeprecatedPlayerDataFieldCleanupPatch(player);
+    if (Object.keys(patch).length === 0) {
+      return;
+    }
+    await ctx.db.patch(player._id, patch);
+  },
+});
+
 export const verifyPlayerDataSplit = query({
   args: {
     spicerackTournamentId: v.optional(v.number()),
@@ -114,5 +127,38 @@ export const verifyPlayerDataSplit = query({
       sampleMissingStatusRows,
       sampleMissingDecklistRows,
     };
+  },
+});
+
+export const verifyDeprecatedPlayerDataFieldsCleared = query({
+  args: {
+    spicerackTournamentId: v.optional(v.number()),
+  },
+  returns: v.object({
+    sampleDeprecatedPlayerRows: v.array(v.id("players")),
+  }),
+  handler: async (ctx, args) => {
+    const playersQuery =
+      args.spicerackTournamentId === undefined
+        ? ctx.db.query("players")
+        : ctx.db
+            .query("players")
+            .withIndex("by_spicerack_tournament_id", (q) =>
+              q.eq("spicerackTournamentId", args.spicerackTournamentId),
+            );
+    const sampleDeprecatedPlayerRows = [];
+
+    for await (const player of playersQuery) {
+      if (
+        Object.keys(getDeprecatedPlayerDataFieldCleanupPatch(player)).length > 0
+      ) {
+        sampleDeprecatedPlayerRows.push(player._id);
+      }
+      if (sampleDeprecatedPlayerRows.length >= 10) {
+        break;
+      }
+    }
+
+    return { sampleDeprecatedPlayerRows };
   },
 });

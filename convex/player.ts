@@ -11,10 +11,12 @@ import { v } from "convex/values";
 import { getOwnTournament } from "./lib/tournaments";
 import { decklistStatusValidator } from "./validators";
 import {
-  getChangedRegistrationStatuses,
+  getMissingDecklistRowsForTournament,
   getPlayerData,
+  getPlayerDecklistByPlayerId,
+  getSpicerackPlayerIdsFromStatusRows,
   insertPlayerDataRows,
-  isMissingDecklistData,
+  syncPlayerRegistrationStatuses,
   upsertPlayerDecklist,
 } from "./lib/playerData";
 
@@ -37,11 +39,6 @@ export const createPlayer = internalMutation({
       name: args.player.name,
       spicerackTournamentId: args.spicerackTournamentId,
       spicerackPlayerId: args.player.spicerackPlayerId,
-      registrationStatus: args.player.registrationStatus,
-      deckId: args.player.deckId,
-      decklistStatus: args.player.decklistStatus,
-      deckName: args.player.deckName,
-      deckList: args.player.deckList,
       deckCardsStatus: getInitialDeckCardsStatus(args.player.deckList),
       updatedAt: Date.now(),
     });
@@ -79,11 +76,6 @@ export const createPlayers = internalMutation({
         name: player.name,
         spicerackTournamentId: player.spicerackTournamentId,
         spicerackPlayerId: player.spicerackPlayerId,
-        registrationStatus: player.registrationStatus,
-        deckId: player.deckId,
-        decklistStatus: player.decklistStatus,
-        deckName: player.deckName,
-        deckList: player.deckList,
         deckCardsStatus: getInitialDeckCardsStatus(player.deckList),
         updatedAt: Date.now(),
       });
@@ -117,18 +109,16 @@ export const updatePlayerDecklists = internalMutation({
       if (!existingPlayer) {
         throw new Error("Player not found");
       }
-      const deckId = player.deckId ?? existingPlayer.deckId ?? -1;
+      const existingDecklist = await getPlayerDecklistByPlayerId(
+        ctx,
+        player.playerId,
+      );
+      const deckId = player.deckId ?? existingDecklist?.deckId ?? -1;
       const decklistStatus =
-        player.decklistStatus ?? existingPlayer.decklistStatus ?? "ready";
+        player.decklistStatus ?? existingDecklist?.decklistStatus ?? "ready";
       await ctx.db.patch(player.playerId, {
-        deckName: player.deckName,
-        deckList: player.deckList,
         deckCardsStatus: getInitialDeckCardsStatus(player.deckList),
         deckCards: undefined,
-        ...(player.deckId !== undefined && { deckId: player.deckId }),
-        ...(player.decklistStatus !== undefined && {
-          decklistStatus: player.decklistStatus,
-        }),
       });
       if (existingPlayer.spicerackTournamentId !== undefined) {
         await upsertPlayerDecklist(ctx, player.playerId, {
@@ -194,78 +184,7 @@ export const updatePlayerRegistrationStatuses = internalMutation({
     ),
   },
   handler: async (ctx, args) => {
-    const statusRows = await ctx.db
-      .query("playerStatuses")
-      .withIndex("by_spicerack_tournament_id", (q) =>
-        q.eq("spicerackTournamentId", args.spicerackTournamentId),
-      )
-      .collect();
-
-    const statusTargetsBySpicerackPlayerId = new Map(
-      statusRows.map((player) => [
-        player.spicerackPlayerId,
-        {
-          currentStatus: player.registrationStatus,
-          targetId: player._id,
-          playerId: player.playerId,
-        },
-      ]),
-    );
-
-    for (const changedStatus of getChangedRegistrationStatuses(
-      args.players,
-      statusTargetsBySpicerackPlayerId,
-    )) {
-      const target = statusTargetsBySpicerackPlayerId.get(
-        changedStatus.spicerackPlayerId,
-      );
-      await ctx.db.patch(changedStatus.targetId as Id<"playerStatuses">, {
-        registrationStatus: changedStatus.registrationStatus,
-        updatedAt: Date.now(),
-      });
-      await ctx.db.patch(target!.playerId, {
-        registrationStatus: changedStatus.registrationStatus,
-      });
-    }
-
-    const missingStatusPlayerIds = args.players.filter(
-      (player) => !statusTargetsBySpicerackPlayerId.has(player.spicerackPlayerId),
-    );
-    if (missingStatusPlayerIds.length === 0) {
-      return;
-    }
-
-    const missingStatusBySpicerackPlayerId = new Map(
-      missingStatusPlayerIds.map((player) => [
-        player.spicerackPlayerId,
-        player.registrationStatus,
-      ]),
-    );
-    const legacyPlayers = await ctx.db
-      .query("players")
-      .withIndex("by_spicerack_tournament_id", (q) =>
-        q.eq("spicerackTournamentId", args.spicerackTournamentId),
-      )
-      .collect();
-
-    for (const player of legacyPlayers) {
-      if (!missingStatusBySpicerackPlayerId.has(player.spicerackPlayerId)) {
-        continue;
-      }
-      const registrationStatus = missingStatusBySpicerackPlayerId.get(
-        player.spicerackPlayerId,
-      )!;
-      if (player.registrationStatus !== registrationStatus) {
-        await ctx.db.patch(player._id, { registrationStatus });
-      }
-      await ctx.db.insert("playerStatuses", {
-        playerId: player._id,
-        spicerackTournamentId: args.spicerackTournamentId,
-        spicerackPlayerId: player.spicerackPlayerId,
-        registrationStatus,
-        updatedAt: Date.now(),
-      });
-    }
+    await syncPlayerRegistrationStatuses(ctx, args);
   },
 });
 
@@ -282,52 +201,10 @@ export const getPlayersWithMissingDecklists = internalQuery({
     }),
   ),
   handler: async (ctx, args) => {
-    const missingDecklists = new Map<
-      Id<"players">,
-      {
-        playerId: Id<"players">;
-        spicerackPlayerId: number;
-        deckId: number;
-        decklistStatus?: "pending" | "ready" | "missing" | "fetch_failed" | "manual";
-      }
-    >();
-    for (const status of ["missing", "fetch_failed"] as const) {
-      const decklists = await ctx.db
-        .query("playerDecklists")
-        .withIndex("by_spicerack_tournament_id_and_decklist_status", (q) =>
-          q
-            .eq("spicerackTournamentId", args.spicerackTournamentId)
-            .eq("decklistStatus", status),
-        )
-        .collect();
-      for (const decklist of decklists) {
-        missingDecklists.set(decklist.playerId, {
-          playerId: decklist.playerId,
-          spicerackPlayerId: decklist.spicerackPlayerId,
-          deckId: decklist.deckId,
-          decklistStatus: decklist.decklistStatus,
-        });
-      }
-    }
-
-    const legacyPlayers = await ctx.db
-      .query("players")
-      .withIndex("by_spicerack_tournament_id", (q) =>
-        q.eq("spicerackTournamentId", args.spicerackTournamentId),
-      )
-      .collect();
-    for (const player of legacyPlayers) {
-      if (missingDecklists.has(player._id) || !isMissingDecklistData(player)) {
-        continue;
-      }
-      missingDecklists.set(player._id, {
-        playerId: player._id,
-        spicerackPlayerId: player.spicerackPlayerId,
-        deckId: player.deckId ?? -1,
-        decklistStatus: player.decklistStatus,
-      });
-    }
-    return [...missingDecklists.values()];
+    return await getMissingDecklistRowsForTournament(
+      ctx,
+      args.spicerackTournamentId,
+    );
   },
 });
 
@@ -337,26 +214,10 @@ export const getAllSpicerackTournamentPlayerSpicerackIds = internalQuery({
   },
   returns: v.array(v.number()),
   handler: async (ctx, args) => {
-    const statusRows = await ctx.db
-      .query("playerStatuses")
-      .withIndex("by_spicerack_tournament_id", (q) =>
-        q.eq("spicerackTournamentId", args.spicerackTournamentId),
-      )
-      .collect();
-    const spicerackPlayerIds = new Set(
-      statusRows.map((player) => player.spicerackPlayerId),
+    return await getSpicerackPlayerIdsFromStatusRows(
+      ctx,
+      args.spicerackTournamentId,
     );
-
-    const legacyPlayers = await ctx.db
-      .query("players")
-      .withIndex("by_spicerack_tournament_id", (q) =>
-        q.eq("spicerackTournamentId", args.spicerackTournamentId),
-      )
-      .collect();
-    for (const player of legacyPlayers) {
-      spicerackPlayerIds.add(player.spicerackPlayerId);
-    }
-    return [...spicerackPlayerIds];
   },
 });
 
@@ -390,17 +251,15 @@ export const updatePlayerInfo = mutation({
 
     await ctx.db.patch(player._id, {
       name: args.name,
-      deckName: args.deckName,
-      deckList: args.deckList,
-      decklistStatus: "manual",
       deckCardsStatus: getInitialDeckCardsStatus(args.deckList),
       deckCards: undefined,
       updatedAt: Date.now(),
     });
+    const existingDecklist = await getPlayerDecklistByPlayerId(ctx, player._id);
     await upsertPlayerDecklist(ctx, player._id, {
       spicerackTournamentId: tournament.spicerackTournamentId,
       spicerackPlayerId: args.spicerackPlayerId,
-      deckId: player.deckId ?? -1,
+      deckId: existingDecklist?.deckId ?? -1,
       decklistStatus: "manual",
       deckName: args.deckName,
       deckList: args.deckList,
