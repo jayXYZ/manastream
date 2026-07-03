@@ -16,6 +16,30 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 
+type SettingsFormInputs = {
+  meleeClientId: string;
+  meleeClientSecret: string;
+  externalTournamentId: number | undefined;
+  syncMode: "manual" | "auto";
+};
+
+function getSettingsFormInputs(
+  settings:
+    | { meleeClientId: string; meleeClientSecret: string }
+    | undefined,
+  tournament:
+    | { externalTournamentId?: number; mode: "manual" | "auto" }
+    | null
+    | undefined,
+): SettingsFormInputs {
+  return {
+    meleeClientId: settings?.meleeClientId ?? "",
+    meleeClientSecret: settings?.meleeClientSecret ?? "",
+    externalTournamentId: tournament?.externalTournamentId ?? undefined,
+    syncMode: tournament?.mode ?? "manual",
+  };
+}
+
 export default function SettingsPage() {
   const settings = useQuery(api.settings.getSettings);
   const tournament = useQuery(api.tournaments.getUserTournament);
@@ -24,32 +48,25 @@ export default function SettingsPage() {
   const updateTournament = useMutation(
     api.tournaments.updateTournamentSettings,
   );
-  const [inputs, setInputs] = useState({
-    meleeClientId: settings?.meleeClientId ?? "",
-    meleeClientSecret: settings?.meleeClientSecret ?? "",
-    externalTournamentId: tournament?.externalTournamentId ?? undefined,
-    syncMode: tournament?.mode ?? "manual",
-  });
+  const [inputs, setInputs] = useState<SettingsFormInputs>(() =>
+    getSettingsFormInputs(settings, tournament),
+  );
   const [errorVisible, setErrorVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    setInputs({
-      meleeClientId: settings?.meleeClientId ?? "",
-      meleeClientSecret: settings?.meleeClientSecret ?? "",
-      externalTournamentId: tournament?.externalTournamentId ?? undefined,
-      syncMode: tournament?.mode ?? "manual",
-    });
+    setInputs(getSettingsFormInputs(settings, tournament));
     setErrorVisible(false);
     setErrorMessage("");
   }, [settings, tournament]);
 
+  const savedInputs = getSettingsFormInputs(settings, tournament);
   const hasChanges =
-    inputs.meleeClientId !== settings?.meleeClientId ||
-    inputs.meleeClientSecret !== settings?.meleeClientSecret ||
-    inputs.externalTournamentId !== tournament?.externalTournamentId ||
-    inputs.syncMode !== tournament?.mode;
+    inputs.meleeClientId !== savedInputs.meleeClientId ||
+    inputs.meleeClientSecret !== savedInputs.meleeClientSecret ||
+    inputs.externalTournamentId !== savedInputs.externalTournamentId ||
+    inputs.syncMode !== savedInputs.syncMode;
 
   const handleSave = async () => {
     setIsSaving(true);
