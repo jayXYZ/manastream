@@ -6,48 +6,59 @@ import {
 } from "../_generated/server";
 import {
   braunDarkPaletteValidator,
-  spicerackRoundStandingsDataValidator,
+  roundStandingsDataValidator,
 } from "../validators";
-import { updateSpicerackRoundStandingsHelper } from "../lib/spicerack/standings";
-import { fetchSpicerackRoundStandingsData } from "../lib/spicerack/api";
+import {
+  getRoundStandingsHelper,
+  updateRoundStandingsHelper,
+} from "../lib/standings";
+import { fetchMeleeRoundStandings } from "../lib/melee/api";
+import { toStandingRows } from "../models/melee";
 import { internal } from "../_generated/api";
 import {
   requireStandingsOverlayAccess,
   requireTournamentAccess,
 } from "../lib/auth";
-import { getSpicerackRoundStandingsHelper } from "../lib/spicerack/standings";
 import { createStandingsOverlayHelper } from "../lib/overlays";
 import { filterUndefined } from "../lib/utils";
 
-export const updateSpicerackRoundStandings = internalMutation({
+export const updateRoundStandings = internalMutation({
   args: {
     standingsId: v.id("roundStandings"),
-    standingsData: spicerackRoundStandingsDataValidator,
+    standingsData: roundStandingsDataValidator,
   },
   handler: async (ctx, args) => {
-    await updateSpicerackRoundStandingsHelper(
-      ctx,
-      args.standingsId,
-      args.standingsData,
-    );
+    await updateRoundStandingsHelper(ctx, args.standingsId, args.standingsData);
   },
 });
 
-export const fetchAndUpdateSpicerackRoundStandings = internalAction({
+export const fetchAndUpdateRoundStandings = internalAction({
   args: {
     tournamentId: v.id("tournaments"),
-    spicerackRoundId: v.number(),
+    externalRoundId: v.number(),
     standingsId: v.id("roundStandings"),
-    spicerackApiKey: v.string(),
+    meleeClientId: v.string(),
+    meleeClientSecret: v.string(),
   },
   handler: async (ctx, args) => {
-    const standings = await fetchSpicerackRoundStandingsData(
-      args.spicerackRoundId,
-      args.spicerackApiKey,
+    const meleeStandings = await fetchMeleeRoundStandings(
+      args.externalRoundId,
+      {
+        clientId: args.meleeClientId,
+        clientSecret: args.meleeClientSecret,
+      },
     );
-    await ctx.runMutation(internal.overlays.updateSpicerackRoundStandings, {
+    if (meleeStandings.length === 0) {
+      throw new Error(
+        `No standings returned for round ${args.externalRoundId}`,
+      );
+    }
+    await ctx.runMutation(internal.overlays.updateRoundStandings, {
       standingsId: args.standingsId,
-      standingsData: standings,
+      standingsData: {
+        roundNumber: meleeStandings[0].RoundNumber,
+        standings: toStandingRows(meleeStandings),
+      },
     });
   },
 });
@@ -55,7 +66,7 @@ export const fetchAndUpdateSpicerackRoundStandings = internalAction({
 export const updateStandingsOverlay = mutation({
   args: {
     overlayId: v.id("overlays"),
-    spicerackRoundId: v.optional(v.number()),
+    externalRoundId: v.optional(v.number()),
     showCurrentBracket: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
@@ -67,20 +78,17 @@ export const updateStandingsOverlay = mutation({
       return;
     }
 
-    if (args.spicerackRoundId === undefined) {
+    if (args.externalRoundId === undefined) {
       await ctx.db.patch(args.overlayId, {
         showCurrentBracket: false,
       });
       return;
     }
 
-    const standings = await getSpicerackRoundStandingsHelper(
-      ctx,
-      args.spicerackRoundId,
-    );
+    const standings = await getRoundStandingsHelper(ctx, args.externalRoundId);
     await ctx.db.patch(args.overlayId, {
       roundStandingsId: standings,
-      spicerackRoundId: args.spicerackRoundId,
+      externalRoundId: args.externalRoundId,
       showCurrentBracket: false,
     });
   },
@@ -103,7 +111,7 @@ export const setStandingsOverlaySettings = mutation({
 });
 
 /**
- * Public mutation to create a commentary overlay.
+ * Public mutation to create a standings overlay.
  * Requires authentication and tournament access.
  */
 export const createStandingsOverlay = mutation({

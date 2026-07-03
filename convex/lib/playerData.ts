@@ -6,10 +6,10 @@ const NO_DECK_INFO = "MISSING_DECKLIST" as const;
 
 type PlayerDataInput = Pick<
   NewPlayerEntry,
-  | "spicerackTournamentId"
-  | "spicerackPlayerId"
+  | "externalTournamentId"
+  | "externalPlayerId"
   | "registrationStatus"
-  | "deckId"
+  | "externalDecklistId"
   | "decklistStatus"
   | "deckName"
   | "deckList"
@@ -29,7 +29,8 @@ export function composePlayerData(
     ...player,
     registrationStatus:
       status?.registrationStatus ?? player.registrationStatus ?? undefined,
-    deckId: decklist?.deckId ?? player.deckId ?? -1,
+    externalDecklistId:
+      decklist?.externalDecklistId ?? player.externalDecklistId ?? undefined,
     decklistStatus: decklist?.decklistStatus ?? player.decklistStatus ?? undefined,
     deckName: decklist?.deckName ?? player.deckName ?? NO_DECK_INFO,
     deckList: decklist?.deckList ?? player.deckList ?? NO_DECK_INFO,
@@ -37,12 +38,12 @@ export function composePlayerData(
 }
 
 export function getChangedRegistrationStatuses(
-  incomingStatuses: { spicerackPlayerId: number; registrationStatus: string }[],
-  targetsBySpicerackPlayerId: Map<number, RegistrationStatusTarget>,
+  incomingStatuses: { externalPlayerId: number; registrationStatus: string }[],
+  targetsByExternalPlayerId: Map<number, RegistrationStatusTarget>,
 ) {
   return incomingStatuses.flatMap((incomingStatus) => {
-    const target = targetsBySpicerackPlayerId.get(
-      incomingStatus.spicerackPlayerId,
+    const target = targetsByExternalPlayerId.get(
+      incomingStatus.externalPlayerId,
     );
     if (
       !target ||
@@ -120,16 +121,16 @@ export async function insertPlayerDataRows(
   await Promise.all([
     ctx.db.insert("playerStatuses", {
       playerId,
-      spicerackTournamentId: player.spicerackTournamentId,
-      spicerackPlayerId: player.spicerackPlayerId,
+      externalTournamentId: player.externalTournamentId,
+      externalPlayerId: player.externalPlayerId,
       registrationStatus: player.registrationStatus,
       updatedAt: now,
     }),
     ctx.db.insert("playerDecklists", {
       playerId,
-      spicerackTournamentId: player.spicerackTournamentId,
-      spicerackPlayerId: player.spicerackPlayerId,
-      deckId: player.deckId,
+      externalTournamentId: player.externalTournamentId,
+      externalPlayerId: player.externalPlayerId,
+      externalDecklistId: player.externalDecklistId,
       decklistStatus: player.decklistStatus,
       deckName: player.deckName,
       deckList: player.deckList,
@@ -145,9 +146,9 @@ export async function upsertPlayerDecklist(
 ): Promise<void> {
   const existing = await getPlayerDecklistByPlayerId(ctx, playerId);
   const patch = {
-    spicerackTournamentId: player.spicerackTournamentId,
-    spicerackPlayerId: player.spicerackPlayerId,
-    deckId: player.deckId,
+    externalTournamentId: player.externalTournamentId,
+    externalPlayerId: player.externalPlayerId,
+    externalDecklistId: player.externalDecklistId,
     decklistStatus: player.decklistStatus,
     deckName: player.deckName,
     deckList: player.deckList,
@@ -164,13 +165,13 @@ export async function upsertPlayerStatus(
   ctx: MutationCtx,
   player: Pick<
     PlayerDataInput,
-    "spicerackTournamentId" | "spicerackPlayerId" | "registrationStatus"
+    "externalTournamentId" | "externalPlayerId" | "registrationStatus"
   > & { playerId: Id<"players"> },
 ): Promise<void> {
   const existing = await getPlayerStatusByPlayerId(ctx, player.playerId);
   const patch = {
-    spicerackTournamentId: player.spicerackTournamentId,
-    spicerackPlayerId: player.spicerackPlayerId,
+    externalTournamentId: player.externalTournamentId,
+    externalPlayerId: player.externalPlayerId,
     registrationStatus: player.registrationStatus,
     updatedAt: Date.now(),
   };

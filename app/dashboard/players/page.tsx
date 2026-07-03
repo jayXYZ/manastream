@@ -76,7 +76,7 @@ const ELIMINATED_REGISTRATION_STATUSES = new Set([
 ]);
 
 export default function PlayersPage() {
-  const players = useQuery(api.player.getAllSpicerackTournamentPlayers);
+  const players = useQuery(api.player.getAllTournamentPlayers);
   const tournament = useQuery(api.tournaments.getUserTournament);
   const updatePlayerInfo = useMutation(api.player.updatePlayerInfo);
   const [editingRowId, setEditingRowId] = useState<number | null>(null);
@@ -423,10 +423,10 @@ export default function PlayersPage() {
           <TableBody>
             {filteredPlayers?.map((player) => (
               <TableRow
-                key={player.spicerackPlayerId}
+                key={player.externalPlayerId}
                 className={cn(
                   "hover:bg-muted/50 transition-colors",
-                  editingRowId === player.spicerackPlayerId &&
+                  editingRowId === player.externalPlayerId &&
                     "!overflow-visible",
                 )}
               >
@@ -434,7 +434,7 @@ export default function PlayersPage() {
                   value={player.name || ""}
                   onSave={(newName) => {
                     updatePlayerInfo({
-                      spicerackPlayerId: player.spicerackPlayerId,
+                      externalPlayerId: player.externalPlayerId,
                       name: newName,
                       deckName: player.deckName || "",
                       deckList: player.deckList || "",
@@ -443,7 +443,7 @@ export default function PlayersPage() {
                   }}
                   onEditChange={(isEditing) => {
                     setEditingRowId(
-                      isEditing ? player.spicerackPlayerId : null,
+                      isEditing ? player.externalPlayerId : null,
                     );
                   }}
                   className="w-1/4 border-r border-border"
@@ -452,7 +452,7 @@ export default function PlayersPage() {
                   value={player.deckName || ""}
                   onSave={(newDeckName) => {
                     updatePlayerInfo({
-                      spicerackPlayerId: player.spicerackPlayerId,
+                      externalPlayerId: player.externalPlayerId,
                       name: player.name || "",
                       deckName: newDeckName,
                       deckList: player.deckList || "",
@@ -461,7 +461,7 @@ export default function PlayersPage() {
                   }}
                   onEditChange={(isEditing) => {
                     setEditingRowId(
-                      isEditing ? player.spicerackPlayerId : null,
+                      isEditing ? player.externalPlayerId : null,
                     );
                   }}
                   className="w-1/4 border-r border-border"
@@ -470,7 +470,7 @@ export default function PlayersPage() {
                   value={player.deckList || ""}
                   onSave={(newDeckList) => {
                     updatePlayerInfo({
-                      spicerackPlayerId: player.spicerackPlayerId,
+                      externalPlayerId: player.externalPlayerId,
                       name: player.name || "",
                       deckName: player.deckName || "",
                       deckList: newDeckList,
@@ -479,7 +479,7 @@ export default function PlayersPage() {
                   }}
                   onEditChange={(isEditing) => {
                     setEditingRowId(
-                      isEditing ? player.spicerackPlayerId : null,
+                      isEditing ? player.externalPlayerId : null,
                     );
                   }}
                   className="w-1/2"

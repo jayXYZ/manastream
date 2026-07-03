@@ -5,7 +5,7 @@ import { NewPlayerEntry, PlayerWithData } from "../types";
 import { getPlayerData, insertPlayerDataRows } from "./playerData";
 
 /**
- * Helper function to get player data for a given spicerack match
+ * Helper function to get player data for a given match
  * @param ctx Query context
  * @param player1Id Player 1 database ID
  * @param player2Id Player 2 database ID
@@ -34,30 +34,42 @@ export async function getPlayersForMatch(
   };
 }
 
-export async function getPlayerBySpicerackPlayerId(
+export async function getPlayerByExternalPlayerId(
   ctx: QueryCtx | MutationCtx,
-  spicerackPlayerId: number,
+  externalTournamentId: number,
+  externalPlayerId: number,
 ): Promise<Doc<"players"> | undefined> {
   const player = await ctx.db
     .query("players")
-    .withIndex("by_spicerack_player_id", (q) =>
-      q.eq("spicerackPlayerId", spicerackPlayerId),
+    .withIndex("by_external_tournament_id_and_external_player_id", (q) =>
+      q
+        .eq("externalTournamentId", externalTournamentId)
+        .eq("externalPlayerId", externalPlayerId),
     )
     .first();
   return player ?? undefined;
 }
 
-export async function getPlayersBySpicerackPlayerIds(
+export async function getPlayersByExternalPlayerIds(
   ctx: QueryCtx | MutationCtx,
-  player1SpicerackPlayerId: number,
-  player2SpicerackPlayerId: number,
+  externalTournamentId: number,
+  player1ExternalPlayerId: number,
+  player2ExternalPlayerId: number,
 ): Promise<{
   player1Data?: Doc<"players">;
   player2Data?: Doc<"players">;
 }> {
   const [player1Data, player2Data] = await Promise.all([
-    getPlayerBySpicerackPlayerId(ctx, player1SpicerackPlayerId),
-    getPlayerBySpicerackPlayerId(ctx, player2SpicerackPlayerId),
+    getPlayerByExternalPlayerId(
+      ctx,
+      externalTournamentId,
+      player1ExternalPlayerId,
+    ),
+    getPlayerByExternalPlayerId(
+      ctx,
+      externalTournamentId,
+      player2ExternalPlayerId,
+    ),
   ]);
   return {
     player1Data: player1Data ?? undefined,
@@ -67,31 +79,31 @@ export async function getPlayersBySpicerackPlayerIds(
 
 export async function doesPlayerExist(
   ctx: QueryCtx | MutationCtx,
-  spicerackPlayerId: number,
+  externalTournamentId: number,
+  externalPlayerId: number,
 ): Promise<boolean> {
-  const player = await ctx.db
-    .query("players")
-    .withIndex("by_spicerack_player_id", (q) =>
-      q.eq("spicerackPlayerId", spicerackPlayerId),
-    )
-    .first();
-  return player !== null;
+  const player = await getPlayerByExternalPlayerId(
+    ctx,
+    externalTournamentId,
+    externalPlayerId,
+  );
+  return player !== undefined;
 }
 
 export async function createPlayer(
   ctx: MutationCtx,
-  spicerackTournamentId: number,
+  externalTournamentId: number,
   player: NewPlayerEntry,
 ): Promise<Id<"players">> {
   const playerId = await ctx.db.insert("players", {
     ...player,
-    spicerackTournamentId,
+    externalTournamentId,
     deckCardsStatus: getInitialDeckCardsStatus(player.deckList),
     updatedAt: Date.now(),
   });
   await insertPlayerDataRows(ctx, playerId, {
     ...player,
-    spicerackTournamentId,
+    externalTournamentId,
   });
   await scheduleDeckCardsResolution(ctx, playerId, player.deckList);
   return playerId;
@@ -106,15 +118,14 @@ const PENDING_DECK_INFO = "PENDING" as const;
 export function createPendingPlayerEntry(
   id: number,
   name: string,
-  spicerackTournamentId: number,
-  decklistId: number | null,
+  externalTournamentId: number,
+  externalDecklistId?: string,
 ): NewPlayerEntry {
-  if (!decklistId) {
+  if (!externalDecklistId) {
     return {
       name,
-      spicerackPlayerId: id,
-      spicerackTournamentId,
-      deckId: -1,
+      externalPlayerId: id,
+      externalTournamentId,
       decklistStatus: "missing",
       deckName: NO_DECK_INFO,
       deckList: NO_DECK_INFO,
@@ -122,9 +133,9 @@ export function createPendingPlayerEntry(
   }
   return {
     name,
-    spicerackPlayerId: id,
-    spicerackTournamentId,
-    deckId: decklistId,
+    externalPlayerId: id,
+    externalTournamentId,
+    externalDecklistId,
     decklistStatus: "pending",
     deckName: PENDING_DECK_INFO,
     deckList: PENDING_DECK_INFO,

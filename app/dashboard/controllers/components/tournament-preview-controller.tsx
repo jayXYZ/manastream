@@ -186,8 +186,8 @@ function TournamentOverlayPreviewDialog({
     (overlay) => overlay.overlayType === "standings",
   ) as StandingsOverlay;
   const allFeatureMatches = useQuery(api.featurematches.getAllFeatureMatches);
-  const completedRounds = useQuery(api.spicerack.getSpicerackCompletedRounds, {
-    spicerackTournamentId: tournament.spicerackTournamentId ?? -1,
+  const completedRounds = useQuery(api.tournamentSync.getCompletedRounds, {
+    externalTournamentId: tournament.externalTournamentId ?? -1,
   });
   const currentPairings = useQuery(api.pairings.getCurrentRoundPairings);
   const hasCurrentBracketOption =
@@ -206,7 +206,7 @@ function TournamentOverlayPreviewDialog({
     deckOverlayMatchId: deckOverlay?.matchId,
     standingsOverlaySelection: standingsOverlay?.showCurrentBracket
       ? CURRENT_BRACKET_VALUE
-      : (standingsOverlay?.spicerackRoundId?.toString() ?? NO_STANDINGS_VALUE),
+      : (standingsOverlay?.externalRoundId?.toString() ?? NO_STANDINGS_VALUE),
   });
 
   const updateDeckOverlay = useMutation(api.overlays.updateDeckOverlay);
@@ -245,7 +245,7 @@ function TournamentOverlayPreviewDialog({
     ) {
       updateStandingsOverlay({
         overlayId: standingsOverlay._id,
-        spicerackRoundId: Number(inputs.standingsOverlaySelection),
+        externalRoundId: Number(inputs.standingsOverlaySelection),
         showCurrentBracket: false,
       });
     }

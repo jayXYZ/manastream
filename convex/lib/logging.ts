@@ -2,10 +2,10 @@ import { MutationCtx } from "../_generated/server";
 import { Id } from "../_generated/dataModel";
 
 /**
- * Helper function to log spicerack events
+ * Helper function to log integration events
  * Can be called from within any mutation
  */
-export async function logSpicerackEvent(
+export async function logIntegrationEvent(
   ctx: MutationCtx,
   params: {
     userId: Id<"users">;
@@ -16,7 +16,7 @@ export async function logSpicerackEvent(
     metadata?: unknown;
   },
 ) {
-  await ctx.db.insert("spicerackLogs", {
+  await ctx.db.insert("integrationLogs", {
     userId: params.userId,
     timestamp: Date.now(),
     action: params.action,

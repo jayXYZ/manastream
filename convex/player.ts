@@ -20,12 +20,12 @@ import {
 
 export const createPlayer = internalMutation({
   args: {
-    spicerackTournamentId: v.number(),
+    externalTournamentId: v.number(),
     player: v.object({
       name: v.string(),
-      spicerackPlayerId: v.number(),
+      externalPlayerId: v.number(),
       registrationStatus: v.optional(v.string()),
-      deckId: v.number(),
+      externalDecklistId: v.optional(v.string()),
       decklistStatus: v.optional(decklistStatusValidator),
       deckName: v.string(),
       deckList: v.string(),
@@ -35,10 +35,10 @@ export const createPlayer = internalMutation({
   handler: async (ctx, args) => {
     const playerId = await ctx.db.insert("players", {
       name: args.player.name,
-      spicerackTournamentId: args.spicerackTournamentId,
-      spicerackPlayerId: args.player.spicerackPlayerId,
+      externalTournamentId: args.externalTournamentId,
+      externalPlayerId: args.player.externalPlayerId,
       registrationStatus: args.player.registrationStatus,
-      deckId: args.player.deckId,
+      externalDecklistId: args.player.externalDecklistId,
       decklistStatus: args.player.decklistStatus,
       deckName: args.player.deckName,
       deckList: args.player.deckList,
@@ -47,7 +47,7 @@ export const createPlayer = internalMutation({
     });
     await insertPlayerDataRows(ctx, playerId, {
       ...args.player,
-      spicerackTournamentId: args.spicerackTournamentId,
+      externalTournamentId: args.externalTournamentId,
     });
     await scheduleDeckCardsResolution(ctx, playerId, args.player.deckList);
     return playerId;
@@ -58,29 +58,29 @@ export const createPlayers = internalMutation({
   args: {
     players: v.array(
       v.object({
-        spicerackTournamentId: v.number(),
+        externalTournamentId: v.number(),
         name: v.string(),
-        spicerackPlayerId: v.number(),
+        externalPlayerId: v.number(),
         registrationStatus: v.optional(v.string()),
-        deckId: v.number(),
+        externalDecklistId: v.optional(v.string()),
         decklistStatus: v.optional(decklistStatusValidator),
         deckName: v.string(),
         deckList: v.string(),
       }),
     ),
   },
-  returns: v.array(v.object({ playerId: v.id("players"), deckId: v.number() })),
+  returns: v.array(v.object({ playerId: v.id("players"), externalDecklistId: v.optional(v.string()) })),
   handler: async (ctx, args) => {
-    const playerIdsAndDeckIds: { playerId: Id<"players">; deckId: number }[] =
+    const playerIdsAndDeckIds: { playerId: Id<"players">; externalDecklistId?: string }[] =
       [];
     const playerIdsToResolve: Id<"players">[] = [];
     for (const player of args.players) {
       const playerId = await ctx.db.insert("players", {
         name: player.name,
-        spicerackTournamentId: player.spicerackTournamentId,
-        spicerackPlayerId: player.spicerackPlayerId,
+        externalTournamentId: player.externalTournamentId,
+        externalPlayerId: player.externalPlayerId,
         registrationStatus: player.registrationStatus,
-        deckId: player.deckId,
+        externalDecklistId: player.externalDecklistId,
         decklistStatus: player.decklistStatus,
         deckName: player.deckName,
         deckList: player.deckList,
@@ -91,7 +91,7 @@ export const createPlayers = internalMutation({
       if (isResolvableDeckList(player.deckList)) {
         playerIdsToResolve.push(playerId);
       }
-      playerIdsAndDeckIds.push({ playerId, deckId: player.deckId });
+      playerIdsAndDeckIds.push({ playerId, externalDecklistId: player.externalDecklistId });
     }
     await scheduleDeckCardsResolutionBatch(ctx, playerIdsToResolve);
     return playerIdsAndDeckIds;
@@ -105,7 +105,7 @@ export const updatePlayerDecklists = internalMutation({
         playerId: v.id("players"),
         deckName: v.string(),
         deckList: v.string(),
-        deckId: v.optional(v.number()),
+        externalDecklistId: v.optional(v.string()),
         decklistStatus: v.optional(decklistStatusValidator),
       }),
     ),
@@ -117,7 +117,8 @@ export const updatePlayerDecklists = internalMutation({
       if (!existingPlayer) {
         throw new Error("Player not found");
       }
-      const deckId = player.deckId ?? existingPlayer.deckId ?? -1;
+      const externalDecklistId =
+        player.externalDecklistId ?? existingPlayer.externalDecklistId;
       const decklistStatus =
         player.decklistStatus ?? existingPlayer.decklistStatus ?? "ready";
       await ctx.db.patch(player.playerId, {
@@ -125,16 +126,16 @@ export const updatePlayerDecklists = internalMutation({
         deckList: player.deckList,
         deckCardsStatus: getInitialDeckCardsStatus(player.deckList),
         deckCards: undefined,
-        ...(player.deckId !== undefined && { deckId: player.deckId }),
+        ...(player.externalDecklistId !== undefined && { externalDecklistId: player.externalDecklistId }),
         ...(player.decklistStatus !== undefined && {
           decklistStatus: player.decklistStatus,
         }),
       });
-      if (existingPlayer.spicerackTournamentId !== undefined) {
+      if (existingPlayer.externalTournamentId !== undefined) {
         await upsertPlayerDecklist(ctx, player.playerId, {
-          spicerackTournamentId: existingPlayer.spicerackTournamentId,
-          spicerackPlayerId: existingPlayer.spicerackPlayerId,
-          deckId,
+          externalTournamentId: existingPlayer.externalTournamentId,
+          externalPlayerId: existingPlayer.externalPlayerId,
+          externalDecklistId,
           decklistStatus,
           deckName: player.deckName,
           deckList: player.deckList,
@@ -148,11 +149,11 @@ export const updatePlayerDecklists = internalMutation({
   },
 });
 
-export const getAllSpicerackTournamentPlayers = query({
+export const getAllTournamentPlayers = query({
   args: {},
   returns: v.array(
     v.object({
-      spicerackPlayerId: v.number(),
+      externalPlayerId: v.number(),
       name: v.string(),
       registrationStatus: v.optional(v.string()),
       deckName: v.string(),
@@ -161,20 +162,20 @@ export const getAllSpicerackTournamentPlayers = query({
   ),
   handler: async (ctx) => {
     const tournament = await getOwnTournament(ctx);
-    if (!tournament.spicerackTournamentId) {
+    if (!tournament.externalTournamentId) {
       return [];
     }
     const players = await ctx.db
       .query("players")
-      .withIndex("by_spicerack_tournament_id", (q) =>
-        q.eq("spicerackTournamentId", tournament.spicerackTournamentId!),
+      .withIndex("by_external_tournament_id", (q) =>
+        q.eq("externalTournamentId", tournament.externalTournamentId!),
       )
       .collect();
     const playersWithData = await Promise.all(
       players.map((player) => getPlayerData(ctx, player)),
     );
     return playersWithData.map((player) => ({
-      spicerackPlayerId: player.spicerackPlayerId,
+      externalPlayerId: player.externalPlayerId,
       name: player.name,
       registrationStatus: player.registrationStatus,
       deckName: player.deckName,
@@ -185,10 +186,10 @@ export const getAllSpicerackTournamentPlayers = query({
 
 export const updatePlayerRegistrationStatuses = internalMutation({
   args: {
-    spicerackTournamentId: v.number(),
+    externalTournamentId: v.number(),
     players: v.array(
       v.object({
-        spicerackPlayerId: v.number(),
+        externalPlayerId: v.number(),
         registrationStatus: v.string(),
       }),
     ),
@@ -196,14 +197,14 @@ export const updatePlayerRegistrationStatuses = internalMutation({
   handler: async (ctx, args) => {
     const statusRows = await ctx.db
       .query("playerStatuses")
-      .withIndex("by_spicerack_tournament_id", (q) =>
-        q.eq("spicerackTournamentId", args.spicerackTournamentId),
+      .withIndex("by_external_tournament_id", (q) =>
+        q.eq("externalTournamentId", args.externalTournamentId),
       )
       .collect();
 
-    const statusTargetsBySpicerackPlayerId = new Map(
+    const statusTargetsByExternalPlayerId = new Map(
       statusRows.map((player) => [
-        player.spicerackPlayerId,
+        player.externalPlayerId,
         {
           currentStatus: player.registrationStatus,
           targetId: player._id,
@@ -214,10 +215,10 @@ export const updatePlayerRegistrationStatuses = internalMutation({
 
     for (const changedStatus of getChangedRegistrationStatuses(
       args.players,
-      statusTargetsBySpicerackPlayerId,
+      statusTargetsByExternalPlayerId,
     )) {
-      const target = statusTargetsBySpicerackPlayerId.get(
-        changedStatus.spicerackPlayerId,
+      const target = statusTargetsByExternalPlayerId.get(
+        changedStatus.externalPlayerId,
       );
       await ctx.db.patch(changedStatus.targetId as Id<"playerStatuses">, {
         registrationStatus: changedStatus.registrationStatus,
@@ -229,39 +230,39 @@ export const updatePlayerRegistrationStatuses = internalMutation({
     }
 
     const missingStatusPlayerIds = args.players.filter(
-      (player) => !statusTargetsBySpicerackPlayerId.has(player.spicerackPlayerId),
+      (player) => !statusTargetsByExternalPlayerId.has(player.externalPlayerId),
     );
     if (missingStatusPlayerIds.length === 0) {
       return;
     }
 
-    const missingStatusBySpicerackPlayerId = new Map(
+    const missingStatusByExternalPlayerId = new Map(
       missingStatusPlayerIds.map((player) => [
-        player.spicerackPlayerId,
+        player.externalPlayerId,
         player.registrationStatus,
       ]),
     );
     const legacyPlayers = await ctx.db
       .query("players")
-      .withIndex("by_spicerack_tournament_id", (q) =>
-        q.eq("spicerackTournamentId", args.spicerackTournamentId),
+      .withIndex("by_external_tournament_id", (q) =>
+        q.eq("externalTournamentId", args.externalTournamentId),
       )
       .collect();
 
     for (const player of legacyPlayers) {
-      if (!missingStatusBySpicerackPlayerId.has(player.spicerackPlayerId)) {
+      if (!missingStatusByExternalPlayerId.has(player.externalPlayerId)) {
         continue;
       }
-      const registrationStatus = missingStatusBySpicerackPlayerId.get(
-        player.spicerackPlayerId,
+      const registrationStatus = missingStatusByExternalPlayerId.get(
+        player.externalPlayerId,
       )!;
       if (player.registrationStatus !== registrationStatus) {
         await ctx.db.patch(player._id, { registrationStatus });
       }
       await ctx.db.insert("playerStatuses", {
         playerId: player._id,
-        spicerackTournamentId: args.spicerackTournamentId,
-        spicerackPlayerId: player.spicerackPlayerId,
+        externalTournamentId: args.externalTournamentId,
+        externalPlayerId: player.externalPlayerId,
         registrationStatus,
         updatedAt: Date.now(),
       });
@@ -271,13 +272,13 @@ export const updatePlayerRegistrationStatuses = internalMutation({
 
 export const getPlayersWithMissingDecklists = internalQuery({
   args: {
-    spicerackTournamentId: v.number(),
+    externalTournamentId: v.number(),
   },
   returns: v.array(
     v.object({
       playerId: v.id("players"),
-      spicerackPlayerId: v.number(),
-      deckId: v.number(),
+      externalPlayerId: v.number(),
+      externalDecklistId: v.optional(v.string()),
       decklistStatus: v.optional(decklistStatusValidator),
     }),
   ),
@@ -286,25 +287,25 @@ export const getPlayersWithMissingDecklists = internalQuery({
       Id<"players">,
       {
         playerId: Id<"players">;
-        spicerackPlayerId: number;
-        deckId: number;
+        externalPlayerId: number;
+        externalDecklistId?: string;
         decklistStatus?: "pending" | "ready" | "missing" | "fetch_failed" | "manual";
       }
     >();
     for (const status of ["missing", "fetch_failed"] as const) {
       const decklists = await ctx.db
         .query("playerDecklists")
-        .withIndex("by_spicerack_tournament_id_and_decklist_status", (q) =>
+        .withIndex("by_external_tournament_id_and_decklist_status", (q) =>
           q
-            .eq("spicerackTournamentId", args.spicerackTournamentId)
+            .eq("externalTournamentId", args.externalTournamentId)
             .eq("decklistStatus", status),
         )
         .collect();
       for (const decklist of decklists) {
         missingDecklists.set(decklist.playerId, {
           playerId: decklist.playerId,
-          spicerackPlayerId: decklist.spicerackPlayerId,
-          deckId: decklist.deckId,
+          externalPlayerId: decklist.externalPlayerId,
+          externalDecklistId: decklist.externalDecklistId,
           decklistStatus: decklist.decklistStatus,
         });
       }
@@ -312,8 +313,8 @@ export const getPlayersWithMissingDecklists = internalQuery({
 
     const legacyPlayers = await ctx.db
       .query("players")
-      .withIndex("by_spicerack_tournament_id", (q) =>
-        q.eq("spicerackTournamentId", args.spicerackTournamentId),
+      .withIndex("by_external_tournament_id", (q) =>
+        q.eq("externalTournamentId", args.externalTournamentId),
       )
       .collect();
     for (const player of legacyPlayers) {
@@ -322,8 +323,8 @@ export const getPlayersWithMissingDecklists = internalQuery({
       }
       missingDecklists.set(player._id, {
         playerId: player._id,
-        spicerackPlayerId: player.spicerackPlayerId,
-        deckId: player.deckId ?? -1,
+        externalPlayerId: player.externalPlayerId,
+        externalDecklistId: player.externalDecklistId,
         decklistStatus: player.decklistStatus,
       });
     }
@@ -331,38 +332,38 @@ export const getPlayersWithMissingDecklists = internalQuery({
   },
 });
 
-export const getAllSpicerackTournamentPlayerSpicerackIds = internalQuery({
+export const getAllTournamentPlayerExternalIds = internalQuery({
   args: {
-    spicerackTournamentId: v.number(),
+    externalTournamentId: v.number(),
   },
   returns: v.array(v.number()),
   handler: async (ctx, args) => {
     const statusRows = await ctx.db
       .query("playerStatuses")
-      .withIndex("by_spicerack_tournament_id", (q) =>
-        q.eq("spicerackTournamentId", args.spicerackTournamentId),
+      .withIndex("by_external_tournament_id", (q) =>
+        q.eq("externalTournamentId", args.externalTournamentId),
       )
       .collect();
-    const spicerackPlayerIds = new Set(
-      statusRows.map((player) => player.spicerackPlayerId),
+    const externalPlayerIds = new Set(
+      statusRows.map((player) => player.externalPlayerId),
     );
 
     const legacyPlayers = await ctx.db
       .query("players")
-      .withIndex("by_spicerack_tournament_id", (q) =>
-        q.eq("spicerackTournamentId", args.spicerackTournamentId),
+      .withIndex("by_external_tournament_id", (q) =>
+        q.eq("externalTournamentId", args.externalTournamentId),
       )
       .collect();
     for (const player of legacyPlayers) {
-      spicerackPlayerIds.add(player.spicerackPlayerId);
+      externalPlayerIds.add(player.externalPlayerId);
     }
-    return [...spicerackPlayerIds];
+    return [...externalPlayerIds];
   },
 });
 
 export const updatePlayerInfo = mutation({
   args: {
-    spicerackPlayerId: v.number(),
+    externalPlayerId: v.number(),
     name: v.string(),
     deckName: v.string(),
     deckList: v.string(),
@@ -370,17 +371,17 @@ export const updatePlayerInfo = mutation({
   handler: async (ctx, args) => {
     // Get the authenticated user's tournament to verify authorization
     const tournament = await getOwnTournament(ctx);
-    if (!tournament.spicerackTournamentId) {
-      throw new Error("No Spicerack tournament linked");
+    if (!tournament.externalTournamentId) {
+      throw new Error("No Melee tournament linked");
     }
 
     // Query for the player, ensuring they belong to the user's tournament
     const player = await ctx.db
       .query("players")
-      .withIndex("by_spicerack_tournament_id_and_spicerack_player_id", (q) =>
+      .withIndex("by_external_tournament_id_and_external_player_id", (q) =>
         q
-          .eq("spicerackTournamentId", tournament.spicerackTournamentId!)
-          .eq("spicerackPlayerId", args.spicerackPlayerId),
+          .eq("externalTournamentId", tournament.externalTournamentId!)
+          .eq("externalPlayerId", args.externalPlayerId),
       )
       .unique();
 
@@ -398,9 +399,9 @@ export const updatePlayerInfo = mutation({
       updatedAt: Date.now(),
     });
     await upsertPlayerDecklist(ctx, player._id, {
-      spicerackTournamentId: tournament.spicerackTournamentId,
-      spicerackPlayerId: args.spicerackPlayerId,
-      deckId: player.deckId ?? -1,
+      externalTournamentId: tournament.externalTournamentId,
+      externalPlayerId: args.externalPlayerId,
+      externalDecklistId: player.externalDecklistId,
       decklistStatus: "manual",
       deckName: args.deckName,
       deckList: args.deckList,

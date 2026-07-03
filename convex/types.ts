@@ -15,13 +15,13 @@ export type Overlay = Doc<"overlays">;
 export type Player = Doc<"players">;
 export type PlayerWithData = Player & {
   registrationStatus?: string;
-  deckId: number;
+  externalDecklistId?: string;
   decklistStatus?: Player["decklistStatus"];
   deckName: string;
   deckList: string;
 };
 export type Tournament = Doc<"tournaments">;
-export type SpicerackTournament = Doc<"spicerackTournaments">;
+export type ExternalTournament = Doc<"externalTournaments">;
 export type RoundStandings = Doc<"roundStandings">;
 export type Settings = Doc<"settings">;
 
@@ -63,10 +63,10 @@ export type TournamentInfo = Infer<typeof getTournamentInfoValidator>;
  */
 export type NewPlayerEntry = {
   name: string;
-  spicerackPlayerId: number;
-  spicerackTournamentId: number;
+  externalPlayerId: number;
+  externalTournamentId: number;
   registrationStatus?: string;
-  deckId: number;
+  externalDecklistId?: string;
   decklistStatus?: Player["decklistStatus"];
   deckName: string;
   deckList: string;

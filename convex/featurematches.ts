@@ -1,13 +1,16 @@
 import { internalMutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { featureMatchWithPlayersValidator } from "./validators";
-import { requireSpicerackTournament } from "./lib/tournaments";
+import {
+  featureMatchWithPlayersValidator,
+  roundSnapshotValidator,
+} from "./validators";
+import { requireExternalTournament } from "./lib/tournaments";
 import {
   createFeatureMatches,
   getFeatureMatchesWithPlayerData,
 } from "./lib/featurematches";
 import { getPlayersForMatch } from "./lib/players";
-import { compareSpicerackToDatabase } from "./lib/featurematches";
+import { compareRoundToDatabase } from "./lib/featurematches";
 
 // unauthenticated query for use in deck overlays
 export const getFeatureMatchPlayersAndDecks = query({
@@ -41,7 +44,7 @@ export const getCurrentRoundFeatureMatches = query({
   args: {},
   returns: v.array(featureMatchWithPlayersValidator),
   handler: async (ctx) => {
-    const tournament = await requireSpicerackTournament(ctx);
+    const tournament = await requireExternalTournament(ctx);
     if (!tournament) {
       return [];
     }
@@ -53,8 +56,8 @@ export const getCurrentRoundFeatureMatches = query({
     const featureMatchesWithPlayerData = await getFeatureMatchesWithPlayerData(
       ctx,
       {
-        spicerackTournamentId: tournament.spicerackTournamentId,
-        spicerackRoundId: currentRoundId,
+        externalTournamentId: tournament.externalTournamentId,
+        externalRoundId: currentRoundId,
         roundNumber: currentRoundNumber,
       },
     );
@@ -66,13 +69,13 @@ export const getAllFeatureMatches = query({
   args: {},
   returns: v.array(featureMatchWithPlayersValidator),
   handler: async (ctx) => {
-    const tournament = await requireSpicerackTournament(ctx);
+    const tournament = await requireExternalTournament(ctx);
     if (!tournament) {
       return [];
     }
     const featureMatchesWithPlayerData = await getFeatureMatchesWithPlayerData(
       ctx,
-      { spicerackTournamentId: tournament.spicerackTournamentId },
+      { externalTournamentId: tournament.externalTournamentId },
     );
     return featureMatchesWithPlayerData;
   },
@@ -80,23 +83,28 @@ export const getAllFeatureMatches = query({
 
 export const createNewFeatureMatches = internalMutation({
   args: {
-    jsonData: v.any(),
-    spicerackTournamentId: v.number(),
+    externalTournamentId: v.number(),
+    snapshot: roundSnapshotValidator,
   },
-  returns: v.array(v.object({ playerId: v.id("players"), deckId: v.number() })),
+  returns: v.array(
+    v.object({
+      playerId: v.id("players"),
+      externalDecklistId: v.optional(v.string()),
+    }),
+  ),
   handler: async (ctx, args) => {
-    const { newFeatureMatches, newPlayers } = await compareSpicerackToDatabase(
+    const { newFeatureMatches, newPlayers } = await compareRoundToDatabase(
       ctx,
-      args.spicerackTournamentId,
-      args.jsonData,
+      args.externalTournamentId,
+      args.snapshot,
     );
-    const playerAndDeckIds = await createFeatureMatches(
+    const playerAndDecklistIds = await createFeatureMatches(
       ctx,
-      args.spicerackTournamentId,
-      args.jsonData,
+      args.externalTournamentId,
+      args.snapshot,
       newFeatureMatches,
       newPlayers,
     );
-    return playerAndDeckIds;
+    return playerAndDecklistIds;
   },
 });

@@ -3,52 +3,29 @@ import { describe, expect, it } from "vitest";
 import { getFeatureMatchesWithPlayerData } from "../featurematches";
 
 describe("getFeatureMatchesWithPlayerData", () => {
-  it("uses the Spicerack round id when round numbers repeat", async () => {
+  it("uses the external round id when round numbers repeat", async () => {
     const ctx = makeFeatureMatchesCtx([
       makeFeatureMatch({
         id: "day1",
         externalId: "999-101-AdaVsBen",
-        spicerackRoundId: 101,
+        externalRoundId: 101,
         roundNumber: 1,
       }),
       makeFeatureMatch({
         id: "day2",
         externalId: "999-201-CoraVsDrew",
-        spicerackRoundId: 201,
+        externalRoundId: 201,
         roundNumber: 1,
       }),
     ]);
 
     const matches = await getFeatureMatchesWithPlayerData(ctx, {
-      spicerackTournamentId: 999,
-      spicerackRoundId: 201,
+      externalTournamentId: 999,
+      externalRoundId: 201,
       roundNumber: 1,
     });
 
     expect(matches.map((match) => match._id)).toEqual(["day2"]);
-  });
-
-  it("matches legacy feature matches by external id prefix", async () => {
-    const ctx = makeFeatureMatchesCtx([
-      makeFeatureMatch({
-        id: "legacy-day1",
-        externalId: "999-101-AdaVsBen",
-        roundNumber: 1,
-      }),
-      makeFeatureMatch({
-        id: "legacy-day2",
-        externalId: "999-201-CoraVsDrew",
-        roundNumber: 1,
-      }),
-    ]);
-
-    const matches = await getFeatureMatchesWithPlayerData(ctx, {
-      spicerackTournamentId: 999,
-      spicerackRoundId: 201,
-      roundNumber: 1,
-    });
-
-    expect(matches.map((match) => match._id)).toEqual(["legacy-day2"]);
   });
 
   it("returns all feature matches when no round filter is provided", async () => {
@@ -56,19 +33,19 @@ describe("getFeatureMatchesWithPlayerData", () => {
       makeFeatureMatch({
         id: "day1",
         externalId: "999-101-AdaVsBen",
-        spicerackRoundId: 101,
+        externalRoundId: 101,
         roundNumber: 1,
       }),
       makeFeatureMatch({
         id: "day2",
         externalId: "999-201-CoraVsDrew",
-        spicerackRoundId: 201,
+        externalRoundId: 201,
         roundNumber: 1,
       }),
     ]);
 
     const matches = await getFeatureMatchesWithPlayerData(ctx, {
-      spicerackTournamentId: 999,
+      externalTournamentId: 999,
     });
 
     expect(matches.map((match) => match._id)).toEqual(["day1", "day2"]);
@@ -135,15 +112,15 @@ function makeQueryable(rows: Record<string, unknown>[]) {
 function makeFeatureMatch(args: {
   id: string;
   externalId: string;
-  spicerackRoundId?: number;
+  externalRoundId?: number;
   roundNumber: number;
 }) {
   return {
     _id: args.id,
     _creationTime: 1,
     externalId: args.externalId,
-    spicerackTournamentId: 999,
-    spicerackRoundId: args.spicerackRoundId,
+    externalTournamentId: 999,
+    externalRoundId: args.externalRoundId,
     roundNumber: args.roundNumber,
     player1: "player1",
     player2: "player2",

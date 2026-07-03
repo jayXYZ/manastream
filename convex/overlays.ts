@@ -48,8 +48,8 @@ export { setOverlayTemplate, deleteOverlay } from "./_overlays/shared";
 
 // Standings overlay operations
 export {
-  updateSpicerackRoundStandings,
-  fetchAndUpdateSpicerackRoundStandings,
+  updateRoundStandings,
+  fetchAndUpdateRoundStandings,
   updateStandingsOverlay,
   setStandingsOverlaySettings,
 } from "./_overlays/standings";

@@ -218,7 +218,7 @@ export default function StandingsOverlay({
           {paginatedStandings.map((standing, idx) => {
             const rowBg = idx % 2 === 1 ? theme.rowAlt : "transparent";
             return (
-              <Row key={standing.player_id} bg={rowBg} theme={theme}>
+              <Row key={standing.externalPlayerId} bg={rowBg} theme={theme}>
                 <Cell align="left">
                   <span
                     style={{

@@ -6,7 +6,7 @@ import {
 } from "../pairings";
 
 describe("getCurrentRoundPairingsWithPlayerData", () => {
-  it("uses the Spicerack round id when round numbers repeat", async () => {
+  it("uses the external round id when round numbers repeat", async () => {
     const player1 = makePlayer("player1", "Ada");
     const player2 = makePlayer("player2", "Ben");
     const player3 = makePlayer("player3", "Cora");
@@ -16,7 +16,7 @@ describe("getCurrentRoundPairingsWithPlayerData", () => {
         makePairing({
           id: "day1",
           tournamentId: "tournament1",
-          spicerackRoundId: 101,
+          externalRoundId: 101,
           roundNumber: 1,
           player1: player1._id,
           player2: player2._id,
@@ -24,7 +24,7 @@ describe("getCurrentRoundPairingsWithPlayerData", () => {
         makePairing({
           id: "day2",
           tournamentId: "tournament1",
-          spicerackRoundId: 201,
+          externalRoundId: 201,
           roundNumber: 1,
           player1: player3._id,
           player2: player4._id,
@@ -36,7 +36,7 @@ describe("getCurrentRoundPairingsWithPlayerData", () => {
     const pairings = await getCurrentRoundPairingsWithPlayerData(
       ctx,
       "tournament1" as never,
-      { spicerackRoundId: 201, roundNumber: 1 },
+      { externalRoundId: 201, roundNumber: 1 },
     );
 
     expect(pairings.map((pairing) => pairing._id)).toEqual(["day2"]);
@@ -56,8 +56,8 @@ describe("snapshotCurrentRoundPairings", () => {
 
     await snapshotCurrentRoundPairings(ctx, {
       tournamentId: "tournament1" as never,
-      spicerackTournamentId: 999,
-      jsonData: makeEliminationEvent(),
+      externalTournamentId: 999,
+      snapshot: makeEliminationSnapshot(),
     });
 
     expect(insertedPairings).toHaveLength(1);
@@ -74,7 +74,7 @@ describe("snapshotCurrentRoundPairings", () => {
 
 function makePairingsCtx(args: {
   pairings: Record<string, unknown>[];
-  players: { _id: string; name: string; spicerackPlayerId?: number }[];
+  players: { _id: string; name: string; externalPlayerId?: number }[];
 }) {
   const playersById = new Map(args.players.map((player) => [player._id, player]));
   return {
@@ -97,7 +97,7 @@ function makePairingsCtx(args: {
 
 function makeSnapshotCtx(args: {
   insertedPairings: Record<string, unknown>[];
-  players: { _id: string; name: string; spicerackPlayerId?: number }[];
+  players: { _id: string; name: string; externalPlayerId?: number }[];
 }) {
   return {
     db: {
@@ -170,18 +170,19 @@ function makeQueryable(rows: Record<string, unknown>[]) {
   };
 }
 
-function makePlayer(id: string, name: string, spicerackPlayerId?: number) {
+function makePlayer(id: string, name: string, externalPlayerId?: number) {
   return {
     _id: id,
     name,
-    spicerackPlayerId,
+    externalPlayerId,
+    externalTournamentId: 999,
   };
 }
 
 function makePairing(args: {
   id: string;
   tournamentId: string;
-  spicerackRoundId: number;
+  externalRoundId: number;
   roundNumber: number;
   player1: string;
   player2: string;
@@ -189,12 +190,12 @@ function makePairing(args: {
   return {
     _id: args.id,
     _creationTime: 1,
-    externalId: `pairing:999:${args.spicerackRoundId}:${args.id}`,
-    spicerackTournamentId: 999,
+    externalId: `pairing:999:${args.externalRoundId}:${args.id}`,
+    externalTournamentId: 999,
     tournamentId: args.tournamentId,
-    spicerackRoundId: args.spicerackRoundId,
+    externalRoundId: args.externalRoundId,
     roundNumber: args.roundNumber,
-    spicerackMatchId: args.spicerackRoundId * 10,
+    externalMatchId: args.externalRoundId * 10,
     player1: args.player1,
     player2: args.player2,
     player1TournamentRecord: "0-0",
@@ -204,72 +205,35 @@ function makePairing(args: {
   };
 }
 
-function makeEliminationEvent() {
+function makeEliminationSnapshot() {
   return {
-    id: 999,
-    name: "Test Event",
-    event_format: "MODERN",
-    start_datetime: "2026-05-02T12:00:00Z",
-    settings: { id: 1, event_lifecycle_status: "IN_PROGRESS" },
-    current_round_number: 8,
-    enrolled_player_count: 64,
-    user_statuses: [],
-    featured_matches: [],
-    tournament_phases: [
+    externalTournamentId: 999,
+    roundId: 501,
+    roundNumber: 8,
+    roundDisplayName: "Quarterfinals",
+    isEliminationRound: true,
+    matches: [
       {
-        id: 1,
-        order_in_phases: 1,
-        round_type: "RANKED_SINGLE_ELIMINATION",
-        status: "IN_PROGRESS",
-        rounds: [
-          {
-            id: 501,
-            round_number: 8,
-            status: "UPCOMING",
-            matches: [
-              {
-                id: 9001,
-                is_feature_match: false,
-                table_number: 1,
-                status: "UPCOMING",
-                player_match_relationships: [
-                  makeRelationship(101, "Ada", 1, 0),
-                  makeRelationship(108, "Ben", 8, 1),
-                ],
-              },
-            ],
-          },
+        externalMatchId: "match-guid-9001",
+        tableNumber: 1,
+        isFeatureMatch: false,
+        hasResult: false,
+        competitors: [
+          makeCompetitor(101, "Ada", 1),
+          makeCompetitor(108, "Ben", 8),
         ],
       },
     ],
   };
 }
 
-function makeRelationship(
-  id: number,
-  name: string,
-  seed: number,
-  playerOrder: number,
-) {
+function makeCompetitor(id: number, name: string, seed: number) {
   return {
-    id: id * 10,
-    games_won: -1,
-    points_gained: -1,
-    player_order: playerOrder,
-    user_event_status: {
-      id,
-      user: {
-        id,
-        username: name.toLowerCase(),
-        best_identifier: name,
-      },
-      decklist: id + 1000,
-      registration_status: "REGISTERED",
-      final_place_in_standings: seed,
-      matches_won: 7,
-      matches_lost: 1,
-      matches_drawn: 0,
-      total_match_points: 21,
-    },
+    externalPlayerId: id,
+    name,
+    externalDecklistId: `decklist-guid-${id}`,
+    tournamentRecord: `#${seed}`,
+    matchPoints: 21,
+    seed,
   };
 }

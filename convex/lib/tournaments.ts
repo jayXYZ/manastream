@@ -34,21 +34,21 @@ export async function requireUserTournament(
   return tournament;
 }
 
-export async function requireSpicerackTournament(
+export async function requireExternalTournament(
   ctx: QueryCtx | MutationCtx,
-): Promise<Doc<"spicerackTournaments"> | null> {
+): Promise<Doc<"externalTournaments"> | null> {
   const tournament = await getOwnTournament(ctx);
-  if (!tournament.spicerackTournamentId) {
+  if (!tournament.externalTournamentId) {
     return null;
   }
-  const spicerackTournamentId = tournament.spicerackTournamentId;
-  const spicerackTournament = await ctx.db
-    .query("spicerackTournaments")
-    .withIndex("by_spicerack_tournament_id", (q) =>
-      q.eq("spicerackTournamentId", spicerackTournamentId),
+  const externalTournamentId = tournament.externalTournamentId;
+  const externalTournament = await ctx.db
+    .query("externalTournaments")
+    .withIndex("by_external_tournament_id", (q) =>
+      q.eq("externalTournamentId", externalTournamentId),
     )
     .unique();
-  return spicerackTournament;
+  return externalTournament;
 }
 
 // unauthorized

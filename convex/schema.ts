@@ -10,8 +10,8 @@ import {
   settingsValidator,
   featureMatchValidator,
   templateValidator,
-  spicerackLogValidator,
-  spicerackTournamentValidator,
+  integrationLogValidator,
+  externalTournamentValidator,
   roundStandingsValidator,
   pairingValidator,
   scryfallCardCacheValidator,
@@ -29,18 +29,18 @@ export default defineSchema({
   // Tournaments table - directly owned by users
   tournaments: defineTable(tournamentValidator)
     .index("by_user", ["userId"])
-    .index("by_spicerack_id", ["spicerackTournamentId"])
-    .index("by_mode_and_status", ["mode", "spicerackTournamentStatus"]),
+    .index("by_external_tournament_id", ["externalTournamentId"])
+    .index("by_mode_and_status", ["mode", "externalTournamentStatus"]),
 
-  // Spicerack tournaments table
-  spicerackTournaments: defineTable(spicerackTournamentValidator).index(
-    "by_spicerack_tournament_id",
-    ["spicerackTournamentId"],
+  // External (Melee) tournaments table
+  externalTournaments: defineTable(externalTournamentValidator).index(
+    "by_external_tournament_id",
+    ["externalTournamentId"],
   ),
   // Round Standings table
   roundStandings: defineTable(roundStandingsValidator)
-    .index("by_spicerackRoundId", ["spicerackRoundId"])
-    .index("by_spicerackTournamentId", ["spicerackTournamentId"]),
+    .index("by_external_round_id", ["externalRoundId"])
+    .index("by_external_tournament_id", ["externalTournamentId"]),
 
   // Unified Overlays Table with discriminated union and direct UUID
   overlays: defineTable(overlayValidator)
@@ -66,40 +66,40 @@ export default defineSchema({
   featureMatches: defineTable(featureMatchValidator)
     .index("by_tournament_and_round", ["tournamentId", "roundNumber"])
     .index("by_external_id", ["externalId"])
-    .index("by_spicerack_tournament_id", ["spicerackTournamentId"]),
+    .index("by_external_tournament_id", ["externalTournamentId"]),
 
   pairings: defineTable(pairingValidator)
     .index("by_tournament_and_round", ["tournamentId", "roundNumber"])
-    .index("by_spicerack_round", ["spicerackRoundId"])
+    .index("by_external_round", ["externalRoundId"])
     .index("by_external_id", ["externalId"]),
 
   // Players table
   players: defineTable(playerValidator)
-    .index("by_spicerack_tournament_id", ["spicerackTournamentId"])
+    .index("by_external_tournament_id", ["externalTournamentId"])
     .index("by_tournament", ["tournamentId"])
-    .index("by_spicerack_player_id", ["spicerackPlayerId"])
-    .index("by_spicerack_tournament_id_and_spicerack_player_id", [
-      "spicerackTournamentId",
-      "spicerackPlayerId",
+    .index("by_external_player_id", ["externalPlayerId"])
+    .index("by_external_tournament_id_and_external_player_id", [
+      "externalTournamentId",
+      "externalPlayerId",
     ]),
 
   playerStatuses: defineTable(playerStatusValidator)
     .index("by_player_id", ["playerId"])
-    .index("by_spicerack_tournament_id", ["spicerackTournamentId"])
-    .index("by_spicerack_tournament_id_and_spicerack_player_id", [
-      "spicerackTournamentId",
-      "spicerackPlayerId",
+    .index("by_external_tournament_id", ["externalTournamentId"])
+    .index("by_external_tournament_id_and_external_player_id", [
+      "externalTournamentId",
+      "externalPlayerId",
     ]),
 
   playerDecklists: defineTable(playerDecklistValidator)
     .index("by_player_id", ["playerId"])
-    .index("by_spicerack_tournament_id", ["spicerackTournamentId"])
-    .index("by_spicerack_tournament_id_and_spicerack_player_id", [
-      "spicerackTournamentId",
-      "spicerackPlayerId",
+    .index("by_external_tournament_id", ["externalTournamentId"])
+    .index("by_external_tournament_id_and_external_player_id", [
+      "externalTournamentId",
+      "externalPlayerId",
     ])
-    .index("by_spicerack_tournament_id_and_decklist_status", [
-      "spicerackTournamentId",
+    .index("by_external_tournament_id_and_decklist_status", [
+      "externalTournamentId",
       "decklistStatus",
     ]),
 
@@ -107,8 +107,8 @@ export default defineSchema({
     .index("by_cache_key", ["cacheKey"])
     .index("by_normalized_name", ["normalizedName"]),
 
-  // Spicerack Debug Logs table
-  spicerackLogs: defineTable(spicerackLogValidator)
+  // Integration Debug Logs table
+  integrationLogs: defineTable(integrationLogValidator)
     .index("by_user", ["userId"])
     .index("by_user_and_timestamp", ["userId", "timestamp"]),
 });

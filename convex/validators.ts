@@ -6,7 +6,11 @@ export const settingsValidator = v.object({
   _id: v.id("settings"),
   _creationTime: v.number(),
   userId: v.id("users"),
-  spicerackApiKey: v.optional(v.string()),
+  meleeClientId: v.optional(v.string()),
+  meleeClientSecret: v.optional(v.string()),
+  // Legacy credential fields kept during the rename migration window.
+  meleeUsername: v.optional(v.string()),
+  meleePassword: v.optional(v.string()),
   createdAt: v.number(),
   updatedAt: v.number(),
 });
@@ -17,14 +21,14 @@ export const tournamentValidator = v.object({
   eventName: v.optional(v.string()),
   userId: v.id("users"), // Direct user ownership
   mode: v.union(v.literal("manual"), v.literal("auto")),
-  spicerackTournamentId: v.optional(v.number()),
-  spicerackTournamentStatus: v.optional(
+  externalTournamentId: v.optional(v.number()),
+  externalTournamentStatus: v.optional(
     v.union(v.literal("active"), v.literal("completed")),
   ),
-  spicerackPollingStatus: v.optional(
+  pollingStatus: v.optional(
     v.union(v.literal("active"), v.literal("inactive"), v.literal("error")),
   ),
-  spicerackErrorMessage: v.optional(v.string()),
+  pollingErrorMessage: v.optional(v.string()),
   currentRound: v.optional(v.number()),
   currentRoundDisplayName: v.optional(v.string()),
   manualTimerExpiry: v.optional(v.number()),
@@ -43,10 +47,10 @@ export const tournamentValidator = v.object({
   updatedAt: v.number(),
 });
 
-export const spicerackTournamentValidator = v.object({
-  _id: v.id("spicerackTournaments"),
+export const externalTournamentValidator = v.object({
+  _id: v.id("externalTournaments"),
   _creationTime: v.number(),
-  spicerackTournamentId: v.number(),
+  externalTournamentId: v.number(),
   name: v.optional(v.string()),
   currentRoundId: v.optional(v.number()),
   currentRoundNumber: v.optional(v.number()),
@@ -65,18 +69,16 @@ export const spicerackTournamentValidator = v.object({
 export const featureMatchValidator = v.object({
   _id: v.id("featureMatches"),
   _creationTime: v.number(),
-  externalId: v.string(), // Spicerack Tournament ID + Round ID + Player 1 Name + Player 2 Name
-  spicerackTournamentId: v.optional(v.number()),
+  externalId: v.string(), // feature:{externalTournamentId}:{externalMatchId}
+  externalTournamentId: v.optional(v.number()),
   tournamentId: v.optional(v.id("tournaments")),
-  spicerackRoundId: v.optional(v.number()),
+  externalRoundId: v.optional(v.number()),
   roundNumber: v.number(),
   player1: v.id("players"),
   player2: v.id("players"),
   player1TournamentRecord: v.string(),
   player2TournamentRecord: v.string(),
   tableNumber: v.optional(v.number()),
-  spicerackTimerExpiry: v.optional(v.number()), // Unix timestamp
-  spicerackTimerRunning: v.optional(v.boolean()),
   createdAt: v.number(),
 });
 
@@ -84,11 +86,11 @@ export const pairingValidator = v.object({
   _id: v.id("pairings"),
   _creationTime: v.number(),
   externalId: v.string(),
-  spicerackTournamentId: v.number(),
+  externalTournamentId: v.number(),
   tournamentId: v.id("tournaments"),
-  spicerackRoundId: v.number(),
+  externalRoundId: v.number(),
   roundNumber: v.number(),
-  spicerackMatchId: v.number(),
+  externalMatchId: v.string(), // Melee match GUID
   player1: v.id("players"),
   player2: v.id("players"),
   player1TournamentRecord: v.string(),
@@ -102,35 +104,27 @@ export const pairingValidator = v.object({
   createdAt: v.number(),
 });
 
-export const playerInStandingsValidator = v.object({
+export const standingRowValidator = v.object({
   rank: v.number(),
-  player_id: v.number(),
+  externalPlayerId: v.number(),
   name: v.string(),
-  match_points: v.number(),
   record: v.string(),
-  match_win_percentage: v.number(),
-  opponent_match_win_percentage: v.number(),
-  game_win_percentage: v.number(),
-  opponent_game_win_percentage: v.number(),
-  opponent_average_match_points: v.number(),
+  matchPoints: v.number(),
   wins: v.number(),
   losses: v.number(),
   draws: v.number(),
-  games_won: v.number(),
-  games_lost: v.number(),
-  games_drawn: v.number(),
-  playoff_wins: v.number(),
-  playoff_losses: v.number(),
-  user_event_status_ids: v.array(v.number()),
+  gameWinPercentage: v.number(),
+  opponentMatchWinPercentage: v.number(),
+  opponentGameWinPercentage: v.number(),
 });
 
 export const roundStandingsValidator = v.object({
   _id: v.id("roundStandings"),
   _creationTime: v.number(),
-  spicerackRoundId: v.number(),
-  spicerackTournamentId: v.number(),
+  externalRoundId: v.number(),
+  externalTournamentId: v.number(),
   roundNumber: v.union(v.number(), v.literal("PENDING")),
-  standings: v.union(v.array(playerInStandingsValidator), v.literal("PENDING")),
+  standings: v.union(v.array(standingRowValidator), v.literal("PENDING")),
   updatedAt: v.number(),
 });
 
@@ -180,9 +174,9 @@ export const scryfallCardCacheValidator = v.object({
   updatedAt: v.number(),
 });
 
-export const spicerackRoundStandingsDataValidator = v.object({
-  round_number: v.number(),
-  standings: v.array(playerInStandingsValidator),
+export const roundStandingsDataValidator = v.object({
+  roundNumber: v.number(),
+  standings: v.array(standingRowValidator),
 });
 
 // Overlay Type Validators
@@ -290,7 +284,7 @@ export const standingsOverlayValidator = v.object({
 
   publicUuid: v.string(), // Direct UUID string for public access
   roundStandingsId: v.optional(v.id("roundStandings")), // Reference to the round standings
-  spicerackRoundId: v.optional(v.number()),
+  externalRoundId: v.optional(v.number()),
   showCurrentBracket: v.optional(v.boolean()),
   createdAt: v.number(),
 });
@@ -365,13 +359,13 @@ export const playerValidator = v.object({
   _id: v.id("players"),
   _creationTime: v.number(),
   name: v.string(),
-  spicerackPlayerId: v.number(),
+  externalPlayerId: v.number(),
   // Deprecated during player data split migration. Use playerStatuses.
   registrationStatus: v.optional(v.string()),
   tournamentId: v.optional(v.id("tournaments")),
-  spicerackTournamentId: v.optional(v.number()),
+  externalTournamentId: v.optional(v.number()),
   // Deprecated during player data split migration. Use playerDecklists.
-  deckId: v.optional(v.number()),
+  externalDecklistId: v.optional(v.string()),
   decklistStatus: v.optional(decklistStatusValidator),
   deckName: v.optional(v.string()), // Archetype name
   deckList: v.optional(v.string()), // Plaintext deck list
@@ -384,8 +378,8 @@ export const playerStatusValidator = v.object({
   _id: v.id("playerStatuses"),
   _creationTime: v.number(),
   playerId: v.id("players"),
-  spicerackTournamentId: v.number(),
-  spicerackPlayerId: v.number(),
+  externalTournamentId: v.number(),
+  externalPlayerId: v.number(),
   registrationStatus: v.optional(v.string()),
   updatedAt: v.number(),
 });
@@ -394,9 +388,9 @@ export const playerDecklistValidator = v.object({
   _id: v.id("playerDecklists"),
   _creationTime: v.number(),
   playerId: v.id("players"),
-  spicerackTournamentId: v.number(),
-  spicerackPlayerId: v.number(),
-  deckId: v.number(),
+  externalTournamentId: v.number(),
+  externalPlayerId: v.number(),
+  externalDecklistId: v.optional(v.string()), // Melee decklist GUID
   decklistStatus: v.optional(decklistStatusValidator),
   deckName: v.string(), // Archetype name
   deckList: v.string(), // Plaintext deck list
@@ -408,7 +402,7 @@ export const playerDecklistValidator = v.object({
 export const playerWithDataValidator = v.object({
   ...playerValidator.fields,
   registrationStatus: v.optional(v.string()),
-  deckId: v.number(),
+  externalDecklistId: v.optional(v.string()),
   decklistStatus: v.optional(decklistStatusValidator),
   deckName: v.string(),
   deckList: v.string(),
@@ -429,7 +423,7 @@ export const currentRoundPairingsResultValidator = v.object({
   status: v.union(
     v.literal("ready"),
     v.literal("no_tournament"),
-    v.literal("no_spicerack_tournament"),
+    v.literal("no_linked_tournament"),
     v.literal("no_current_round"),
     v.literal("no_pairings"),
   ),
@@ -439,8 +433,8 @@ export const currentRoundPairingsResultValidator = v.object({
   pairings: v.array(rankedPairingWithPlayersValidator),
 });
 
-export const spicerackLogValidator = v.object({
-  _id: v.id("spicerackLogs"),
+export const integrationLogValidator = v.object({
+  _id: v.id("integrationLogs"),
   _creationTime: v.number(),
   userId: v.id("users"),
   timestamp: v.number(),
@@ -496,7 +490,7 @@ export const standingsOverlayWithPlayersValidator = v.object({
   standingsDataWithPlayers: v.optional(
     v.array(
       v.object({
-        ...playerInStandingsValidator.fields,
+        ...standingRowValidator.fields,
         seed: v.optional(v.number()),
         playerData: v.optional(playerWithDataValidator),
       }),
@@ -560,41 +554,34 @@ export const updateMatchOverlayArgsValidator = v.object({
   player2Lc26BackgroundColor: v.optional(lc26BackgroundColorValidator),
 });
 
-// Spicerack API Validators
+// Provider-neutral sync validators
+// The polling action composes provider API responses into a compact
+// RoundSnapshot so mutations receive validated, minimal data instead of
+// raw provider JSON.
 
-export const spicerackUserValidator = v.object({
-  id: v.number(),
-  username: v.optional(v.string()),
-  best_identifier: v.string(),
-  email: v.optional(v.string()),
+export const snapshotCompetitorValidator = v.object({
+  externalPlayerId: v.number(),
+  name: v.string(),
+  externalDecklistId: v.optional(v.string()),
+  decklistName: v.optional(v.string()),
+  tournamentRecord: v.string(),
+  matchPoints: v.optional(v.number()),
+  seed: v.optional(v.number()),
 });
 
-export const spicerackUserEventStatusValidator = v.object({
-  id: v.number(),
-  user: spicerackUserValidator,
-  decklist: v.union(v.number(), v.null()),
-  registration_status: v.optional(v.string()),
-  final_place_in_standings: v.union(v.number(), v.null()),
-  matches_won: v.number(),
-  matches_lost: v.number(),
-  matches_drawn: v.number(),
-  total_match_points: v.number(),
+export const snapshotMatchValidator = v.object({
+  externalMatchId: v.string(),
+  tableNumber: v.optional(v.number()),
+  isFeatureMatch: v.boolean(),
+  hasResult: v.boolean(),
+  competitors: v.array(snapshotCompetitorValidator),
 });
 
-export const spicerackPlayerMatchRelationshipValidator = v.object({
-  id: v.number(),
-  user_event_status: spicerackUserEventStatusValidator,
-  games_won: v.number(),
-  points_gained: v.number(),
-  player_order: v.number(),
-});
-
-export const spicerackMatchValidator = v.object({
-  id: v.number(),
-  is_feature_match: v.boolean(),
-  table_number: v.number(),
-  status: v.string(),
-  player_match_relationships: v.array(
-    spicerackPlayerMatchRelationshipValidator,
-  ),
+export const roundSnapshotValidator = v.object({
+  externalTournamentId: v.number(),
+  roundId: v.number(),
+  roundNumber: v.number(),
+  roundDisplayName: v.string(),
+  isEliminationRound: v.boolean(),
+  matches: v.array(snapshotMatchValidator),
 });

@@ -19,15 +19,16 @@ import { Switch } from "@/components/ui/switch";
 export default function SettingsPage() {
   const settings = useQuery(api.settings.getSettings);
   const tournament = useQuery(api.tournaments.getUserTournament);
-  const spicerackLogs = useQuery(api.settings.getSpicerackLogs);
+  const integrationLogs = useQuery(api.settings.getIntegrationLogs);
   const updateSettings = useMutation(api.settings.updateSettings);
   const updateTournament = useMutation(
     api.tournaments.updateTournamentSettings,
   );
   const [inputs, setInputs] = useState({
-    spicerackApiKey: settings?.spicerackApiKey ?? "",
-    spicerackTournamentId: tournament?.spicerackTournamentId ?? undefined,
-    spicerackMode: tournament?.mode ?? "manual",
+    meleeClientId: settings?.meleeClientId ?? "",
+    meleeClientSecret: settings?.meleeClientSecret ?? "",
+    externalTournamentId: tournament?.externalTournamentId ?? undefined,
+    syncMode: tournament?.mode ?? "manual",
   });
   const [errorVisible, setErrorVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -35,28 +36,31 @@ export default function SettingsPage() {
 
   useEffect(() => {
     setInputs({
-      spicerackApiKey: settings?.spicerackApiKey ?? "",
-      spicerackTournamentId: tournament?.spicerackTournamentId ?? undefined,
-      spicerackMode: tournament?.mode ?? "manual",
+      meleeClientId: settings?.meleeClientId ?? "",
+      meleeClientSecret: settings?.meleeClientSecret ?? "",
+      externalTournamentId: tournament?.externalTournamentId ?? undefined,
+      syncMode: tournament?.mode ?? "manual",
     });
     setErrorVisible(false);
     setErrorMessage("");
   }, [settings, tournament]);
 
   const hasChanges =
-    inputs.spicerackApiKey !== settings?.spicerackApiKey ||
-    inputs.spicerackTournamentId !== tournament?.spicerackTournamentId ||
-    inputs.spicerackMode !== tournament?.mode;
+    inputs.meleeClientId !== settings?.meleeClientId ||
+    inputs.meleeClientSecret !== settings?.meleeClientSecret ||
+    inputs.externalTournamentId !== tournament?.externalTournamentId ||
+    inputs.syncMode !== tournament?.mode;
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setIsSaving(true);
-    updateSettings({
-      spicerackApiKey: inputs.spicerackApiKey,
-    });
     try {
-      updateTournament({
-        spicerackTournamentId: inputs.spicerackTournamentId,
-        mode: inputs.spicerackMode,
+      await updateSettings({
+        meleeClientId: inputs.meleeClientId,
+        meleeClientSecret: inputs.meleeClientSecret,
+      });
+      await updateTournament({
+        externalTournamentId: inputs.externalTournamentId,
+        mode: inputs.syncMode,
       });
     } catch (error) {
       setErrorVisible(true);
@@ -108,33 +112,48 @@ export default function SettingsPage() {
           <CardContent>
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-2">
-                <Label htmlFor="spicerackApiKey">Spicerack API Key</Label>
+                <Label htmlFor="meleeClientId">Melee Client ID</Label>
                 <Input
-                  id="spicerackApiKey"
-                  value={inputs.spicerackApiKey}
+                  id="meleeClientId"
+                  value={inputs.meleeClientId}
                   onChange={(e) =>
-                    setInputs({ ...inputs, spicerackApiKey: e.target.value })
+                    setInputs({ ...inputs, meleeClientId: e.target.value })
                   }
                   className="max-w-md"
                 />
               </div>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="spicerackTournamentId">
-                  Spicerack Tournament ID
+                <Label htmlFor="meleeClientSecret">Melee Client Secret</Label>
+                <Input
+                  id="meleeClientSecret"
+                  type="password"
+                  value={inputs.meleeClientSecret}
+                  onChange={(e) =>
+                    setInputs({
+                      ...inputs,
+                      meleeClientSecret: e.target.value,
+                    })
+                  }
+                  className="max-w-md"
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="externalTournamentId">
+                  Melee Tournament ID
                 </Label>
                 <Input
-                  id="spicerackTournamentId"
+                  id="externalTournamentId"
                   type="text"
                   inputMode="numeric"
                   pattern="[0-9]*"
-                  value={inputs.spicerackTournamentId ?? ""}
+                  value={inputs.externalTournamentId ?? ""}
                   onChange={(e) => {
                     const value = e.target.value;
                     // Allow empty or only numeric values
                     if (value === "" || /^\d+$/.test(value)) {
                       setInputs({
                         ...inputs,
-                        spicerackTournamentId:
+                        externalTournamentId:
                           value === "" ? undefined : Number(value),
                       });
                       setErrorVisible(false);
@@ -151,14 +170,14 @@ export default function SettingsPage() {
                 )}
               </div>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="spicerackMode">Spicerack Auto Mode</Label>
+                <Label htmlFor="syncMode">Auto Sync</Label>
                 <Switch
-                  id="spicerackMode"
-                  checked={inputs.spicerackMode === "auto"}
+                  id="syncMode"
+                  checked={inputs.syncMode === "auto"}
                   onCheckedChange={(checked) =>
                     setInputs({
                       ...inputs,
-                      spicerackMode: checked ? "auto" : "manual",
+                      syncMode: checked ? "auto" : "manual",
                     })
                   }
                 />
@@ -186,17 +205,17 @@ export default function SettingsPage() {
       <div className="-mt-[1px] -ml-[1px]">
         <Card>
           <CardHeader>
-            <CardTitle>Spicerack Debug Log</CardTitle>
+            <CardTitle>Sync Debug Log</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="sunken rounded-lg p-4 max-h-[300px] overflow-y-auto">
-              {!spicerackLogs || spicerackLogs.length === 0 ? (
+              {!integrationLogs || integrationLogs.length === 0 ? (
                 <div className="text-sm text-white/40 font-mono">
                   No logs yet. Enable auto mode to start polling.
                 </div>
               ) : (
                 <div className="flex flex-col gap-2 font-mono">
-                  {spicerackLogs.map((log) => (
+                  {integrationLogs.map((log) => (
                     <div
                       key={log._id}
                       className="flex flex-row gap-3 text-xs border-b border-white/10 pb-2 last:border-b-0"

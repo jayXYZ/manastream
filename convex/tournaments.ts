@@ -9,11 +9,11 @@ import { internal } from "./_generated/api";
 import { filterUndefined } from "./lib/utils";
 import { requireAuth, requireTournamentAccess } from "./lib/auth";
 import { getOwnTournament } from "./lib/tournaments";
-import { getUserSettings } from "./lib/settings";
+import { getUserSettings, hasMeleeCredentials } from "./lib/settings";
 
 export const createTournament = internalMutation({
   args: {
-    spicerackTournamentId: v.optional(v.number()),
+    externalTournamentId: v.optional(v.number()),
   },
   returns: v.id("tournaments"),
   handler: async (ctx, args) => {
@@ -21,7 +21,7 @@ export const createTournament = internalMutation({
     const tournamentId = await ctx.db.insert("tournaments", {
       userId: userId,
       mode: "manual",
-      spicerackTournamentId: args.spicerackTournamentId,
+      externalTournamentId: args.externalTournamentId,
       manualTimerRunning: false,
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -147,7 +147,7 @@ export const getActiveTournaments = internalQuery({
     const tournaments = await ctx.db
       .query("tournaments")
       .withIndex("by_mode_and_status", (q) =>
-        q.eq("mode", "auto").eq("spicerackTournamentStatus", "active"),
+        q.eq("mode", "auto").eq("externalTournamentStatus", "active"),
       )
       .collect();
     const tournamentIdArray = tournaments.map((tournament) => tournament._id);
@@ -172,7 +172,7 @@ export const updateTournamentMode = mutation({
       }
 
       // Check if polling is already active to prevent duplicate polling sessions
-      if (tournament.spicerackPollingStatus === "active") {
+      if (tournament.pollingStatus === "active") {
         // If already active, just update the mode without scheduling a new polling session
         await ctx.db.patch(args.tournamentId, {
           mode: args.mode,
@@ -189,7 +189,7 @@ export const updateTournamentMode = mutation({
     if (args.mode === "auto") {
       await ctx.scheduler.runAfter(
         0,
-        internal.spicerack.validateAndStartPolling,
+        internal.tournamentSync.validateAndStartPolling,
         { userId: userId },
       );
     }
@@ -198,7 +198,7 @@ export const updateTournamentMode = mutation({
 
 export const updateTournamentSettings = mutation({
   args: {
-    spicerackTournamentId: v.optional(v.number()),
+    externalTournamentId: v.optional(v.number()),
     mode: v.optional(v.union(v.literal("manual"), v.literal("auto"))),
   },
   handler: async (ctx, args) => {
@@ -208,18 +208,18 @@ export const updateTournamentSettings = mutation({
 
     if (updates.mode === "auto") {
       const settings = await getUserSettings(ctx);
-      if (!settings.spicerackApiKey) {
-        throw new Error("No Spicerack API key found for user");
+      if (!hasMeleeCredentials(settings)) {
+        throw new Error("No Melee credentials found for user");
       }
       // Check the final value after update: use new value if provided, otherwise use existing value
-      const finalSpicerackTournamentId =
-        updates.spicerackTournamentId ?? tournament.spicerackTournamentId;
-      if (!finalSpicerackTournamentId || finalSpicerackTournamentId === -1) {
-        throw new Error("No Spicerack tournament ID found for tournament");
+      const finalExternalTournamentId =
+        updates.externalTournamentId ?? tournament.externalTournamentId;
+      if (!finalExternalTournamentId || finalExternalTournamentId === -1) {
+        throw new Error("No Melee tournament ID found for tournament");
       }
 
       // Check if polling is already active to prevent duplicate polling sessions
-      if (tournament.spicerackPollingStatus === "active") {
+      if (tournament.pollingStatus === "active") {
         // If already active, just update the settings without scheduling a new polling session
         await ctx.db.patch(tournament._id, updates);
         return;
@@ -228,7 +228,7 @@ export const updateTournamentSettings = mutation({
       await ctx.db.patch(tournament._id, updates);
       await ctx.scheduler.runAfter(
         0,
-        internal.spicerack.validateAndStartPolling,
+        internal.tournamentSync.validateAndStartPolling,
         { userId: userId },
       );
     } else {
