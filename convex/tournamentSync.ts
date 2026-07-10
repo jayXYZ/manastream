@@ -41,7 +41,10 @@ import {
   MeleeStanding,
   MeleeTournamentOverviewResponse,
 } from "./types/melee";
-import { createExternalTournamentHelper } from "./lib/externalTournament";
+import {
+  createExternalTournamentHelper,
+  updateExternalTournamentHelper,
+} from "./lib/externalTournament";
 import {
   parseAllowCompletedTournamentPolling,
   shouldStopPollingForCompletedTournament,
@@ -227,6 +230,18 @@ export const createExternalTournament = internalMutation({
   },
 });
 
+export const recordCompletedRounds = internalMutation({
+  args: {
+    externalTournamentId: v.number(),
+    completedRounds: completedRoundsValidator,
+  },
+  handler: async (ctx, args) => {
+    await updateExternalTournamentHelper(ctx, args.externalTournamentId, {
+      completedRounds: args.completedRounds,
+    });
+  },
+});
+
 export const detectNewRound = internalMutation({
   args: {
     tournamentId: v.id("tournaments"),
@@ -398,6 +413,13 @@ export const validateAndStartPolling = internalAction({
           allowCompletedTournamentPolling: ALLOW_COMPLETED_TOURNAMENT_POLLING,
         })
       ) {
+        await ctx.runMutation(
+          internal.tournamentSync.recordCompletedRounds,
+          {
+            externalTournamentId,
+            completedRounds: parseCompletedRounds(overview, undefined),
+          },
+        );
         await ctx.runMutation(
           internal.tournamentSync.updateTournamentPollingStatus,
           {
@@ -680,6 +702,13 @@ export const pollTournamentAndScheduleNext = internalAction({
       ) {
         console.log(
           `Tournament ${externalTournamentId} is complete. Stopping polling.`,
+        );
+        await ctx.runMutation(
+          internal.tournamentSync.recordCompletedRounds,
+          {
+            externalTournamentId,
+            completedRounds: parseCompletedRounds(overview, undefined),
+          },
         );
         await ctx.runMutation(
           internal.tournamentSync.updateTournamentPollingStatus,
