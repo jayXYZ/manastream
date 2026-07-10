@@ -10,6 +10,7 @@ import {
 } from "../validators";
 import {
   getRoundStandingsHelper,
+  markRoundStandingsFetchFailedHelper,
   updateRoundStandingsHelper,
 } from "../lib/standings";
 import { fetchMeleeRoundStandings } from "../lib/melee/api";
@@ -32,6 +33,20 @@ export const updateRoundStandings = internalMutation({
   },
 });
 
+export const markRoundStandingsFetchFailed = internalMutation({
+  args: {
+    standingsId: v.id("roundStandings"),
+    error: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await markRoundStandingsFetchFailedHelper(
+      ctx,
+      args.standingsId,
+      args.error,
+    );
+  },
+});
+
 export const fetchAndUpdateRoundStandings = internalAction({
   args: {
     tournamentId: v.id("tournaments"),
@@ -41,25 +56,33 @@ export const fetchAndUpdateRoundStandings = internalAction({
     meleeClientSecret: v.string(),
   },
   handler: async (ctx, args) => {
-    const meleeStandings = await fetchMeleeRoundStandings(
-      args.externalRoundId,
-      {
-        clientId: args.meleeClientId,
-        clientSecret: args.meleeClientSecret,
-      },
-    );
-    if (meleeStandings.length === 0) {
-      throw new Error(
-        `No standings returned for round ${args.externalRoundId}`,
+    try {
+      const meleeStandings = await fetchMeleeRoundStandings(
+        args.externalRoundId,
+        {
+          clientId: args.meleeClientId,
+          clientSecret: args.meleeClientSecret,
+        },
       );
+      if (meleeStandings.length === 0) {
+        throw new Error(
+          `No standings returned for round ${args.externalRoundId}`,
+        );
+      }
+      await ctx.runMutation(internal.overlays.updateRoundStandings, {
+        standingsId: args.standingsId,
+        standingsData: {
+          roundNumber: meleeStandings[0].RoundNumber,
+          standings: toStandingRows(meleeStandings),
+        },
+      });
+    } catch (error) {
+      await ctx.runMutation(internal.overlays.markRoundStandingsFetchFailed, {
+        standingsId: args.standingsId,
+        error: String(error),
+      });
+      throw error;
     }
-    await ctx.runMutation(internal.overlays.updateRoundStandings, {
-      standingsId: args.standingsId,
-      standingsData: {
-        roundNumber: meleeStandings[0].RoundNumber,
-        standings: toStandingRows(meleeStandings),
-      },
-    });
   },
 });
 

@@ -243,7 +243,7 @@ export async function enrichStandingsOverlay(
 
   // Read the existing standings (created by updateStandingsOverlay mutation)
   const roundStandings = await ctx.db.get(overlay.roundStandingsId);
-  if (!roundStandings || roundStandings.standings === "PENDING") {
+  if (!roundStandings || !Array.isArray(roundStandings.standings)) {
     return {
       ...overlay,
       roundDisplayName: externalTournament?.currentRoundName ?? undefined,
@@ -392,7 +392,7 @@ async function getLatestSwissSeedMap(
     )
     .first();
 
-  if (!roundStandings || roundStandings.standings === "PENDING") {
+  if (!roundStandings || !Array.isArray(roundStandings.standings)) {
     return new Map<number, number>();
   }
 

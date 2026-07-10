@@ -124,7 +124,12 @@ export const roundStandingsValidator = v.object({
   externalRoundId: v.number(),
   externalTournamentId: v.number(),
   roundNumber: v.union(v.number(), v.literal("PENDING")),
-  standings: v.union(v.array(standingRowValidator), v.literal("PENDING")),
+  standings: v.union(
+    v.array(standingRowValidator),
+    v.literal("PENDING"),
+    v.literal("ERROR"),
+  ),
+  lastError: v.optional(v.string()),
   updatedAt: v.number(),
 });
 

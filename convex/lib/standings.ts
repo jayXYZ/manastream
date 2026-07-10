@@ -21,6 +21,18 @@ export async function getRoundStandingsHelper(
     )
     .first();
   if (standings) {
+    if (standings.standings === "ERROR") {
+      await ctx.db.patch(standings._id, {
+        standings: "PENDING",
+        lastError: undefined,
+        updatedAt: Date.now(),
+      });
+      await scheduleRoundStandingsFetch(
+        ctx,
+        standings._id,
+        externalRoundId,
+      );
+    }
     return standings._id;
   }
   const newStandings = await createRoundStandings(ctx, externalRoundId);
@@ -32,11 +44,9 @@ async function createRoundStandings(
   externalRoundId: number,
 ): Promise<RoundStandings> {
   const tournament = await getOwnTournament(ctx);
-  const settings = await getUserSettings(ctx);
-  if (!hasMeleeCredentials(settings) || !tournament.externalTournamentId) {
-    throw new Error("No Melee credentials found for user");
+  if (!tournament.externalTournamentId) {
+    throw new Error("No Melee tournament found for user");
   }
-  const credentials = getMeleeCredentialsFromSettings(settings);
 
   // Check again in case another concurrent call created it
   const existingStandings = await ctx.db
@@ -60,16 +70,10 @@ async function createRoundStandings(
     pendingRoundStandings,
   );
 
-  await ctx.scheduler.runAfter(
-    0,
-    internal.overlays.fetchAndUpdateRoundStandings,
-    {
-      tournamentId: tournament._id,
-      standingsId: newStandingsId,
-      externalRoundId,
-      meleeClientId: credentials.clientId,
-      meleeClientSecret: credentials.clientSecret,
-    },
+  await scheduleRoundStandingsFetch(
+    ctx,
+    newStandingsId,
+    externalRoundId,
   );
 
   const createdStandings = await ctx.db.get(newStandingsId);
@@ -87,6 +91,44 @@ export async function updateRoundStandingsHelper(
   await ctx.db.patch(standingsId, {
     roundNumber: standingsData.roundNumber,
     standings: standingsData.standings,
+    lastError: undefined,
     updatedAt: Date.now(),
   });
+}
+
+export async function markRoundStandingsFetchFailedHelper(
+  ctx: MutationCtx,
+  standingsId: Id<"roundStandings">,
+  error: string,
+): Promise<void> {
+  await ctx.db.patch(standingsId, {
+    standings: "ERROR",
+    lastError: error,
+    updatedAt: Date.now(),
+  });
+}
+
+async function scheduleRoundStandingsFetch(
+  ctx: MutationCtx,
+  standingsId: Id<"roundStandings">,
+  externalRoundId: number,
+) {
+  const tournament = await getOwnTournament(ctx);
+  const settings = await getUserSettings(ctx);
+  if (!hasMeleeCredentials(settings)) {
+    throw new Error("No Melee credentials found for user");
+  }
+  const credentials = getMeleeCredentialsFromSettings(settings);
+
+  await ctx.scheduler.runAfter(
+    0,
+    internal.overlays.fetchAndUpdateRoundStandings,
+    {
+      tournamentId: tournament._id,
+      standingsId,
+      externalRoundId,
+      meleeClientId: credentials.clientId,
+      meleeClientSecret: credentials.clientSecret,
+    },
+  );
 }

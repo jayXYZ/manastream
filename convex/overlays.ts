@@ -49,6 +49,7 @@ export { setOverlayTemplate, deleteOverlay } from "./_overlays/shared";
 // Standings overlay operations
 export {
   updateRoundStandings,
+  markRoundStandingsFetchFailed,
   fetchAndUpdateRoundStandings,
   updateStandingsOverlay,
   setStandingsOverlaySettings,
