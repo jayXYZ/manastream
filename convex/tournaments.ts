@@ -10,6 +10,7 @@ import { filterUndefined } from "./lib/utils";
 import { requireAuth, requireTournamentAccess } from "./lib/auth";
 import { getOwnTournament } from "./lib/tournaments";
 import { getUserSettings, hasMeleeCredentials } from "./lib/settings";
+import { hasExternalTournamentChanged } from "./lib/pollingBehavior";
 
 export const createTournament = internalMutation({
   args: {
@@ -205,6 +206,19 @@ export const updateTournamentSettings = mutation({
     const userId = await requireAuth(ctx);
     const tournament = await getOwnTournament(ctx);
     const updates = filterUndefined(args);
+    const externalTournamentChanged = hasExternalTournamentChanged({
+      currentExternalTournamentId: tournament.externalTournamentId,
+      requestedExternalTournamentId: updates.externalTournamentId,
+    });
+    const updatesWithSyncReset = externalTournamentChanged
+      ? {
+          ...updates,
+          pollingStatus: "inactive" as const,
+          pollingErrorMessage: undefined,
+          currentRound: undefined,
+          currentRoundDisplayName: undefined,
+        }
+      : updates;
 
     if (updates.mode === "auto") {
       const settings = await getUserSettings(ctx);
@@ -219,20 +233,23 @@ export const updateTournamentSettings = mutation({
       }
 
       // Check if polling is already active to prevent duplicate polling sessions
-      if (tournament.pollingStatus === "active") {
+      if (
+        tournament.pollingStatus === "active" &&
+        !externalTournamentChanged
+      ) {
         // If already active, just update the settings without scheduling a new polling session
         await ctx.db.patch(tournament._id, updates);
         return;
       }
 
-      await ctx.db.patch(tournament._id, updates);
+      await ctx.db.patch(tournament._id, updatesWithSyncReset);
       await ctx.scheduler.runAfter(
         0,
         internal.tournamentSync.validateAndStartPolling,
         { userId: userId },
       );
     } else {
-      await ctx.db.patch(tournament._id, updates);
+      await ctx.db.patch(tournament._id, updatesWithSyncReset);
     }
   },
 });

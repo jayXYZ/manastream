@@ -27,3 +27,13 @@ export function shouldStopPollingForCompletedTournament(args: {
 
   return !args.allowCompletedTournamentPolling;
 }
+
+export function hasExternalTournamentChanged(args: {
+  currentExternalTournamentId?: number;
+  requestedExternalTournamentId?: number;
+}): boolean {
+  return (
+    args.requestedExternalTournamentId !== undefined &&
+    args.requestedExternalTournamentId !== args.currentExternalTournamentId
+  );
+}

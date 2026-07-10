@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  hasExternalTournamentChanged,
   parseAllowCompletedTournamentPolling,
   shouldStopPollingForCompletedTournament,
 } from "../pollingBehavior";
@@ -48,6 +49,31 @@ describe("shouldStopPollingForCompletedTournament", () => {
       shouldStopPollingForCompletedTournament({
         isCompleted: true,
         allowCompletedTournamentPolling: true,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("hasExternalTournamentChanged", () => {
+  it("detects a replacement tournament while auto sync is active", () => {
+    expect(
+      hasExternalTournamentChanged({
+        currentExternalTournamentId: 101,
+        requestedExternalTournamentId: 202,
+      }),
+    ).toBe(true);
+  });
+
+  it("does not restart for an omitted or unchanged tournament id", () => {
+    expect(
+      hasExternalTournamentChanged({
+        currentExternalTournamentId: 101,
+      }),
+    ).toBe(false);
+    expect(
+      hasExternalTournamentChanged({
+        currentExternalTournamentId: 101,
+        requestedExternalTournamentId: 101,
       }),
     ).toBe(false);
   });
