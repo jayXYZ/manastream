@@ -50,6 +50,7 @@ export { setOverlayTemplate, deleteOverlay } from "./_overlays/shared";
 export {
   updateRoundStandings,
   markRoundStandingsFetchFailed,
+  getRoundStandingsCredentials,
   fetchAndUpdateRoundStandings,
   updateStandingsOverlay,
   setStandingsOverlaySettings,

@@ -4,11 +4,6 @@ import { RoundStandings } from "../types";
 import { StandingRow } from "../models/melee";
 import { Id } from "../_generated/dataModel";
 import { getOwnTournament } from "./tournaments";
-import {
-  getMeleeCredentialsFromSettings,
-  getUserSettings,
-  hasMeleeCredentials,
-} from "./settings";
 
 export async function getRoundStandingsHelper(
   ctx: MutationCtx,
@@ -114,11 +109,6 @@ async function scheduleRoundStandingsFetch(
   externalRoundId: number,
 ) {
   const tournament = await getOwnTournament(ctx);
-  const settings = await getUserSettings(ctx);
-  if (!hasMeleeCredentials(settings)) {
-    throw new Error("No Melee credentials found for user");
-  }
-  const credentials = getMeleeCredentialsFromSettings(settings);
 
   await ctx.scheduler.runAfter(
     0,
@@ -127,8 +117,6 @@ async function scheduleRoundStandingsFetch(
       tournamentId: tournament._id,
       standingsId,
       externalRoundId,
-      meleeClientId: credentials.clientId,
-      meleeClientSecret: credentials.clientSecret,
     },
   );
 }

@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import {
   internalMutation,
   internalAction,
+  internalQuery,
   mutation,
 } from "../_generated/server";
 import {
@@ -22,6 +23,8 @@ import {
 } from "../lib/auth";
 import { createStandingsOverlayHelper } from "../lib/overlays";
 import { filterUndefined } from "../lib/utils";
+import { getMeleeCredentialsForTournament } from "../lib/settings";
+import type { MeleeCredentials } from "../lib/melee/api";
 
 export const updateRoundStandings = internalMutation({
   args: {
@@ -47,22 +50,34 @@ export const markRoundStandingsFetchFailed = internalMutation({
   },
 });
 
+export const getRoundStandingsCredentials = internalQuery({
+  args: {
+    tournamentId: v.id("tournaments"),
+  },
+  returns: v.object({
+    clientId: v.string(),
+    clientSecret: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    return await getMeleeCredentialsForTournament(ctx, args.tournamentId);
+  },
+});
+
 export const fetchAndUpdateRoundStandings = internalAction({
   args: {
     tournamentId: v.id("tournaments"),
     externalRoundId: v.number(),
     standingsId: v.id("roundStandings"),
-    meleeClientId: v.string(),
-    meleeClientSecret: v.string(),
   },
   handler: async (ctx, args) => {
     try {
+      const credentials: MeleeCredentials = await ctx.runQuery(
+        internal.overlays.getRoundStandingsCredentials,
+        { tournamentId: args.tournamentId },
+      );
       const meleeStandings = await fetchMeleeRoundStandings(
         args.externalRoundId,
-        {
-          clientId: args.meleeClientId,
-          clientSecret: args.meleeClientSecret,
-        },
+        credentials,
       );
       if (meleeStandings.length === 0) {
         throw new Error(
