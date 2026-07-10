@@ -110,5 +110,6 @@ export default defineSchema({
   // Integration Debug Logs table
   integrationLogs: defineTable(integrationLogValidator)
     .index("by_user", ["userId"])
-    .index("by_user_and_timestamp", ["userId", "timestamp"]),
+    .index("by_user_and_timestamp", ["userId", "timestamp"])
+    .index("by_timestamp", ["timestamp"]),
 });

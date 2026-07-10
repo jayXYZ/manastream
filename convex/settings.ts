@@ -1,11 +1,13 @@
 import { v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { requireAuth } from "./lib/auth";
 import { integrationLogValidator } from "./validators";
 import {
   getMeleeCredentialsFromSettings,
   getUserSettings,
 } from "./lib/settings";
+import { deleteOldIntegrationLogsBatch } from "./lib/logging";
 
 export const getSettings = query({
   args: {},
@@ -80,12 +82,13 @@ export const cleanupOldIntegrationLogs = internalMutation({
   handler: async (ctx) => {
     const cutoff = Date.now() - 3 * 24 * 60 * 60 * 1000; // 3 days in milliseconds
 
-    const allLogs = await ctx.db.query("integrationLogs").collect();
-
-    const logsToDelete = allLogs.filter((log) => log.timestamp < cutoff);
-
-    for (const log of logsToDelete) {
-      await ctx.db.delete(log._id);
+    const hasMore = await deleteOldIntegrationLogsBatch(ctx, cutoff);
+    if (hasMore) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.settings.cleanupOldIntegrationLogs,
+        {},
+      );
     }
   },
 });
