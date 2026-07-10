@@ -11,14 +11,15 @@ export const getSettings = query({
   args: {},
   returns: v.object({
     meleeClientId: v.string(),
-    meleeClientSecret: v.string(),
+    // The secret itself is never sent to the client; only whether one is set.
+    hasMeleeClientSecret: v.boolean(),
   }),
   handler: async (ctx) => {
     const settings = await getUserSettings(ctx);
     const credentials = getMeleeCredentialsFromSettings(settings);
     return {
       meleeClientId: credentials.clientId,
-      meleeClientSecret: credentials.clientSecret,
+      hasMeleeClientSecret: credentials.clientSecret.length > 0,
     };
   },
 });
@@ -40,13 +41,16 @@ export const getIntegrationLogs = query({
 export const updateSettings = mutation({
   args: {
     meleeClientId: v.string(),
-    meleeClientSecret: v.string(),
+    // Omitted when the user hasn't entered a new secret, so the stored one is kept.
+    meleeClientSecret: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const settings = await getUserSettings(ctx);
     await ctx.db.patch(settings._id, {
       meleeClientId: args.meleeClientId,
-      meleeClientSecret: args.meleeClientSecret,
+      ...(args.meleeClientSecret !== undefined
+        ? { meleeClientSecret: args.meleeClientSecret }
+        : {}),
       updatedAt: Date.now(),
     });
   },

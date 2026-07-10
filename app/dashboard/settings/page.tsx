@@ -24,9 +24,7 @@ type SettingsFormInputs = {
 };
 
 function getSettingsFormInputs(
-  settings:
-    | { meleeClientId: string; meleeClientSecret: string }
-    | undefined,
+  settings: { meleeClientId: string } | undefined,
   tournament:
     | { externalTournamentId?: number; mode: "manual" | "auto" }
     | null
@@ -34,7 +32,9 @@ function getSettingsFormInputs(
 ): SettingsFormInputs {
   return {
     meleeClientId: settings?.meleeClientId ?? "",
-    meleeClientSecret: settings?.meleeClientSecret ?? "",
+    // The saved secret is never sent to the client; the field starts empty
+    // and a non-empty value means "replace the stored secret".
+    meleeClientSecret: "",
     externalTournamentId: tournament?.externalTournamentId ?? undefined,
     syncMode: tournament?.mode ?? "manual",
   };
@@ -64,7 +64,7 @@ export default function SettingsPage() {
   const savedInputs = getSettingsFormInputs(settings, tournament);
   const hasChanges =
     inputs.meleeClientId !== savedInputs.meleeClientId ||
-    inputs.meleeClientSecret !== savedInputs.meleeClientSecret ||
+    inputs.meleeClientSecret !== "" ||
     inputs.externalTournamentId !== savedInputs.externalTournamentId ||
     inputs.syncMode !== savedInputs.syncMode;
 
@@ -73,7 +73,11 @@ export default function SettingsPage() {
     try {
       await updateSettings({
         meleeClientId: inputs.meleeClientId,
-        meleeClientSecret: inputs.meleeClientSecret,
+        // Omit the secret when the field is empty so the stored one is kept.
+        meleeClientSecret:
+          inputs.meleeClientSecret === ""
+            ? undefined
+            : inputs.meleeClientSecret,
       });
       await updateTournament({
         externalTournamentId: inputs.externalTournamentId,
@@ -145,6 +149,12 @@ export default function SettingsPage() {
                   id="meleeClientSecret"
                   type="password"
                   value={inputs.meleeClientSecret}
+                  placeholder={
+                    settings?.hasMeleeClientSecret
+                      ? "••••••••  (saved — enter a new value to replace)"
+                      : "Enter client secret"
+                  }
+                  autoComplete="new-password"
                   onChange={(e) =>
                     setInputs({
                       ...inputs,
