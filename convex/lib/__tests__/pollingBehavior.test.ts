@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  canClaimPollingSession,
   hasExternalTournamentChanged,
+  isPollingSessionCurrent,
   parseAllowCompletedTournamentPolling,
   shouldStopPollingForCompletedTournament,
 } from "../pollingBehavior";
@@ -74,6 +76,58 @@ describe("hasExternalTournamentChanged", () => {
       hasExternalTournamentChanged({
         currentExternalTournamentId: 101,
         requestedExternalTournamentId: 101,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("polling session ownership", () => {
+  it("allows exactly one active session to claim a tournament", () => {
+    expect(
+      canClaimPollingSession({
+        mode: "auto",
+        pollingStatus: "inactive",
+        currentExternalTournamentId: 101,
+        expectedExternalTournamentId: 101,
+      }),
+    ).toBe(true);
+    expect(
+      canClaimPollingSession({
+        mode: "auto",
+        pollingStatus: "active",
+        pollingSessionId: "existing-session",
+        currentExternalTournamentId: 101,
+        expectedExternalTournamentId: 101,
+      }),
+    ).toBe(false);
+  });
+
+  it("rejects stale validation work after the tournament changes", () => {
+    expect(
+      canClaimPollingSession({
+        mode: "auto",
+        pollingStatus: "inactive",
+        currentExternalTournamentId: 202,
+        expectedExternalTournamentId: 101,
+      }),
+    ).toBe(false);
+  });
+
+  it("accepts only the current active polling token", () => {
+    expect(
+      isPollingSessionCurrent({
+        mode: "auto",
+        pollingStatus: "active",
+        pollingSessionId: "current-session",
+        expectedPollingSessionId: "current-session",
+      }),
+    ).toBe(true);
+    expect(
+      isPollingSessionCurrent({
+        mode: "auto",
+        pollingStatus: "active",
+        pollingSessionId: "new-session",
+        expectedPollingSessionId: "stale-session",
       }),
     ).toBe(false);
   });

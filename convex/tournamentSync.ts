@@ -4,6 +4,7 @@ import {
   internalQuery,
   query,
 } from "./_generated/server";
+import type { ActionCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
@@ -46,6 +47,8 @@ import {
   updateExternalTournamentHelper,
 } from "./lib/externalTournament";
 import {
+  canClaimPollingSession,
+  isPollingSessionCurrent,
   parseAllowCompletedTournamentPolling,
   shouldStopPollingForCompletedTournament,
 } from "./lib/pollingBehavior";
@@ -58,6 +61,45 @@ const DECKLIST_FETCH_CONCURRENCY = 8;
 const ALLOW_COMPLETED_TOURNAMENT_POLLING = parseAllowCompletedTournamentPolling(
   process.env.SYNC_ALLOW_COMPLETED_POLLING,
 );
+
+async function pollingSessionIsCurrent(
+  ctx: Pick<ActionCtx, "runQuery">,
+  userId: Id<"users">,
+  pollingSessionId: string,
+): Promise<boolean> {
+  const state: {
+    mode: "manual" | "auto";
+    pollingStatus?: "active" | "inactive" | "error";
+    pollingSessionId?: string;
+  } = await ctx.runQuery(internal.tournamentSync.getPollingSessionState, {
+    userId,
+  });
+  return isPollingSessionCurrent({
+    ...state,
+    expectedPollingSessionId: pollingSessionId,
+  });
+}
+
+async function schedulePollIfCurrent(
+  ctx: Pick<ActionCtx, "runQuery" | "scheduler">,
+  args: { userId: Id<"users">; pollingSessionId: string },
+  delayMs: number,
+): Promise<void> {
+  if (
+    !(await pollingSessionIsCurrent(
+      ctx,
+      args.userId,
+      args.pollingSessionId,
+    ))
+  ) {
+    return;
+  }
+  await ctx.scheduler.runAfter(
+    delayMs,
+    internal.tournamentSync.pollTournamentAndScheduleNext,
+    args,
+  );
+}
 
 const completedRoundsValidator = v.array(
   v.object({ roundId: v.number(), roundName: v.string() }),
@@ -169,6 +211,7 @@ export const updateTournamentPollingStatus = internalMutation({
   args: {
     tournamentId: v.id("tournaments"),
     userId: v.id("users"),
+    expectedPollingSessionId: v.string(),
     mode: v.optional(v.union(v.literal("manual"), v.literal("auto"))),
     pollingStatus: v.optional(
       v.union(v.literal("active"), v.literal("inactive"), v.literal("error")),
@@ -187,10 +230,12 @@ export const updateTournamentPollingStatus = internalMutation({
     logMessage: v.optional(v.string()),
     logMetadata: v.optional(v.any()),
   },
+  returns: v.boolean(),
   handler: async (ctx, args) => {
     const {
       tournamentId,
       userId,
+      expectedPollingSessionId,
       logAction,
       logStatus,
       logMessage,
@@ -198,8 +243,21 @@ export const updateTournamentPollingStatus = internalMutation({
       ...updates
     } = args;
 
+    const tournament = await ctx.db.get(tournamentId);
+    if (tournament?.pollingSessionId !== expectedPollingSessionId) {
+      return false;
+    }
+
+    const shouldClearPollingSession =
+      updates.mode === "manual" ||
+      updates.pollingStatus === "inactive" ||
+      updates.pollingStatus === "error";
+
     // Update tournament status
-    await ctx.db.patch(tournamentId, updates);
+    await ctx.db.patch(tournamentId, {
+      ...updates,
+      ...(shouldClearPollingSession ? { pollingSessionId: undefined } : {}),
+    });
 
     // Log if logging parameters provided
     if (logAction && logStatus && logMessage) {
@@ -212,6 +270,66 @@ export const updateTournamentPollingStatus = internalMutation({
         metadata: logMetadata,
       });
     }
+    return true;
+  },
+});
+
+export const claimPollingSession = internalMutation({
+  args: {
+    userId: v.id("users"),
+    expectedExternalTournamentId: v.number(),
+    pollingSessionId: v.string(),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const tournament = await ctx.db
+      .query("tournaments")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .unique();
+    if (
+      !tournament ||
+      !canClaimPollingSession({
+        mode: tournament.mode,
+        pollingStatus: tournament.pollingStatus,
+        pollingSessionId: tournament.pollingSessionId,
+        currentExternalTournamentId: tournament.externalTournamentId,
+        expectedExternalTournamentId: args.expectedExternalTournamentId,
+      })
+    ) {
+      return false;
+    }
+
+    await ctx.db.patch(tournament._id, {
+      pollingStatus: "active",
+      pollingErrorMessage: undefined,
+      pollingSessionId: args.pollingSessionId,
+    });
+    return true;
+  },
+});
+
+export const getPollingSessionState = internalQuery({
+  args: { userId: v.id("users") },
+  returns: v.object({
+    mode: v.union(v.literal("manual"), v.literal("auto")),
+    pollingStatus: v.optional(
+      v.union(v.literal("active"), v.literal("inactive"), v.literal("error")),
+    ),
+    pollingSessionId: v.optional(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    const tournament = await ctx.db
+      .query("tournaments")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .unique();
+    if (!tournament) {
+      throw new Error(`User ${args.userId} has no user tournament`);
+    }
+    return {
+      mode: tournament.mode,
+      pollingStatus: tournament.pollingStatus,
+      pollingSessionId: tournament.pollingSessionId,
+    };
   },
 });
 
@@ -384,18 +502,18 @@ export const validateAndStartPolling = internalAction({
     }
     const externalTournamentId = externalTournament.externalTournamentId;
 
-    // Check if polling is already active to prevent duplicate polling sessions
-    if (tournament.pollingStatus === "active") {
+    const pollingSessionId = crypto.randomUUID();
+    const claimedPollingSession: boolean = await ctx.runMutation(
+      internal.tournamentSync.claimPollingSession,
+      {
+        userId: args.userId,
+        expectedExternalTournamentId: externalTournamentId,
+        pollingSessionId,
+      },
+    );
+    if (!claimedPollingSession) {
       console.log(
-        `Polling already active for tournament ${externalTournamentId}. Skipping validation.`,
-      );
-      return;
-    }
-
-    // Verify tournament is still in auto mode before starting polling
-    if (tournament.mode !== "auto") {
-      console.log(
-        `Tournament ${externalTournamentId} is not in auto mode. Skipping validation.`,
+        `Tournament ${externalTournamentId} already has a polling session or is no longer eligible. Skipping validation.`,
       );
       return;
     }
@@ -425,6 +543,7 @@ export const validateAndStartPolling = internalAction({
           {
             tournamentId: tournament._id,
             userId: args.userId,
+            expectedPollingSessionId: pollingSessionId,
             mode: "manual",
             pollingStatus: "inactive",
             pollingErrorMessage: "Tournament is already completed in Melee.",
@@ -540,23 +659,27 @@ export const validateAndStartPolling = internalAction({
       }
 
       // Log success
-      await ctx.runMutation(
+      const validationStatusUpdated: boolean = await ctx.runMutation(
         internal.tournamentSync.updateTournamentPollingStatus,
         {
           tournamentId: tournament._id,
           userId: args.userId,
+          expectedPollingSessionId: pollingSessionId,
           logAction: "VALIDATION_SUCCESS",
           logStatus: "success",
           logMessage: `Tournament validated successfully. Starting polling.`,
           logMetadata: { status: overview.StatusDescription },
         },
       );
+      if (!validationStatusUpdated) {
+        return;
+      }
 
       // Start polling - schedule first poll immediately
-      await ctx.scheduler.runAfter(
+      await schedulePollIfCurrent(
+        ctx,
+        { userId: args.userId, pollingSessionId },
         0,
-        internal.tournamentSync.pollTournamentAndScheduleNext,
-        { ...args },
       );
     } catch (error) {
       // Reset to manual mode and log error in one mutation
@@ -565,6 +688,7 @@ export const validateAndStartPolling = internalAction({
         {
           tournamentId: tournament._id,
           userId: args.userId,
+          expectedPollingSessionId: pollingSessionId,
           mode: "manual",
           pollingStatus: "error",
           pollingErrorMessage: `Error validating tournament: ${error}`,
@@ -646,8 +770,19 @@ async function fetchDecklistsInBatches(
 export const pollTournamentAndScheduleNext = internalAction({
   args: {
     userId: v.id("users"),
+    pollingSessionId: v.string(),
   },
   handler: async (ctx, args) => {
+    if (
+      !(await pollingSessionIsCurrent(
+        ctx,
+        args.userId,
+        args.pollingSessionId,
+      ))
+    ) {
+      return;
+    }
+
     const { tournament, externalTournament, settings } = await ctx.runQuery(
       internal.tournamentSync.getTournamentPollingData,
       { userId: args.userId },
@@ -663,25 +798,6 @@ export const pollTournamentAndScheduleNext = internalAction({
     const credentials: MeleeCredentials =
       getMeleeCredentialsFromSettings(settings);
     const externalTournamentId = externalTournament.externalTournamentId;
-
-    // Stop polling if tournament not found or not in auto mode
-    if (tournament.mode !== "auto") {
-      await ctx.runMutation(
-        internal.tournamentSync.updateTournamentPollingStatus,
-        {
-          tournamentId: tournament._id,
-          userId: args.userId,
-          mode: "manual",
-          pollingStatus: "inactive",
-          pollingErrorMessage:
-            "Tournament is not in auto mode. Stopping polling.",
-          logAction: "TOURNAMENT_NOT_IN_AUTO_MODE",
-          logStatus: "warning",
-          logMessage: "Tournament is not in auto mode. Stopping polling.",
-        },
-      );
-      return;
-    }
 
     try {
       const overview = await fetchMeleeTournament(
@@ -715,6 +831,7 @@ export const pollTournamentAndScheduleNext = internalAction({
           {
             tournamentId: tournament._id,
             userId: args.userId,
+            expectedPollingSessionId: args.pollingSessionId,
             mode: "manual",
             pollingStatus: "inactive",
             pollingErrorMessage: "Tournament is complete in Melee.",
@@ -740,26 +857,24 @@ export const pollTournamentAndScheduleNext = internalAction({
           {
             tournamentId: tournament._id,
             userId: args.userId,
+            expectedPollingSessionId: args.pollingSessionId,
             pollingStatus: "active",
             logAction: "NO_CURRENT_ROUND_FOUND",
             logStatus: "warning",
             logMessage: "No current round matches found in Melee data",
           },
         );
-        await ctx.scheduler.runAfter(
-          POLLING_INTERVAL,
-          internal.tournamentSync.pollTournamentAndScheduleNext,
-          { ...args },
-        );
+        await schedulePollIfCurrent(ctx, args, POLLING_INTERVAL);
         return;
       }
 
       // Update tournament status and log successful fetch in one mutation
-      await ctx.runMutation(
+      const pollingStatusUpdated: boolean = await ctx.runMutation(
         internal.tournamentSync.updateTournamentPollingStatus,
         {
           tournamentId: tournament._id,
           userId: args.userId,
+          expectedPollingSessionId: args.pollingSessionId,
           pollingStatus: "active",
           logAction: "FETCH_EVENT_SUCCESS",
           logStatus: "success",
@@ -770,6 +885,9 @@ export const pollTournamentAndScheduleNext = internalAction({
           },
         },
       );
+      if (!pollingStatusUpdated) {
+        return;
+      }
 
       // Check if current round has changed (also snapshots pairings)
       await ctx.runMutation(internal.tournamentSync.detectNewRound, {
@@ -827,11 +945,7 @@ export const pollTournamentAndScheduleNext = internalAction({
       }
 
       // Schedule next poll
-      await ctx.scheduler.runAfter(
-        POLLING_INTERVAL,
-        internal.tournamentSync.pollTournamentAndScheduleNext,
-        { ...args },
-      );
+      await schedulePollIfCurrent(ctx, args, POLLING_INTERVAL);
     } catch (error) {
       console.error(
         `Error polling tournament ${externalTournamentId}:`,
@@ -843,6 +957,7 @@ export const pollTournamentAndScheduleNext = internalAction({
         {
           tournamentId: tournament._id,
           userId: args.userId,
+          expectedPollingSessionId: args.pollingSessionId,
           mode: "manual",
           pollingStatus: "error",
           pollingErrorMessage: `Error polling tournament: ${error}`,

@@ -37,3 +37,33 @@ export function hasExternalTournamentChanged(args: {
     args.requestedExternalTournamentId !== args.currentExternalTournamentId
   );
 }
+
+export function canClaimPollingSession(args: {
+  mode: "manual" | "auto";
+  pollingStatus?: "active" | "inactive" | "error";
+  pollingSessionId?: string;
+  currentExternalTournamentId?: number;
+  expectedExternalTournamentId: number;
+}): boolean {
+  return (
+    args.mode === "auto" &&
+    args.currentExternalTournamentId === args.expectedExternalTournamentId &&
+    !(
+      args.pollingStatus === "active" &&
+      args.pollingSessionId !== undefined
+    )
+  );
+}
+
+export function isPollingSessionCurrent(args: {
+  mode: "manual" | "auto";
+  pollingStatus?: "active" | "inactive" | "error";
+  pollingSessionId?: string;
+  expectedPollingSessionId: string;
+}): boolean {
+  return (
+    args.mode === "auto" &&
+    args.pollingStatus === "active" &&
+    args.pollingSessionId === args.expectedPollingSessionId
+  );
+}

@@ -165,6 +165,15 @@ export const updateTournamentMode = mutation({
   handler: async (ctx, args) => {
     const { userId } = await requireTournamentAccess(ctx, args.tournamentId);
 
+    if (args.mode === "manual") {
+      await ctx.db.patch(args.tournamentId, {
+        mode: "manual",
+        pollingStatus: "inactive",
+        pollingSessionId: undefined,
+      });
+      return;
+    }
+
     // If switching to auto mode, check if polling is already active
     if (args.mode === "auto") {
       const tournament = await ctx.db.get(args.tournamentId);
@@ -215,6 +224,7 @@ export const updateTournamentSettings = mutation({
           ...updates,
           pollingStatus: "inactive" as const,
           pollingErrorMessage: undefined,
+          pollingSessionId: undefined,
           currentRound: undefined,
           currentRoundDisplayName: undefined,
         }
@@ -249,7 +259,15 @@ export const updateTournamentSettings = mutation({
         { userId: userId },
       );
     } else {
-      await ctx.db.patch(tournament._id, updatesWithSyncReset);
+      await ctx.db.patch(tournament._id, {
+        ...updatesWithSyncReset,
+        ...(updates.mode === "manual"
+          ? {
+              pollingStatus: "inactive" as const,
+              pollingSessionId: undefined,
+            }
+          : {}),
+      });
     }
   },
 });

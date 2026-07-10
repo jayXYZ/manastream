@@ -48,6 +48,7 @@ export const wipeIntegrationData = internalMutation({
         externalTournamentStatus: undefined,
         pollingStatus: undefined,
         pollingErrorMessage: undefined,
+        pollingSessionId: undefined,
         currentRound: undefined,
         currentRoundDisplayName: undefined,
       });
