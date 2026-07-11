@@ -2,60 +2,109 @@ import { v } from "convex/values";
 import {
   internalMutation,
   internalAction,
+  internalQuery,
   mutation,
 } from "../_generated/server";
 import {
   braunDarkPaletteValidator,
-  spicerackRoundStandingsDataValidator,
+  roundStandingsDataValidator,
 } from "../validators";
-import { updateSpicerackRoundStandingsHelper } from "../lib/spicerack/standings";
-import { fetchSpicerackRoundStandingsData } from "../lib/spicerack/api";
+import {
+  getRoundStandingsHelper,
+  markRoundStandingsFetchFailedHelper,
+  updateRoundStandingsHelper,
+} from "../lib/standings";
+import { fetchMeleeRoundStandings } from "../lib/melee/api";
+import { toStandingRows } from "../models/melee";
 import { internal } from "../_generated/api";
 import {
   requireStandingsOverlayAccess,
   requireTournamentAccess,
 } from "../lib/auth";
-import { getSpicerackRoundStandingsHelper } from "../lib/spicerack/standings";
 import { createStandingsOverlayHelper } from "../lib/overlays";
 import { filterUndefined } from "../lib/utils";
+import { getMeleeCredentialsForTournament } from "../lib/settings";
+import type { MeleeCredentials } from "../lib/melee/api";
 
-export const updateSpicerackRoundStandings = internalMutation({
+export const updateRoundStandings = internalMutation({
   args: {
     standingsId: v.id("roundStandings"),
-    standingsData: spicerackRoundStandingsDataValidator,
+    standingsData: roundStandingsDataValidator,
   },
   handler: async (ctx, args) => {
-    await updateSpicerackRoundStandingsHelper(
+    await updateRoundStandingsHelper(ctx, args.standingsId, args.standingsData);
+  },
+});
+
+export const markRoundStandingsFetchFailed = internalMutation({
+  args: {
+    standingsId: v.id("roundStandings"),
+    error: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await markRoundStandingsFetchFailedHelper(
       ctx,
       args.standingsId,
-      args.standingsData,
+      args.error,
     );
   },
 });
 
-export const fetchAndUpdateSpicerackRoundStandings = internalAction({
+export const getRoundStandingsCredentials = internalQuery({
   args: {
     tournamentId: v.id("tournaments"),
-    spicerackRoundId: v.number(),
+  },
+  returns: v.object({
+    clientId: v.string(),
+    clientSecret: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    return await getMeleeCredentialsForTournament(ctx, args.tournamentId);
+  },
+});
+
+export const fetchAndUpdateRoundStandings = internalAction({
+  args: {
+    tournamentId: v.id("tournaments"),
+    externalRoundId: v.number(),
     standingsId: v.id("roundStandings"),
-    spicerackApiKey: v.string(),
   },
   handler: async (ctx, args) => {
-    const standings = await fetchSpicerackRoundStandingsData(
-      args.spicerackRoundId,
-      args.spicerackApiKey,
-    );
-    await ctx.runMutation(internal.overlays.updateSpicerackRoundStandings, {
-      standingsId: args.standingsId,
-      standingsData: standings,
-    });
+    try {
+      const credentials: MeleeCredentials = await ctx.runQuery(
+        internal.overlays.getRoundStandingsCredentials,
+        { tournamentId: args.tournamentId },
+      );
+      const meleeStandings = await fetchMeleeRoundStandings(
+        args.externalRoundId,
+        credentials,
+      );
+      if (meleeStandings.length === 0) {
+        throw new Error(
+          `No standings returned for round ${args.externalRoundId}`,
+        );
+      }
+      await ctx.runMutation(internal.overlays.updateRoundStandings, {
+        standingsId: args.standingsId,
+        standingsData: {
+          roundNumber: meleeStandings[0].RoundNumber,
+          standings: toStandingRows(meleeStandings),
+        },
+      });
+    } catch (error) {
+      await ctx.runMutation(internal.overlays.markRoundStandingsFetchFailed, {
+        standingsId: args.standingsId,
+        error: String(error),
+      });
+      throw error;
+    }
   },
 });
 
 export const updateStandingsOverlay = mutation({
   args: {
     overlayId: v.id("overlays"),
-    spicerackRoundId: v.optional(v.number()),
+    externalRoundId: v.optional(v.number()),
     showCurrentBracket: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
@@ -67,20 +116,17 @@ export const updateStandingsOverlay = mutation({
       return;
     }
 
-    if (args.spicerackRoundId === undefined) {
+    if (args.externalRoundId === undefined) {
       await ctx.db.patch(args.overlayId, {
         showCurrentBracket: false,
       });
       return;
     }
 
-    const standings = await getSpicerackRoundStandingsHelper(
-      ctx,
-      args.spicerackRoundId,
-    );
+    const standings = await getRoundStandingsHelper(ctx, args.externalRoundId);
     await ctx.db.patch(args.overlayId, {
       roundStandingsId: standings,
-      spicerackRoundId: args.spicerackRoundId,
+      externalRoundId: args.externalRoundId,
       showCurrentBracket: false,
     });
   },
@@ -103,7 +149,7 @@ export const setStandingsOverlaySettings = mutation({
 });
 
 /**
- * Public mutation to create a commentary overlay.
+ * Public mutation to create a standings overlay.
  * Requires authentication and tournament access.
  */
 export const createStandingsOverlay = mutation({

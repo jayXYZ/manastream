@@ -1,6 +1,12 @@
 import { requireAuth } from "./auth";
 import { QueryCtx, MutationCtx } from "../_generated/server";
-import { Doc } from "../_generated/dataModel";
+import { Doc, Id } from "../_generated/dataModel";
+import type { MeleeCredentials } from "./melee/api";
+
+type SettingsCredentialFields = Pick<
+  Doc<"settings">,
+  "meleeClientId" | "meleeClientSecret" | "meleeUsername" | "meleePassword"
+>;
 
 export async function getUserSettings(
   ctx: QueryCtx | MutationCtx,
@@ -14,4 +20,36 @@ export async function getUserSettings(
     throw new Error("Settings not found");
   }
   return settings;
+}
+
+export function getMeleeCredentialsFromSettings(
+  settings: SettingsCredentialFields,
+): MeleeCredentials {
+  return {
+    clientId: settings.meleeClientId ?? settings.meleeUsername ?? "",
+    clientSecret: settings.meleeClientSecret ?? settings.meleePassword ?? "",
+  };
+}
+
+export function hasMeleeCredentials(settings: SettingsCredentialFields) {
+  const credentials = getMeleeCredentialsFromSettings(settings);
+  return credentials.clientId.length > 0 && credentials.clientSecret.length > 0;
+}
+
+export async function getMeleeCredentialsForTournament(
+  ctx: QueryCtx,
+  tournamentId: Id<"tournaments">,
+): Promise<MeleeCredentials> {
+  const tournament = await ctx.db.get(tournamentId);
+  if (!tournament) {
+    throw new Error("Tournament not found");
+  }
+  const settings = await ctx.db
+    .query("settings")
+    .withIndex("by_user", (q) => q.eq("userId", tournament.userId))
+    .unique();
+  if (!settings || !hasMeleeCredentials(settings)) {
+    throw new Error("No Melee credentials found for tournament");
+  }
+  return getMeleeCredentialsFromSettings(settings);
 }

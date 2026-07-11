@@ -3,11 +3,11 @@ import { internal } from "./_generated/api";
 
 const crons = cronJobs();
 
-// Clean up spicerack logs older than a week, runs daily at midnight UTC
+// Clean up integration logs, runs daily at midnight UTC
 crons.daily(
-  "cleanupOldSpicerackLogs",
+  "cleanupOldIntegrationLogs",
   { hourUTC: 0, minuteUTC: 0 },
-  internal.settings.cleanupOldSpicerackLogs,
+  internal.settings.cleanupOldIntegrationLogs,
 );
 
 export default crons;

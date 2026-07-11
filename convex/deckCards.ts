@@ -113,16 +113,16 @@ export const getPlayerDecklistForResolution = internalQuery({
 
 export const getPlayersMissingDeckCards = internalQuery({
   args: {
-    spicerackTournamentId: v.optional(v.number()),
+    externalTournamentId: v.optional(v.number()),
   },
   returns: v.array(v.id("players")),
   handler: async (ctx, args) => {
     const players =
-      args.spicerackTournamentId !== undefined
+      args.externalTournamentId !== undefined
         ? await ctx.db
             .query("players")
-            .withIndex("by_spicerack_tournament_id", (q) =>
-              q.eq("spicerackTournamentId", args.spicerackTournamentId),
+            .withIndex("by_external_tournament_id", (q) =>
+              q.eq("externalTournamentId", args.externalTournamentId),
             )
             .collect()
         : await ctx.db.query("players").collect();
@@ -304,12 +304,12 @@ export const resolvePlayersDeckCards = internalAction({
 
 export const backfillDeckCards = internalAction({
   args: {
-    spicerackTournamentId: v.optional(v.number()),
+    externalTournamentId: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const playerIds = await ctx.runQuery(
       internal.deckCards.getPlayersMissingDeckCards,
-      { spicerackTournamentId: args.spicerackTournamentId },
+      { externalTournamentId: args.externalTournamentId },
     );
 
     for (const playerId of playerIds) {

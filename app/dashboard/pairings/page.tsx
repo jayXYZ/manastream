@@ -22,13 +22,13 @@ const emptyStateCopy = {
     title: "No tournament found",
     body: "Create or load a tournament before reviewing pairings.",
   },
-  no_spicerack_tournament: {
-    title: "No Spicerack tournament linked",
-    body: "Link a Spicerack tournament in settings to capture round pairings.",
+  no_linked_tournament: {
+    title: "No Melee tournament linked",
+    body: "Link a Melee tournament in settings to capture round pairings.",
   },
   no_current_round: {
     title: "No current round detected",
-    body: "Pairings will appear after Spicerack publishes the next round.",
+    body: "Pairings will appear after Melee publishes the next round.",
   },
   no_pairings: {
     title: "No pairings captured",

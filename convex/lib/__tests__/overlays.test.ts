@@ -7,10 +7,10 @@ describe("enrichStandingsOverlay", () => {
     const player1 = makePlayer("player1", "Ada", 101, "Dimir Tempo");
     const player2 = makePlayer("player2", "Ben", 108, "Jeskai Control");
     const ctx = makeOverlayCtx({
-      spicerackTournament: {
-        _id: "spicerackTournament1",
+      externalTournament: {
+        _id: "externalTournament1",
         _creationTime: 1,
-        spicerackTournamentId: 999,
+        externalTournamentId: 999,
         currentRoundId: 501,
         currentRoundNumber: 9,
         currentRoundName: "Quarterfinals",
@@ -22,8 +22,8 @@ describe("enrichStandingsOverlay", () => {
           _creationTime: 1,
           userId: "user1",
           name: "Test Tournament",
-          mode: "spicerack",
-          spicerackTournamentId: 999,
+          mode: "manual",
+          externalTournamentId: 999,
           currentRound: 9,
           createdAt: 1,
           updatedAt: 1,
@@ -34,11 +34,11 @@ describe("enrichStandingsOverlay", () => {
           _id: "pairing1",
           _creationTime: 1,
           externalId: "pairing:999:501:9001",
-          spicerackTournamentId: 999,
+          externalTournamentId: 999,
           tournamentId: "tournament1",
-          spicerackRoundId: 501,
+          externalRoundId: 501,
           roundNumber: 9,
-          spicerackMatchId: 9001,
+          externalMatchId: 9001,
           player1: player1._id,
           player2: player2._id,
           player1TournamentRecord: "7-1",
@@ -52,8 +52,8 @@ describe("enrichStandingsOverlay", () => {
         {
           _id: "standings1",
           _creationTime: 1,
-          spicerackRoundId: 401,
-          spicerackTournamentId: 999,
+          externalRoundId: 401,
+          externalTournamentId: 999,
           roundNumber: 8,
           standings: [
             makeStanding(1, 101, "Ada"),
@@ -95,7 +95,7 @@ describe("enrichStandingsOverlay", () => {
 });
 
 function makeOverlayCtx(args: {
-  spicerackTournament: Record<string, unknown>;
+  externalTournament: Record<string, unknown>;
   tournaments: Record<string, unknown>[];
   pairings: Record<string, unknown>[];
   players: Record<string, unknown>[];
@@ -103,7 +103,7 @@ function makeOverlayCtx(args: {
 }) {
   const rowsByTable = {
     tournaments: args.tournaments,
-    spicerackTournaments: [args.spicerackTournament],
+    externalTournaments: [args.externalTournament],
     pairings: args.pairings,
     players: args.players,
     roundStandings: args.roundStandings,
@@ -173,16 +173,16 @@ function filterRows(
 function makePlayer(
   id: string,
   name: string,
-  spicerackPlayerId: number,
+  externalPlayerId: number,
   deckName: string,
 ) {
   return {
     _id: id,
     _creationTime: 1,
     name,
-    spicerackPlayerId,
-    spicerackTournamentId: 999,
-    deckId: spicerackPlayerId + 1000,
+    externalPlayerId,
+    externalTournamentId: 999,
+    externalDecklistId: `deck-guid-${externalPlayerId}`,
     deckName,
     deckList: "4 Example Card",
     createdAt: 1,
@@ -190,23 +190,18 @@ function makePlayer(
   };
 }
 
-function makeStanding(rank: number, spicerackPlayerId: number, name: string) {
+function makeStanding(rank: number, externalPlayerId: number, name: string) {
   return {
     rank,
-    player_id: spicerackPlayerId,
+    externalPlayerId,
     name,
-    match_points: 21,
     record: "7-1",
-    match_win_percentage: 87.5,
-    opponent_match_win_percentage: 60,
-    game_win_percentage: 70,
-    opponent_game_win_percentage: 55,
-    opponent_average_match_points: 15,
-    games_won: 14,
-    games_lost: 4,
-    games_drawn: 0,
-    playoff_wins: 0,
-    playoff_losses: 0,
-    user_event_status_ids: [spicerackPlayerId],
+    matchPoints: 21,
+    wins: 7,
+    losses: 1,
+    draws: 0,
+    gameWinPercentage: 0.7,
+    opponentMatchWinPercentage: 0.6,
+    opponentGameWinPercentage: 0.55,
   };
 }

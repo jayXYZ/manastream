@@ -1,4 +1,4 @@
-import archetypes from "../convex/lib/spicerack/archetypes.json";
+import archetypes from "../convex/lib/deckClassification/archetypes.json";
 
 export const LC26_BACKGROUND_COLORS = [
   "White",

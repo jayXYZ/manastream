@@ -12,10 +12,10 @@ describe("composePlayerData", () => {
       _id: "player1",
       _creationTime: 1,
       name: "Ada",
-      spicerackPlayerId: 101,
-      spicerackTournamentId: 999,
+      externalPlayerId: 101,
+      externalTournamentId: 999,
       registrationStatus: "REGISTERED",
-      deckId: 11,
+      externalDecklistId: "deck-guid-11",
       decklistStatus: "pending",
       deckName: "Legacy Deck",
       deckList: "legacy list",
@@ -28,8 +28,8 @@ describe("composePlayerData", () => {
         _id: "status1",
         _creationTime: 1,
         playerId: "player1",
-        spicerackTournamentId: 999,
-        spicerackPlayerId: 101,
+        externalTournamentId: 999,
+        externalPlayerId: 101,
         registrationStatus: "ELIMINATED",
         updatedAt: 2,
       } as never,
@@ -37,9 +37,9 @@ describe("composePlayerData", () => {
         _id: "deck1",
         _creationTime: 1,
         playerId: "player1",
-        spicerackTournamentId: 999,
-        spicerackPlayerId: 101,
-        deckId: 22,
+        externalTournamentId: 999,
+        externalPlayerId: 101,
+        externalDecklistId: "deck-guid-22",
         decklistStatus: "ready",
         deckName: "Split Deck",
         deckList: "4 Lightning Bolt",
@@ -49,9 +49,9 @@ describe("composePlayerData", () => {
 
     expect(composed).toMatchObject({
       name: "Ada",
-      spicerackPlayerId: 101,
+      externalPlayerId: 101,
       registrationStatus: "ELIMINATED",
-      deckId: 22,
+      externalDecklistId: "deck-guid-22",
       decklistStatus: "ready",
       deckName: "Split Deck",
       deckList: "4 Lightning Bolt",
@@ -63,10 +63,10 @@ describe("composePlayerData", () => {
       _id: "player1",
       _creationTime: 1,
       name: "Ada",
-      spicerackPlayerId: 101,
-      spicerackTournamentId: 999,
+      externalPlayerId: 101,
+      externalTournamentId: 999,
       registrationStatus: "REGISTERED",
-      deckId: 11,
+      externalDecklistId: "deck-guid-11",
       decklistStatus: "ready",
       deckName: "Legacy Deck",
       deckList: "legacy list",
@@ -77,7 +77,7 @@ describe("composePlayerData", () => {
 
     expect(composed).toMatchObject({
       registrationStatus: "REGISTERED",
-      deckId: 11,
+      externalDecklistId: "deck-guid-11",
       decklistStatus: "ready",
       deckName: "Legacy Deck",
       deckList: "legacy list",
@@ -89,9 +89,9 @@ describe("getChangedRegistrationStatuses", () => {
   it("returns only statuses that changed", () => {
     const changed = getChangedRegistrationStatuses(
       [
-        { spicerackPlayerId: 101, registrationStatus: "REGISTERED" },
-        { spicerackPlayerId: 102, registrationStatus: "ELIMINATED" },
-        { spicerackPlayerId: 103, registrationStatus: "DROPPED" },
+        { externalPlayerId: 101, registrationStatus: "REGISTERED" },
+        { externalPlayerId: 102, registrationStatus: "ELIMINATED" },
+        { externalPlayerId: 103, registrationStatus: "DROPPED" },
       ],
       new Map([
         [101, { currentStatus: "REGISTERED", targetId: "status1" }],
@@ -101,7 +101,7 @@ describe("getChangedRegistrationStatuses", () => {
 
     expect(changed).toEqual([
       {
-        spicerackPlayerId: 102,
+        externalPlayerId: 102,
         registrationStatus: "ELIMINATED",
         targetId: "status2",
       },

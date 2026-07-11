@@ -142,7 +142,7 @@ export async function createStandingsOverlayHelper(
     publicUuid,
     braunDarkPalette: "Dark",
     roundStandingsId: undefined,
-    spicerackRoundId: undefined,
+    externalRoundId: undefined,
     createdAt: Date.now(),
   });
 
@@ -217,24 +217,24 @@ export async function enrichStandingsOverlay(
   ctx: QueryCtx,
   overlay: Doc<"overlays"> & { overlayType: "standings" },
 ) {
-  const spicerackTournament = await getSpicerackTournamentForStandingsOverlay(
+  const externalTournament = await getExternalTournamentForStandingsOverlay(
     ctx,
     overlay,
   );
   const isEliminationPhase = ELIMINATION_ROUND_NAMES.has(
-    spicerackTournament?.currentRoundName ?? "",
+    externalTournament?.currentRoundName ?? "",
   );
   const showCurrentBracket = overlay.showCurrentBracket === true;
   const shouldShowBracket = showCurrentBracket && isEliminationPhase;
   const bracketDataWithPlayers = shouldShowBracket
-    ? await getEliminationBracketDataWithPlayers(ctx, overlay, spicerackTournament)
+    ? await getEliminationBracketDataWithPlayers(ctx, overlay, externalTournament)
     : undefined;
 
   // If no roundStandingsId is set, return overlay without standings data
   if (!overlay.roundStandingsId) {
     return {
       ...overlay,
-      roundDisplayName: spicerackTournament?.currentRoundName ?? undefined,
+      roundDisplayName: externalTournament?.currentRoundName ?? undefined,
       isEliminationPhase: shouldShowBracket,
       bracketDataWithPlayers,
       standingsDataWithPlayers: undefined,
@@ -243,10 +243,10 @@ export async function enrichStandingsOverlay(
 
   // Read the existing standings (created by updateStandingsOverlay mutation)
   const roundStandings = await ctx.db.get(overlay.roundStandingsId);
-  if (!roundStandings || roundStandings.standings === "PENDING") {
+  if (!roundStandings || !Array.isArray(roundStandings.standings)) {
     return {
       ...overlay,
-      roundDisplayName: spicerackTournament?.currentRoundName ?? undefined,
+      roundDisplayName: externalTournament?.currentRoundName ?? undefined,
       isEliminationPhase: shouldShowBracket,
       bracketDataWithPlayers,
       standingsDataWithPlayers: undefined,
@@ -254,8 +254,8 @@ export async function enrichStandingsOverlay(
   }
 
   const roundDisplayName =
-    spicerackTournament?.completedRounds?.find(
-      (round) => round.roundId === roundStandings.spicerackRoundId,
+    externalTournament?.completedRounds?.find(
+      (round) => round.roundId === roundStandings.externalRoundId,
     )?.roundName ??
     (typeof roundStandings.roundNumber === "number"
       ? `Round ${roundStandings.roundNumber}`
@@ -264,11 +264,13 @@ export async function enrichStandingsOverlay(
   // Enrich standings with player data
   const standingsDataWithPlayers = await Promise.all(
     roundStandings.standings.map(async (standing) => {
-      // Try to find matching player by spicerackPlayerId
+      // Try to find matching player by externalPlayerId
       const player = await ctx.db
         .query("players")
-        .withIndex("by_spicerack_player_id", (q) =>
-          q.eq("spicerackPlayerId", standing.user_event_status_ids[0]),
+        .withIndex("by_external_tournament_id_and_external_player_id", (q) =>
+          q
+            .eq("externalTournamentId", roundStandings.externalTournamentId)
+            .eq("externalPlayerId", standing.externalPlayerId),
         )
         .first();
 
@@ -289,20 +291,20 @@ export async function enrichStandingsOverlay(
   };
 }
 
-async function getSpicerackTournamentForStandingsOverlay(
+async function getExternalTournamentForStandingsOverlay(
   ctx: QueryCtx,
   overlay: Doc<"overlays"> & { overlayType: "standings" },
 ) {
   const tournament = await ctx.db.get(overlay.tournamentId);
-  if (!tournament?.spicerackTournamentId) {
+  if (!tournament?.externalTournamentId) {
     return null;
   }
-  const spicerackTournamentId = tournament.spicerackTournamentId;
+  const externalTournamentId = tournament.externalTournamentId;
 
   return await ctx.db
-    .query("spicerackTournaments")
-    .withIndex("by_spicerack_tournament_id", (q) =>
-      q.eq("spicerackTournamentId", spicerackTournamentId),
+    .query("externalTournaments")
+    .withIndex("by_external_tournament_id", (q) =>
+      q.eq("externalTournamentId", externalTournamentId),
     )
     .unique();
 }
@@ -310,9 +312,9 @@ async function getSpicerackTournamentForStandingsOverlay(
 async function getEliminationBracketDataWithPlayers(
   ctx: QueryCtx,
   overlay: Doc<"overlays"> & { overlayType: "standings" },
-  spicerackTournament: Doc<"spicerackTournaments"> | null,
+  externalTournament: Doc<"externalTournaments"> | null,
 ) {
-  if (!spicerackTournament?.currentRoundId) {
+  if (!externalTournament?.currentRoundId) {
     return undefined;
   }
 
@@ -320,17 +322,17 @@ async function getEliminationBracketDataWithPlayers(
     ctx,
     overlay.tournamentId,
     {
-      spicerackRoundId: spicerackTournament.currentRoundId,
-      roundNumber: spicerackTournament.currentRoundNumber,
+      externalRoundId: externalTournament.currentRoundId,
+      roundNumber: externalTournament.currentRoundNumber,
     },
   );
   if (pairings.length === 0) {
     return undefined;
   }
 
-  const seedBySpicerackPlayerId = await getLatestSwissSeedMap(
+  const seedByExternalPlayerId = await getLatestSwissSeedMap(
     ctx,
-    spicerackTournament,
+    externalTournament,
   );
 
   return pairings
@@ -338,14 +340,14 @@ async function getEliminationBracketDataWithPlayers(
       const player1Seed = resolvePairingSeed({
         storedSeed: pairing.player1Seed,
         tournamentRecord: pairing.player1TournamentRecord,
-        spicerackPlayerId: pairing.player1Data?.spicerackPlayerId,
-        seedBySpicerackPlayerId,
+        externalPlayerId: pairing.player1Data?.externalPlayerId,
+        seedByExternalPlayerId,
       });
       const player2Seed = resolvePairingSeed({
         storedSeed: pairing.player2Seed,
         tournamentRecord: pairing.player2TournamentRecord,
-        spicerackPlayerId: pairing.player2Data?.spicerackPlayerId,
-        seedBySpicerackPlayerId,
+        externalPlayerId: pairing.player2Data?.externalPlayerId,
+        seedByExternalPlayerId,
       });
 
       return [
@@ -373,9 +375,9 @@ async function getEliminationBracketDataWithPlayers(
 
 async function getLatestSwissSeedMap(
   ctx: QueryCtx,
-  spicerackTournament: Doc<"spicerackTournaments">,
+  externalTournament: Doc<"externalTournaments">,
 ) {
-  const latestSwissRound = [...(spicerackTournament.completedRounds ?? [])]
+  const latestSwissRound = [...(externalTournament.completedRounds ?? [])]
     .reverse()
     .find((round) => !ELIMINATION_ROUND_NAMES.has(round.roundName));
 
@@ -385,22 +387,19 @@ async function getLatestSwissSeedMap(
 
   const roundStandings = await ctx.db
     .query("roundStandings")
-    .withIndex("by_spicerackRoundId", (q) =>
-      q.eq("spicerackRoundId", latestSwissRound.roundId),
+    .withIndex("by_external_round_id", (q) =>
+      q.eq("externalRoundId", latestSwissRound.roundId),
     )
     .first();
 
-  if (!roundStandings || roundStandings.standings === "PENDING") {
+  if (!roundStandings || !Array.isArray(roundStandings.standings)) {
     return new Map<number, number>();
   }
 
   return new Map(
     roundStandings.standings.flatMap((standing) =>
       standing.rank > 0
-        ? standing.user_event_status_ids.map((spicerackPlayerId) => [
-            spicerackPlayerId,
-            standing.rank,
-          ])
+        ? [[standing.externalPlayerId, standing.rank] as [number, number]]
         : [],
     ),
   );
@@ -409,14 +408,14 @@ async function getLatestSwissSeedMap(
 function resolvePairingSeed(args: {
   storedSeed?: number;
   tournamentRecord: string;
-  spicerackPlayerId?: number;
-  seedBySpicerackPlayerId: Map<number, number>;
+  externalPlayerId?: number;
+  seedByExternalPlayerId: Map<number, number>;
 }) {
   return (
     args.storedSeed ??
     parseSeedRecord(args.tournamentRecord) ??
-    (args.spicerackPlayerId !== undefined
-      ? args.seedBySpicerackPlayerId.get(args.spicerackPlayerId)
+    (args.externalPlayerId !== undefined
+      ? args.seedByExternalPlayerId.get(args.externalPlayerId)
       : undefined)
   );
 }
@@ -483,7 +482,8 @@ export async function initializeNewUserOverlays(
   // Create default settings for the new user
   await ctx.db.insert("settings", {
     userId,
-    spicerackApiKey: "",
+    meleeClientId: "",
+    meleeClientSecret: "",
     createdAt: Date.now(),
     updatedAt: Date.now(),
   });

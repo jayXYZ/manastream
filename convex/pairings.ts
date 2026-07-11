@@ -1,7 +1,10 @@
 import { internalMutation, query } from "./_generated/server";
 import { Infer } from "convex/values";
 import { v } from "convex/values";
-import { currentRoundPairingsResultValidator } from "./validators";
+import {
+  currentRoundPairingsResultValidator,
+  roundSnapshotValidator,
+} from "./validators";
 import { requireAuth } from "./lib/auth";
 import { getUserTournament } from "./lib/tournaments";
 import {
@@ -18,8 +21,8 @@ type CurrentRoundPairingsResult = Infer<
 export const snapshotCurrentRoundPairingsForTournament = internalMutation({
   args: {
     tournamentId: v.id("tournaments"),
-    spicerackTournamentId: v.number(),
-    jsonData: v.any(),
+    externalTournamentId: v.number(),
+    snapshot: roundSnapshotValidator,
   },
   handler: async (ctx, args) => {
     await snapshotCurrentRoundPairings(ctx, args);
@@ -36,37 +39,37 @@ export const getCurrentRoundPairings = query({
       return emptyResult("no_tournament");
     }
 
-    if (!tournament.spicerackTournamentId) {
-      return emptyResult("no_spicerack_tournament");
+    if (!tournament.externalTournamentId) {
+      return emptyResult("no_linked_tournament");
     }
 
-    const spicerackTournament = await ctx.db
-      .query("spicerackTournaments")
-      .withIndex("by_spicerack_tournament_id", (q) =>
-        q.eq("spicerackTournamentId", tournament.spicerackTournamentId!),
+    const externalTournament = await ctx.db
+      .query("externalTournaments")
+      .withIndex("by_external_tournament_id", (q) =>
+        q.eq("externalTournamentId", tournament.externalTournamentId!),
       )
       .unique();
 
     const roundNumber =
-      spicerackTournament?.currentRoundNumber ?? tournament.currentRound;
+      externalTournament?.currentRoundNumber ?? tournament.currentRound;
     if (roundNumber == null) {
       return emptyResult("no_current_round");
     }
 
     const roundName =
-      spicerackTournament?.currentRoundName ??
+      externalTournament?.currentRoundName ??
       tournament.currentRoundDisplayName ??
       `Round ${roundNumber}`;
 
     const [pairings, tournamentPlayers] = await Promise.all([
       getCurrentRoundPairingsWithPlayerData(ctx, tournament._id, {
-        spicerackRoundId: spicerackTournament?.currentRoundId,
+        externalRoundId: externalTournament?.currentRoundId,
         roundNumber,
       }),
       ctx.db
         .query("players")
-        .withIndex("by_spicerack_tournament_id", (q) =>
-          q.eq("spicerackTournamentId", tournament.spicerackTournamentId!),
+        .withIndex("by_external_tournament_id", (q) =>
+          q.eq("externalTournamentId", tournament.externalTournamentId!),
         )
         .collect(),
     ]);
@@ -99,7 +102,7 @@ export const getCurrentRoundPairings = query({
 function emptyResult(
   status:
     | "no_tournament"
-    | "no_spicerack_tournament"
+    | "no_linked_tournament"
     | "no_current_round"
     | "no_pairings",
 ): CurrentRoundPairingsResult {

@@ -1,22 +1,21 @@
 import { Id } from "../_generated/dataModel";
 import { MutationCtx, QueryCtx } from "../_generated/server";
+import { RoundSnapshot, SnapshotCompetitor } from "../models/melee";
 import {
-  parseCurrentSpicerackRound,
-  parsePlayerSeed,
-  parsePlayerTournamentRecord,
-} from "../models/spicerack";
-import { SpicerackEventResponse, SpicerackMatch } from "../types/spicerack";
-import { createPendingPlayerEntry, createPlayer } from "./players";
+  createPendingPlayerEntry,
+  createPlayer,
+  getPlayerByExternalPlayerId,
+} from "./players";
 import { getPlayerData } from "./playerData";
 
 type SnapshotCurrentRoundPairingsArgs = {
   tournamentId: Id<"tournaments">;
-  spicerackTournamentId: number;
-  jsonData: SpicerackEventResponse;
+  externalTournamentId: number;
+  snapshot: RoundSnapshot;
 };
 
 type CurrentRoundPairingsFilter = {
-  spicerackRoundId?: number;
+  externalRoundId?: number;
   roundNumber?: number;
 };
 
@@ -26,12 +25,12 @@ export async function getCurrentRoundPairingsWithPlayerData(
   filter: CurrentRoundPairingsFilter,
 ) {
   const pairings =
-    filter.spicerackRoundId != null
+    filter.externalRoundId != null
       ? (
           await ctx.db
             .query("pairings")
-            .withIndex("by_spicerack_round", (q) =>
-              q.eq("spicerackRoundId", filter.spicerackRoundId!),
+            .withIndex("by_external_round", (q) =>
+              q.eq("externalRoundId", filter.externalRoundId!),
             )
             .collect()
         ).filter((pairing) => pairing.tournamentId === tournamentId)
@@ -69,21 +68,18 @@ export async function snapshotCurrentRoundPairings(
   ctx: MutationCtx,
   args: SnapshotCurrentRoundPairingsArgs,
 ): Promise<void> {
-  const currentRound = parseCurrentSpicerackRound(args.jsonData);
-  if (!currentRound || currentRound.matches.length === 0) {
-    return;
-  }
+  const { snapshot } = args;
 
-  for (const match of currentRound.matches) {
-    const relationships = getOrderedPlayerRelationships(match);
-    if (relationships.length !== 2) {
+  for (const match of snapshot.matches) {
+    // Skip byes and malformed matches
+    if (match.competitors.length !== 2) {
       continue;
     }
 
     const externalId = generatePairingExternalId({
-      spicerackTournamentId: args.spicerackTournamentId,
-      spicerackRoundId: currentRound.id,
-      spicerackMatchId: match.id,
+      externalTournamentId: args.externalTournamentId,
+      externalRoundId: snapshot.roundId,
+      externalMatchId: match.externalMatchId,
     });
     const existingPairing = await ctx.db
       .query("pairings")
@@ -93,70 +89,61 @@ export async function snapshotCurrentRoundPairings(
       continue;
     }
 
-    const [player1Relationship, player2Relationship] = relationships;
+    const [competitor1, competitor2] = match.competitors;
     const [player1, player2] = await Promise.all([
       getOrCreatePairingPlayer(ctx, {
-        spicerackTournamentId: args.spicerackTournamentId,
-        relationship: player1Relationship,
+        externalTournamentId: args.externalTournamentId,
+        competitor: competitor1,
       }),
       getOrCreatePairingPlayer(ctx, {
-        spicerackTournamentId: args.spicerackTournamentId,
-        relationship: player2Relationship,
+        externalTournamentId: args.externalTournamentId,
+        competitor: competitor2,
       }),
     ]);
 
     await ctx.db.insert("pairings", {
       externalId,
-      spicerackTournamentId: args.spicerackTournamentId,
+      externalTournamentId: args.externalTournamentId,
       tournamentId: args.tournamentId,
-      spicerackRoundId: currentRound.id,
-      roundNumber: currentRound.round_number,
-      spicerackMatchId: match.id,
+      externalRoundId: snapshot.roundId,
+      roundNumber: snapshot.roundNumber,
+      externalMatchId: match.externalMatchId,
       player1,
       player2,
-      player1TournamentRecord: parsePlayerTournamentRecord(
-        args.jsonData,
-        player1Relationship.user_event_status,
-      ),
-      player2TournamentRecord: parsePlayerTournamentRecord(
-        args.jsonData,
-        player2Relationship.user_event_status,
-      ),
-      player1Seed: parsePlayerSeed(player1Relationship.user_event_status),
-      player2Seed: parsePlayerSeed(player2Relationship.user_event_status),
-      player1TotalMatchPoints:
-        player1Relationship.user_event_status.total_match_points,
-      player2TotalMatchPoints:
-        player2Relationship.user_event_status.total_match_points,
-      tableNumber: match.table_number > 0 ? match.table_number : undefined,
-      status: match.status,
+      player1TournamentRecord: competitor1.tournamentRecord,
+      player2TournamentRecord: competitor2.tournamentRecord,
+      player1Seed: competitor1.seed,
+      player2Seed: competitor2.seed,
+      player1TotalMatchPoints: competitor1.matchPoints,
+      player2TotalMatchPoints: competitor2.matchPoints,
+      tableNumber: match.tableNumber,
+      status: match.hasResult ? "COMPLETE" : "IN_PROGRESS",
       createdAt: Date.now(),
     });
   }
 }
 
 function generatePairingExternalId(args: {
-  spicerackTournamentId: number;
-  spicerackRoundId: number;
-  spicerackMatchId: number;
+  externalTournamentId: number;
+  externalRoundId: number;
+  externalMatchId: string;
 }): string {
-  return `pairing:${args.spicerackTournamentId}:${args.spicerackRoundId}:${args.spicerackMatchId}`;
+  return `pairing:${args.externalTournamentId}:${args.externalRoundId}:${args.externalMatchId}`;
 }
 
 async function getOrCreatePairingPlayer(
   ctx: MutationCtx,
   args: {
-    spicerackTournamentId: number;
-    relationship: SpicerackMatch["player_match_relationships"][number];
+    externalTournamentId: number;
+    competitor: SnapshotCompetitor;
   },
 ): Promise<Id<"players">> {
-  const spicerackPlayerId = args.relationship.user_event_status.id;
-  const existingPlayer = await ctx.db
-    .query("players")
-    .withIndex("by_spicerack_player_id", (q) =>
-      q.eq("spicerackPlayerId", spicerackPlayerId),
-    )
-    .first();
+  const externalPlayerId = args.competitor.externalPlayerId;
+  const existingPlayer = await getPlayerByExternalPlayerId(
+    ctx,
+    args.externalTournamentId,
+    externalPlayerId,
+  );
 
   if (existingPlayer) {
     return existingPlayer._id;
@@ -164,21 +151,12 @@ async function getOrCreatePairingPlayer(
 
   return await createPlayer(
     ctx,
-    args.spicerackTournamentId,
+    args.externalTournamentId,
     createPendingPlayerEntry(
-      spicerackPlayerId,
-      args.relationship.user_event_status.user.best_identifier,
-      args.spicerackTournamentId,
-      args.relationship.user_event_status.decklist,
+      externalPlayerId,
+      args.competitor.name,
+      args.externalTournamentId,
+      args.competitor.externalDecklistId,
     ),
   );
-}
-
-function getOrderedPlayerRelationships(match: SpicerackMatch) {
-  return [...match.player_match_relationships].sort((a, b) => {
-    if (a.player_order < 0 || b.player_order < 0) {
-      return 0;
-    }
-    return a.player_order - b.player_order;
-  });
 }

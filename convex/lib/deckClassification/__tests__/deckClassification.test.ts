@@ -190,7 +190,7 @@ describe("classifyDecknameForFormat", () => {
   it("keeps existing archetype for non-PREMODERN formats", () => {
     const result = classifyDecknameForFormat({
       eventFormat: "LEGACY",
-      existingArchetype: "Spicerack Legacy Name",
+      existingArchetype: "Existing Deck Name",
       plaintextList: `
 4 Dark Ritual
 4 Swords to Plowshares
@@ -200,6 +200,6 @@ describe("classifyDecknameForFormat", () => {
       archetypes: SAMPLE_ARCHETYPES,
     });
 
-    expect(result).toBe("Spicerack Legacy Name");
+    expect(result).toBe("Existing Deck Name");
   });
 });

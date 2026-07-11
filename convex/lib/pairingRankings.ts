@@ -1,4 +1,4 @@
-import archetypes from "./spicerack/archetypes.json";
+import archetypes from "./deckClassification/archetypes.json";
 
 export type PairingRankingPlayer = {
   name: string;
