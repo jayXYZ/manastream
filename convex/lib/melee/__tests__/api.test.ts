@@ -51,10 +51,10 @@ describe("fetchAllMeleePages", () => {
     expect(rows).toEqual([1, 2, 3]);
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[0][0]).toBe(
-      "https://melee.gg/api/test/1?variables.page=1&variables.pageSize=500",
+      "https://melee.gg/api/test/1?variables.page=1&variables.pageSize=250",
     );
     expect(fetchMock.mock.calls[1][0]).toBe(
-      "https://melee.gg/api/test/1?variables.page=2&variables.pageSize=500",
+      "https://melee.gg/api/test/1?variables.page=2&variables.pageSize=250",
     );
     expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe(
       buildMeleeAuthHeader(CREDENTIALS),
@@ -72,7 +72,7 @@ describe("fetchAllMeleePages", () => {
     await fetchAllMeleePages("/api/test/1?formatId=abc", CREDENTIALS);
 
     expect(fetchMock.mock.calls[0][0]).toBe(
-      "https://melee.gg/api/test/1?formatId=abc&variables.page=1&variables.pageSize=500",
+      "https://melee.gg/api/test/1?formatId=abc&variables.page=1&variables.pageSize=250",
     );
   });
 });

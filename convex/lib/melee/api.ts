@@ -10,7 +10,7 @@ import { withRetry } from "../utils";
 import { buildDecklistFromMeleeRecords, MeleeDecklist } from "./decklist";
 
 const MELEE_BASE_URL = "https://melee.gg";
-const DEFAULT_PAGE_SIZE = 500;
+const DEFAULT_PAGE_SIZE = 250;
 const REQUEST_TIMEOUT_MS = 20_000;
 // Safety valve so a misbehaving HasMore flag can't loop forever
 const MAX_PAGES = 100;
