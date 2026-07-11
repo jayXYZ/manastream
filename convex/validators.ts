@@ -30,6 +30,8 @@ export const tournamentValidator = v.object({
   ),
   pollingErrorMessage: v.optional(v.string()),
   pollingSessionId: v.optional(v.string()),
+  pollingCycleId: v.optional(v.string()),
+  pollingCycleStartedAt: v.optional(v.number()),
   currentRound: v.optional(v.number()),
   currentRoundDisplayName: v.optional(v.string()),
   manualTimerExpiry: v.optional(v.number()),

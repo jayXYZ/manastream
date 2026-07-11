@@ -11,6 +11,7 @@ import { buildDecklistFromMeleeRecords, MeleeDecklist } from "./decklist";
 
 const MELEE_BASE_URL = "https://melee.gg";
 const DEFAULT_PAGE_SIZE = 500;
+const REQUEST_TIMEOUT_MS = 20_000;
 // Safety valve so a misbehaving HasMore flag can't loop forever
 const MAX_PAGES = 100;
 
@@ -54,15 +55,22 @@ async function meleeGet<T>(
   credentials: MeleeCredentials,
 ): Promise<T> {
   return withRetry(async () => {
-    const response = await fetch(`${MELEE_BASE_URL}${path}`, {
-      headers: {
-        Authorization: buildMeleeAuthHeader(credentials),
-      },
-    });
-    if (!response.ok) {
-      throw new Error(`Melee API request failed: ${response.status} ${path}`);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      const response = await fetch(`${MELEE_BASE_URL}${path}`, {
+        signal: controller.signal,
+        headers: {
+          Authorization: buildMeleeAuthHeader(credentials),
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`Melee API request failed: ${response.status} ${path}`);
+      }
+      return (await response.json()) as T;
+    } finally {
+      clearTimeout(timeoutId);
     }
-    return (await response.json()) as T;
   });
 }
 

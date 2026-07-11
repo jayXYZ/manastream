@@ -59,6 +59,7 @@ describe("fetchAllMeleePages", () => {
     expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe(
       buildMeleeAuthHeader(CREDENTIALS),
     );
+    expect(fetchMock.mock.calls[0][1].signal).toBeInstanceOf(AbortSignal);
   });
 
   it("appends pagination params to paths that already have a query", async () => {

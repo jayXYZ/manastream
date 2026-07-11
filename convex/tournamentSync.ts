@@ -4,7 +4,7 @@ import {
   internalQuery,
   query,
 } from "./_generated/server";
-import type { ActionCtx } from "./_generated/server";
+import type { MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
@@ -47,9 +47,11 @@ import {
   updateExternalTournamentHelper,
 } from "./lib/externalTournament";
 import {
+  canClaimPollingCycleExecution,
   canClaimPollingSession,
-  isPollingSessionCurrent,
+  isPollingCycleCurrent,
   parseAllowCompletedTournamentPolling,
+  pollingCycleFailureUpdates,
   shouldStopPollingForCompletedTournament,
 } from "./lib/pollingBehavior";
 import {
@@ -58,52 +60,36 @@ import {
 } from "./lib/settings";
 
 const DECKLIST_FETCH_CONCURRENCY = 8;
+// Convex actions time out after 10 minutes. The extra minute ensures the
+// watchdog only expires work that the platform can no longer be running.
+const POLLING_CYCLE_WATCHDOG_DELAY = 11 * 60 * 1000;
 const ALLOW_COMPLETED_TOURNAMENT_POLLING = parseAllowCompletedTournamentPolling(
   process.env.SYNC_ALLOW_COMPLETED_POLLING,
 );
 
-async function pollingSessionIsCurrent(
-  ctx: Pick<ActionCtx, "runQuery">,
-  userId: Id<"users">,
-  pollingSessionId: string,
-): Promise<boolean> {
-  const state: {
-    mode: "manual" | "auto";
-    pollingStatus?: "active" | "inactive" | "error";
-    pollingSessionId?: string;
-  } = await ctx.runQuery(internal.tournamentSync.getPollingSessionState, {
-    userId,
-  });
-  return isPollingSessionCurrent({
-    ...state,
-    expectedPollingSessionId: pollingSessionId,
-  });
-}
-
-async function schedulePollIfCurrent(
-  ctx: Pick<ActionCtx, "runQuery" | "scheduler">,
-  args: { userId: Id<"users">; pollingSessionId: string },
-  delayMs: number,
-): Promise<void> {
-  if (
-    !(await pollingSessionIsCurrent(
-      ctx,
-      args.userId,
-      args.pollingSessionId,
-    ))
-  ) {
-    return;
-  }
-  await ctx.scheduler.runAfter(
-    delayMs,
-    internal.tournamentSync.pollTournamentAndScheduleNext,
-    args,
-  );
-}
-
 const completedRoundsValidator = v.array(
   v.object({ roundId: v.number(), roundName: v.string() }),
 );
+
+async function schedulePollingCycleWatchdog(
+  ctx: Pick<MutationCtx, "scheduler">,
+  args: {
+    userId: Id<"users">;
+    pollingSessionId: string;
+    pollingCycleId: string;
+    delayMs?: number;
+  },
+): Promise<void> {
+  await ctx.scheduler.runAfter(
+    (args.delayMs ?? 0) + POLLING_CYCLE_WATCHDOG_DELAY,
+    internal.tournamentSync.expirePollingCycle,
+    {
+      userId: args.userId,
+      expectedPollingSessionId: args.pollingSessionId,
+      expectedPollingCycleId: args.pollingCycleId,
+    },
+  );
+}
 
 export const updateExternalTournament = internalMutation({
   args: {
@@ -212,6 +198,7 @@ export const updateTournamentPollingStatus = internalMutation({
     tournamentId: v.id("tournaments"),
     userId: v.id("users"),
     expectedPollingSessionId: v.string(),
+    expectedPollingCycleId: v.optional(v.string()),
     mode: v.optional(v.union(v.literal("manual"), v.literal("auto"))),
     pollingStatus: v.optional(
       v.union(v.literal("active"), v.literal("inactive"), v.literal("error")),
@@ -236,6 +223,7 @@ export const updateTournamentPollingStatus = internalMutation({
       tournamentId,
       userId,
       expectedPollingSessionId,
+      expectedPollingCycleId,
       logAction,
       logStatus,
       logMessage,
@@ -244,7 +232,11 @@ export const updateTournamentPollingStatus = internalMutation({
     } = args;
 
     const tournament = await ctx.db.get(tournamentId);
-    if (tournament?.pollingSessionId !== expectedPollingSessionId) {
+    if (
+      tournament?.pollingSessionId !== expectedPollingSessionId ||
+      (expectedPollingCycleId !== undefined &&
+        tournament.pollingCycleId !== expectedPollingCycleId)
+    ) {
       return false;
     }
 
@@ -256,7 +248,13 @@ export const updateTournamentPollingStatus = internalMutation({
     // Update tournament status
     await ctx.db.patch(tournamentId, {
       ...updates,
-      ...(shouldClearPollingSession ? { pollingSessionId: undefined } : {}),
+      ...(shouldClearPollingSession
+        ? {
+            pollingSessionId: undefined,
+            pollingCycleId: undefined,
+            pollingCycleStartedAt: undefined,
+          }
+        : {}),
     });
 
     // Log if logging parameters provided
@@ -280,7 +278,7 @@ export const claimPollingSession = internalMutation({
     expectedExternalTournamentId: v.number(),
     pollingSessionId: v.string(),
   },
-  returns: v.boolean(),
+  returns: v.union(v.string(), v.null()),
   handler: async (ctx, args) => {
     const tournament = await ctx.db
       .query("tournaments")
@@ -296,40 +294,192 @@ export const claimPollingSession = internalMutation({
         expectedExternalTournamentId: args.expectedExternalTournamentId,
       })
     ) {
-      return false;
+      return null;
     }
 
+    const pollingCycleId = crypto.randomUUID();
     await ctx.db.patch(tournament._id, {
       pollingStatus: "active",
       pollingErrorMessage: undefined,
       pollingSessionId: args.pollingSessionId,
+      pollingCycleId,
+      pollingCycleStartedAt: Date.now(),
     });
-    return true;
+    await schedulePollingCycleWatchdog(ctx, {
+      userId: args.userId,
+      pollingSessionId: args.pollingSessionId,
+      pollingCycleId,
+    });
+    return pollingCycleId;
   },
 });
 
-export const getPollingSessionState = internalQuery({
-  args: { userId: v.id("users") },
-  returns: v.object({
-    mode: v.union(v.literal("manual"), v.literal("auto")),
-    pollingStatus: v.optional(
-      v.union(v.literal("active"), v.literal("inactive"), v.literal("error")),
-    ),
-    pollingSessionId: v.optional(v.string()),
-  }),
+export const claimPollingCycleExecution = internalMutation({
+  args: {
+    userId: v.id("users"),
+    expectedPollingSessionId: v.string(),
+    expectedPollingCycleId: v.string(),
+  },
+  returns: v.boolean(),
   handler: async (ctx, args) => {
     const tournament = await ctx.db
       .query("tournaments")
       .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .unique();
-    if (!tournament) {
-      throw new Error(`User ${args.userId} has no user tournament`);
+    if (
+      !tournament ||
+      !canClaimPollingCycleExecution({
+        mode: tournament.mode,
+        pollingStatus: tournament.pollingStatus,
+        pollingSessionId: tournament.pollingSessionId,
+        pollingCycleId: tournament.pollingCycleId,
+        pollingCycleStartedAt: tournament.pollingCycleStartedAt,
+        expectedPollingSessionId: args.expectedPollingSessionId,
+        expectedPollingCycleId: args.expectedPollingCycleId,
+      })
+    ) {
+      return false;
     }
-    return {
-      mode: tournament.mode,
-      pollingStatus: tournament.pollingStatus,
-      pollingSessionId: tournament.pollingSessionId,
-    };
+    await ctx.db.patch(tournament._id, {
+      pollingCycleStartedAt: Date.now(),
+    });
+    return true;
+  },
+});
+
+export const finishPollingCycleAndScheduleNext = internalMutation({
+  args: {
+    userId: v.id("users"),
+    expectedPollingSessionId: v.string(),
+    expectedPollingCycleId: v.string(),
+    delayMs: v.number(),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const tournament = await ctx.db
+      .query("tournaments")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .unique();
+    if (
+      !tournament ||
+      tournament.mode !== "auto" ||
+      tournament.pollingStatus !== "active" ||
+      !isPollingCycleCurrent({
+        pollingSessionId: tournament.pollingSessionId,
+        pollingCycleId: tournament.pollingCycleId,
+        expectedPollingSessionId: args.expectedPollingSessionId,
+        expectedPollingCycleId: args.expectedPollingCycleId,
+      })
+    ) {
+      return false;
+    }
+
+    const nextPollingCycleId = crypto.randomUUID();
+    await ctx.db.patch(tournament._id, {
+      pollingCycleId: nextPollingCycleId,
+      pollingCycleStartedAt: undefined,
+    });
+    await ctx.scheduler.runAfter(
+      args.delayMs,
+      internal.tournamentSync.pollTournamentAndScheduleNext,
+      {
+        userId: args.userId,
+        pollingSessionId: args.expectedPollingSessionId,
+        pollingCycleId: nextPollingCycleId,
+      },
+    );
+    await schedulePollingCycleWatchdog(ctx, {
+      userId: args.userId,
+      pollingSessionId: args.expectedPollingSessionId,
+      pollingCycleId: nextPollingCycleId,
+      delayMs: args.delayMs,
+    });
+    return true;
+  },
+});
+
+export const expirePollingCycle = internalMutation({
+  args: {
+    userId: v.id("users"),
+    expectedPollingSessionId: v.string(),
+    expectedPollingCycleId: v.string(),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const tournament = await ctx.db
+      .query("tournaments")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .unique();
+    if (
+      !tournament ||
+      !isPollingCycleCurrent({
+        pollingSessionId: tournament.pollingSessionId,
+        pollingCycleId: tournament.pollingCycleId,
+        expectedPollingSessionId: args.expectedPollingSessionId,
+        expectedPollingCycleId: args.expectedPollingCycleId,
+      })
+    ) {
+      return false;
+    }
+
+    const message =
+      "Tournament polling timed out before the cycle completed. Restart auto sync to retry.";
+    await ctx.db.patch(
+      tournament._id,
+      pollingCycleFailureUpdates(message),
+    );
+    await logIntegrationEvent(ctx, {
+      userId: args.userId,
+      tournamentId: tournament._id,
+      action: "POLLING_CYCLE_TIMEOUT",
+      status: "error",
+      message,
+    });
+    return true;
+  },
+});
+
+export const failPollingCycle = internalMutation({
+  args: {
+    userId: v.id("users"),
+    expectedPollingSessionId: v.string(),
+    expectedPollingCycleId: v.string(),
+    pollingErrorMessage: v.string(),
+    logAction: v.string(),
+    logMessage: v.string(),
+    logMetadata: v.optional(v.any()),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const tournament = await ctx.db
+      .query("tournaments")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .unique();
+    if (
+      !tournament ||
+      !isPollingCycleCurrent({
+        pollingSessionId: tournament.pollingSessionId,
+        pollingCycleId: tournament.pollingCycleId,
+        expectedPollingSessionId: args.expectedPollingSessionId,
+        expectedPollingCycleId: args.expectedPollingCycleId,
+      })
+    ) {
+      return false;
+    }
+
+    await ctx.db.patch(
+      tournament._id,
+      pollingCycleFailureUpdates(args.pollingErrorMessage),
+    );
+    await logIntegrationEvent(ctx, {
+      userId: args.userId,
+      tournamentId: tournament._id,
+      action: args.logAction,
+      status: "error",
+      message: args.logMessage,
+      metadata: args.logMetadata,
+    });
+    return true;
   },
 });
 
@@ -503,7 +653,7 @@ export const validateAndStartPolling = internalAction({
     const externalTournamentId = externalTournament.externalTournamentId;
 
     const pollingSessionId = crypto.randomUUID();
-    const claimedPollingSession: boolean = await ctx.runMutation(
+    const pollingCycleId: string | null = await ctx.runMutation(
       internal.tournamentSync.claimPollingSession,
       {
         userId: args.userId,
@@ -511,7 +661,7 @@ export const validateAndStartPolling = internalAction({
         pollingSessionId,
       },
     );
-    if (!claimedPollingSession) {
+    if (!pollingCycleId) {
       console.log(
         `Tournament ${externalTournamentId} already has a polling session or is no longer eligible. Skipping validation.`,
       );
@@ -544,6 +694,7 @@ export const validateAndStartPolling = internalAction({
             tournamentId: tournament._id,
             userId: args.userId,
             expectedPollingSessionId: pollingSessionId,
+            expectedPollingCycleId: pollingCycleId,
             mode: "manual",
             pollingStatus: "inactive",
             pollingErrorMessage: "Tournament is already completed in Melee.",
@@ -665,6 +816,7 @@ export const validateAndStartPolling = internalAction({
           tournamentId: tournament._id,
           userId: args.userId,
           expectedPollingSessionId: pollingSessionId,
+          expectedPollingCycleId: pollingCycleId,
           logAction: "VALIDATION_SUCCESS",
           logStatus: "success",
           logMessage: `Tournament validated successfully. Starting polling.`,
@@ -675,11 +827,15 @@ export const validateAndStartPolling = internalAction({
         return;
       }
 
-      // Start polling - schedule first poll immediately
-      await schedulePollIfCurrent(
-        ctx,
-        { userId: args.userId, pollingSessionId },
-        0,
+      // Finish validation and atomically hand the session to the first poll.
+      await ctx.runMutation(
+        internal.tournamentSync.finishPollingCycleAndScheduleNext,
+        {
+          userId: args.userId,
+          expectedPollingSessionId: pollingSessionId,
+          expectedPollingCycleId: pollingCycleId,
+          delayMs: 0,
+        },
       );
     } catch (error) {
       // Reset to manual mode and log error in one mutation
@@ -689,6 +845,7 @@ export const validateAndStartPolling = internalAction({
           tournamentId: tournament._id,
           userId: args.userId,
           expectedPollingSessionId: pollingSessionId,
+          expectedPollingCycleId: pollingCycleId,
           mode: "manual",
           pollingStatus: "error",
           pollingErrorMessage: `Error validating tournament: ${error}`,
@@ -771,35 +928,38 @@ export const pollTournamentAndScheduleNext = internalAction({
   args: {
     userId: v.id("users"),
     pollingSessionId: v.string(),
+    pollingCycleId: v.string(),
   },
   handler: async (ctx, args) => {
-    if (
-      !(await pollingSessionIsCurrent(
-        ctx,
-        args.userId,
-        args.pollingSessionId,
-      ))
-    ) {
+    const pollingCycleClaimed: boolean = await ctx.runMutation(
+      internal.tournamentSync.claimPollingCycleExecution,
+      {
+        userId: args.userId,
+        expectedPollingSessionId: args.pollingSessionId,
+        expectedPollingCycleId: args.pollingCycleId,
+      },
+    );
+    if (!pollingCycleClaimed) {
       return;
     }
 
-    const { tournament, externalTournament, settings } = await ctx.runQuery(
-      internal.tournamentSync.getTournamentPollingData,
-      { userId: args.userId },
-    );
-    if (
-      !tournament ||
-      !externalTournament ||
-      !settings ||
-      !hasMeleeCredentials(settings)
-    ) {
-      throw new Error(`Tournament ${args.userId} not found`);
-    }
-    const credentials: MeleeCredentials =
-      getMeleeCredentialsFromSettings(settings);
-    const externalTournamentId = externalTournament.externalTournamentId;
-
     try {
+      const { tournament, externalTournament, settings } = await ctx.runQuery(
+        internal.tournamentSync.getTournamentPollingData,
+        { userId: args.userId },
+      );
+      if (
+        !tournament ||
+        !externalTournament ||
+        !settings ||
+        !hasMeleeCredentials(settings)
+      ) {
+        throw new Error(`Tournament ${args.userId} not found`);
+      }
+      const credentials: MeleeCredentials =
+        getMeleeCredentialsFromSettings(settings);
+      const externalTournamentId = externalTournament.externalTournamentId;
+
       const overview = await fetchMeleeTournament(
         externalTournamentId,
         credentials,
@@ -832,6 +992,7 @@ export const pollTournamentAndScheduleNext = internalAction({
             tournamentId: tournament._id,
             userId: args.userId,
             expectedPollingSessionId: args.pollingSessionId,
+            expectedPollingCycleId: args.pollingCycleId,
             mode: "manual",
             pollingStatus: "inactive",
             pollingErrorMessage: "Tournament is complete in Melee.",
@@ -852,19 +1013,31 @@ export const pollTournamentAndScheduleNext = internalAction({
       if (!snapshot) {
         // Between rounds or before pairings post: keep polling without
         // touching stored round state
-        await ctx.runMutation(
+        const pollingStatusUpdated: boolean = await ctx.runMutation(
           internal.tournamentSync.updateTournamentPollingStatus,
           {
             tournamentId: tournament._id,
             userId: args.userId,
             expectedPollingSessionId: args.pollingSessionId,
+            expectedPollingCycleId: args.pollingCycleId,
             pollingStatus: "active",
             logAction: "NO_CURRENT_ROUND_FOUND",
             logStatus: "warning",
             logMessage: "No current round matches found in Melee data",
           },
         );
-        await schedulePollIfCurrent(ctx, args, POLLING_INTERVAL);
+        if (!pollingStatusUpdated) {
+          return;
+        }
+        await ctx.runMutation(
+          internal.tournamentSync.finishPollingCycleAndScheduleNext,
+          {
+            userId: args.userId,
+            expectedPollingSessionId: args.pollingSessionId,
+            expectedPollingCycleId: args.pollingCycleId,
+            delayMs: POLLING_INTERVAL,
+          },
+        );
         return;
       }
 
@@ -875,6 +1048,7 @@ export const pollTournamentAndScheduleNext = internalAction({
           tournamentId: tournament._id,
           userId: args.userId,
           expectedPollingSessionId: args.pollingSessionId,
+          expectedPollingCycleId: args.pollingCycleId,
           pollingStatus: "active",
           logAction: "FETCH_EVENT_SUCCESS",
           logStatus: "success",
@@ -944,25 +1118,27 @@ export const pollTournamentAndScheduleNext = internalAction({
         }
       }
 
-      // Schedule next poll
-      await schedulePollIfCurrent(ctx, args, POLLING_INTERVAL);
-    } catch (error) {
-      console.error(
-        `Error polling tournament ${externalTournamentId}:`,
-        error,
-      );
-      // Update status and log error in one mutation
+      // Atomically invalidate this cycle's watchdog and hand off to the next
+      // scheduled execution.
       await ctx.runMutation(
-        internal.tournamentSync.updateTournamentPollingStatus,
+        internal.tournamentSync.finishPollingCycleAndScheduleNext,
         {
-          tournamentId: tournament._id,
           userId: args.userId,
           expectedPollingSessionId: args.pollingSessionId,
-          mode: "manual",
-          pollingStatus: "error",
+          expectedPollingCycleId: args.pollingCycleId,
+          delayMs: POLLING_INTERVAL,
+        },
+      );
+    } catch (error) {
+      console.error(`Error polling tournament for ${args.userId}:`, error);
+      await ctx.runMutation(
+        internal.tournamentSync.failPollingCycle,
+        {
+          userId: args.userId,
+          expectedPollingSessionId: args.pollingSessionId,
+          expectedPollingCycleId: args.pollingCycleId,
           pollingErrorMessage: `Error polling tournament: ${error}`,
           logAction: "POLL_ERROR",
-          logStatus: "error",
           logMessage: `Error during poll cycle: ${error}`,
           logMetadata: { error: String(error) },
         },

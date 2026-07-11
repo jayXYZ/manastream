@@ -49,6 +49,8 @@ export const wipeIntegrationData = internalMutation({
         pollingStatus: undefined,
         pollingErrorMessage: undefined,
         pollingSessionId: undefined,
+        pollingCycleId: undefined,
+        pollingCycleStartedAt: undefined,
         currentRound: undefined,
         currentRoundDisplayName: undefined,
       });

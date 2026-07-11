@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  canClaimPollingCycleExecution,
   canClaimPollingSession,
   hasExternalTournamentChanged,
+  isPollingCycleCurrent,
   isPollingSessionCurrent,
   parseAllowCompletedTournamentPolling,
+  pollingCycleFailureUpdates,
   shouldStopPollingForCompletedTournament,
 } from "../pollingBehavior";
 
@@ -130,5 +133,54 @@ describe("polling session ownership", () => {
         expectedPollingSessionId: "stale-session",
       }),
     ).toBe(false);
+  });
+
+  it("accepts only the current polling cycle", () => {
+    expect(
+      isPollingCycleCurrent({
+        pollingSessionId: "session-1",
+        pollingCycleId: "cycle-1",
+        expectedPollingSessionId: "session-1",
+        expectedPollingCycleId: "cycle-1",
+      }),
+    ).toBe(true);
+    expect(
+      isPollingCycleCurrent({
+        pollingSessionId: "session-1",
+        pollingCycleId: "new-cycle",
+        expectedPollingSessionId: "session-1",
+        expectedPollingCycleId: "stale-cycle",
+      }),
+    ).toBe(false);
+  });
+
+  it("allows only one execution to claim a scheduled cycle", () => {
+    const scheduledCycle = {
+      mode: "auto" as const,
+      pollingStatus: "active" as const,
+      pollingSessionId: "session-1",
+      pollingCycleId: "cycle-1",
+      expectedPollingSessionId: "session-1",
+      expectedPollingCycleId: "cycle-1",
+    };
+
+    expect(canClaimPollingCycleExecution(scheduledCycle)).toBe(true);
+    expect(
+      canClaimPollingCycleExecution({
+        ...scheduledCycle,
+        pollingCycleStartedAt: Date.now(),
+      }),
+    ).toBe(false);
+  });
+
+  it("clears an orphaned active session when a cycle fails", () => {
+    expect(pollingCycleFailureUpdates("Polling timed out")).toEqual({
+      mode: "manual",
+      pollingStatus: "error",
+      pollingErrorMessage: "Polling timed out",
+      pollingSessionId: undefined,
+      pollingCycleId: undefined,
+      pollingCycleStartedAt: undefined,
+    });
   });
 });

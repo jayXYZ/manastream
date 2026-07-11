@@ -67,3 +67,42 @@ export function isPollingSessionCurrent(args: {
     args.pollingSessionId === args.expectedPollingSessionId
   );
 }
+
+export function isPollingCycleCurrent(args: {
+  pollingSessionId?: string;
+  pollingCycleId?: string;
+  expectedPollingSessionId: string;
+  expectedPollingCycleId: string;
+}): boolean {
+  return (
+    args.pollingSessionId === args.expectedPollingSessionId &&
+    args.pollingCycleId === args.expectedPollingCycleId
+  );
+}
+
+export function canClaimPollingCycleExecution(args: {
+  mode: "manual" | "auto";
+  pollingStatus?: "active" | "inactive" | "error";
+  pollingSessionId?: string;
+  pollingCycleId?: string;
+  pollingCycleStartedAt?: number;
+  expectedPollingSessionId: string;
+  expectedPollingCycleId: string;
+}): boolean {
+  return (
+    isPollingSessionCurrent(args) &&
+    isPollingCycleCurrent(args) &&
+    args.pollingCycleStartedAt === undefined
+  );
+}
+
+export function pollingCycleFailureUpdates(message: string) {
+  return {
+    mode: "manual" as const,
+    pollingStatus: "error" as const,
+    pollingErrorMessage: message,
+    pollingSessionId: undefined,
+    pollingCycleId: undefined,
+    pollingCycleStartedAt: undefined,
+  };
+}

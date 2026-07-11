@@ -170,6 +170,8 @@ export const updateTournamentMode = mutation({
         mode: "manual",
         pollingStatus: "inactive",
         pollingSessionId: undefined,
+        pollingCycleId: undefined,
+        pollingCycleStartedAt: undefined,
       });
       return;
     }
@@ -225,6 +227,8 @@ export const updateTournamentSettings = mutation({
           pollingStatus: "inactive" as const,
           pollingErrorMessage: undefined,
           pollingSessionId: undefined,
+          pollingCycleId: undefined,
+          pollingCycleStartedAt: undefined,
           currentRound: undefined,
           currentRoundDisplayName: undefined,
         }
@@ -265,6 +269,8 @@ export const updateTournamentSettings = mutation({
           ? {
               pollingStatus: "inactive" as const,
               pollingSessionId: undefined,
+              pollingCycleId: undefined,
+              pollingCycleStartedAt: undefined,
             }
           : {}),
       });

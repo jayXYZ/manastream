@@ -26,6 +26,8 @@ const COMPLETE_STATUS_PATTERN = /complete|completed|ended|finished/i;
 // Melee phases don't expose a structural round_type the way Spicerack did,
 // so elimination detection is heuristic on phase/round names until a
 // structural signal is confirmed.
+// TODO: Generalize elimination detection and round naming beyond Top 8 cuts
+// (for example, Melee "Top Cut" phases and Top 4/Top 16 brackets).
 const ELIMINATION_NAME_PATTERN =
   /top\s*\d+|playoff|elimination|bracket|quarter\s*-?final|semi\s*-?final|^finals?$/i;
 
