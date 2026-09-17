@@ -115,13 +115,14 @@ export class Bridge {
 
   private registerObsEvents(): void {
     this.obs.on("ConnectionClosed", (error) => {
-      if (this.obsConnected) {
+      const wasConnected = this.obsConnected;
+      this.obsConnected = false;
+      if (wasConnected) {
         this.log.warn(
           `OBS connection closed${error?.message ? `: ${error.message}` : ""}`,
         );
+        void this.sendHeartbeat({ connected: false });
       }
-      this.obsConnected = false;
-      void this.sendHeartbeat({ connected: false });
       this.scheduleObsReconnect();
     });
 

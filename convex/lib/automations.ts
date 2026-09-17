@@ -249,7 +249,16 @@ export async function emitAutomationEvent(
 
   for (const automation of automations) {
     if (!automationMatchesEvent(automation, event)) continue;
-    await dispatchAutomation(ctx, automation, event);
+    try {
+      await dispatchAutomation(ctx, automation, event);
+    } catch (error) {
+      // A broken automation must not roll back the mutation that emitted
+      // the event (for example the round sync), so log and move on.
+      console.error(
+        `Failed to dispatch automation ${automation._id} for ${args.type}:`,
+        error,
+      );
+    }
   }
 
   return eventId;

@@ -70,16 +70,34 @@ const obsControllerClientValidator = v.object({
 });
 
 function toClientAutomation(automation: Doc<"automations">) {
-  const { webhookSecret, userId: _userId, ...rest } = automation;
   return {
-    ...rest,
-    hasWebhookSecret: (webhookSecret ?? "").length > 0,
+    _id: automation._id,
+    _creationTime: automation._creationTime,
+    name: automation.name,
+    enabled: automation.enabled,
+    trigger: automation.trigger,
+    conditions: automation.conditions,
+    action: automation.action,
+    hasWebhookSecret: (automation.webhookSecret ?? "").length > 0,
+    consecutiveFailures: automation.consecutiveFailures,
+    lastTriggeredAt: automation.lastTriggeredAt,
+    createdAt: automation.createdAt,
+    updatedAt: automation.updatedAt,
   };
 }
 
 function toClientController(controller: Doc<"obsControllers">) {
-  const { userId: _userId, ...rest } = controller;
-  return { ...rest, online: isBridgeOnline(controller) };
+  return {
+    _id: controller._id,
+    _creationTime: controller._creationTime,
+    name: controller.name,
+    token: controller.token,
+    online: isBridgeOnline(controller),
+    lastSeenAt: controller.lastSeenAt,
+    bridgeVersion: controller.bridgeVersion,
+    obsState: controller.obsState,
+    createdAt: controller.createdAt,
+  };
 }
 
 async function requireAutomationAccess(
