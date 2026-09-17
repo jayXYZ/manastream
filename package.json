@@ -10,7 +10,9 @@
     "start": "next start",
     "lint": "eslint .",
     "test": "vitest run",
-    "decklists:pdf": "node scripts/generate-decklist-pdfs.mjs"
+    "decklists:pdf": "node scripts/generate-decklist-pdfs.mjs",
+    "bridge:build": "pnpm --filter @manastream/obs-bridge build",
+    "bridge:start": "pnpm --filter @manastream/obs-bridge start"
   },
   "dependencies": {
     "@auth/core": "^0.37.4",
