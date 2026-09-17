@@ -3,6 +3,7 @@ import { Id } from "../_generated/dataModel";
 import { DEFAULT_MATCH } from "./constants";
 import { RoundSnapshot } from "../models/melee";
 import { snapshotCurrentRoundPairings } from "./pairings";
+import { emitAutomationEvent } from "./automations";
 
 type CompletedRound = { roundId: number; roundName: string };
 
@@ -91,6 +92,9 @@ export async function handleNewRound(
   completedRounds: CompletedRound[],
 ) {
   console.log("Handling new round", snapshot.roundId, snapshot.roundNumber);
+  const tournament = await ctx.db.get(tournamentId);
+  const previousRoundNumber = tournament?.currentRound;
+
   await ctx.db.patch(externalTournamentDocId, {
     currentRoundId: snapshot.roundId,
     currentRoundNumber: snapshot.roundNumber,
@@ -122,5 +126,22 @@ export async function handleNewRound(
 
   for (const matchOverlay of matchOverlays) {
     await ctx.db.patch(matchOverlay._id, DEFAULT_MATCH);
+  }
+
+  if (tournament) {
+    await emitAutomationEvent(ctx, {
+      userId: tournament.userId,
+      tournamentId,
+      type: "round.started",
+      dedupeKey: `round.started:${tournamentId}:${snapshot.roundId}`,
+      payload: {
+        tournamentId,
+        eventName: tournament.eventName,
+        roundId: snapshot.roundId,
+        roundNumber: snapshot.roundNumber,
+        roundDisplayName: snapshot.roundDisplayName,
+        previousRoundNumber,
+      },
+    });
   }
 }

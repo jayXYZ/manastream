@@ -17,6 +17,7 @@ import {
   roundSnapshotValidator,
 } from "./validators";
 import { checkForNewRound } from "./lib/rounds";
+import { emitAutomationEvent } from "./lib/automations";
 import {
   MeleeCredentials,
   fetchMeleeCurrentRoundMatches,
@@ -245,6 +246,8 @@ export const updateTournamentPollingStatus = internalMutation({
       updates.pollingStatus === "inactive" ||
       updates.pollingStatus === "error";
 
+    const previousPollingStatus = tournament.pollingStatus;
+
     // Update tournament status
     await ctx.db.patch(tournamentId, {
       ...updates,
@@ -266,6 +269,28 @@ export const updateTournamentPollingStatus = internalMutation({
         message: logMessage,
         tournamentId,
         metadata: logMetadata,
+      });
+    }
+
+    if (
+      updates.pollingStatus !== undefined &&
+      updates.pollingStatus !== previousPollingStatus
+    ) {
+      const pollingTriggers = {
+        active: "tournament.polling.started",
+        inactive: "tournament.polling.stopped",
+        error: "tournament.polling.error",
+      } as const;
+      await emitAutomationEvent(ctx, {
+        userId,
+        tournamentId,
+        type: pollingTriggers[updates.pollingStatus],
+        payload: {
+          tournamentId,
+          eventName: tournament.eventName,
+          status: updates.pollingStatus,
+          errorMessage: updates.pollingErrorMessage,
+        },
       });
     }
     return true;

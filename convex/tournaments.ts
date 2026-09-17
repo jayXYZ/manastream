@@ -11,6 +11,7 @@ import { requireAuth, requireTournamentAccess } from "./lib/auth";
 import { getOwnTournament } from "./lib/tournaments";
 import { getUserSettings, hasMeleeCredentials } from "./lib/settings";
 import { hasExternalTournamentChanged } from "./lib/pollingBehavior";
+import { emitAutomationEvent } from "./lib/automations";
 
 export const createTournament = internalMutation({
   args: {
@@ -86,7 +87,10 @@ export const setTournamentTimer = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    await requireTournamentAccess(ctx, args.tournamentId);
+    const { tournament } = await requireTournamentAccess(
+      ctx,
+      args.tournamentId,
+    );
 
     const { tournamentId, ...updateFields } = args;
     // Handle manualTimerPausedAt separately to allow clearing (null) or setting (number)
@@ -111,6 +115,30 @@ export const setTournamentTimer = mutation({
         updateFields.manualTimerCountDirection;
     }
     await ctx.db.patch(tournamentId, updates);
+
+    const wasRunning = tournament.manualTimerRunning;
+    const isRunning = updates.manualTimerRunning ?? wasRunning;
+    if (isRunning !== wasRunning) {
+      const expiresAt = updates.manualTimerExpiry ?? tournament.manualTimerExpiry;
+      await emitAutomationEvent(ctx, {
+        userId: tournament.userId,
+        tournamentId,
+        type: isRunning ? "timer.started" : "timer.paused",
+        payload: {
+          tournamentId,
+          eventName: tournament.eventName,
+          countDirection:
+            updates.manualTimerCountDirection ??
+            tournament.manualTimerCountDirection ??
+            "down",
+          expiresAt,
+          secondsRemaining:
+            expiresAt !== undefined
+              ? Math.max(0, Math.round((expiresAt - Date.now()) / 1000))
+              : undefined,
+        },
+      });
+    }
   },
 });
 
