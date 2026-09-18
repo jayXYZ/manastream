@@ -26,3 +26,37 @@ export const backfillMeleeClientCredentials = migrations.define({
     };
   },
 });
+
+/**
+ * Per-cycle polling bookkeeping moved from the tournaments document to the
+ * pollingSessions table. Any tournament that was mid-session when this
+ * deployed has an orphaned scheduled loop that can no longer claim its
+ * cycle, so reset it to manual with a message asking to re-enable auto sync.
+ */
+export const clearLegacyPollingFields = migrations.define({
+  table: "tournaments",
+  migrateOne: (_ctx, tournament) => {
+    const hadLegacySession =
+      tournament.pollingSessionId !== undefined ||
+      tournament.pollingCycleId !== undefined ||
+      tournament.pollingCycleStartedAt !== undefined;
+    if (!hadLegacySession) {
+      return;
+    }
+    const wasPolling =
+      tournament.mode === "auto" && tournament.pollingStatus === "active";
+    return {
+      pollingSessionId: undefined,
+      pollingCycleId: undefined,
+      pollingCycleStartedAt: undefined,
+      ...(wasPolling
+        ? {
+            mode: "manual" as const,
+            pollingStatus: "inactive" as const,
+            pollingErrorMessage:
+              "Auto sync was reset by a deploy. Re-enable auto mode to resume polling.",
+          }
+        : {}),
+    };
+  },
+});

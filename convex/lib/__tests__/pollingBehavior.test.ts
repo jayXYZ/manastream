@@ -7,6 +7,8 @@ import {
   isPollingSessionCurrent,
   parseAllowCompletedTournamentPolling,
   pollingCycleFailureUpdates,
+  changedPollingStatusFields,
+  isRoundChange,
   shouldStopPollingForCompletedTournament,
 } from "../pollingBehavior";
 
@@ -173,14 +175,77 @@ describe("polling session ownership", () => {
     ).toBe(false);
   });
 
-  it("clears an orphaned active session when a cycle fails", () => {
+  it("drops to manual with an error when a cycle fails", () => {
     expect(pollingCycleFailureUpdates("Polling timed out")).toEqual({
       mode: "manual",
       pollingStatus: "error",
       pollingErrorMessage: "Polling timed out",
-      pollingSessionId: undefined,
-      pollingCycleId: undefined,
-      pollingCycleStartedAt: undefined,
     });
+  });
+});
+
+describe("changedPollingStatusFields", () => {
+  it("returns nothing when every requested value already matches", () => {
+    expect(
+      changedPollingStatusFields(
+        {
+          mode: "auto",
+          pollingStatus: "active",
+          pollingErrorMessage: undefined,
+        },
+        { pollingStatus: "active" },
+      ),
+    ).toEqual({});
+  });
+
+  it("returns only the fields that differ", () => {
+    expect(
+      changedPollingStatusFields(
+        { mode: "auto", pollingStatus: "active", pollingErrorMessage: "old" },
+        { mode: "auto", pollingStatus: "inactive", pollingErrorMessage: "old" },
+      ),
+    ).toEqual({ pollingStatus: "inactive" });
+  });
+
+  it("treats clearing a set value as a change", () => {
+    expect(
+      changedPollingStatusFields(
+        { mode: "auto", pollingStatus: "error", pollingErrorMessage: "boom" },
+        { pollingErrorMessage: undefined },
+      ),
+    ).toEqual({ pollingErrorMessage: undefined });
+  });
+
+  it("ignores keys that were not requested", () => {
+    expect(
+      changedPollingStatusFields({ mode: "auto", pollingStatus: "active" }, {}),
+    ).toEqual({});
+  });
+});
+
+describe("isRoundChange", () => {
+  it("is false when the polled round matches the stored round", () => {
+    expect(
+      isRoundChange({
+        storedRoundId: 10,
+        storedRoundNumber: 3,
+        polledRoundId: 10,
+        polledRoundNumber: 3,
+      }),
+    ).toBe(false);
+  });
+
+  it("is true for a first round or a different round", () => {
+    expect(isRoundChange({ polledRoundId: 10, polledRoundNumber: 1 })).toBe(
+      true,
+    );
+    expect(
+      isRoundChange({
+        storedRoundId: 10,
+        storedRoundNumber: 3,
+        polledRoundId: 11,
+        polledRoundNumber: 4,
+      }),
+    ).toBe(true);
   });
 });

@@ -29,6 +29,10 @@ export const tournamentValidator = v.object({
     v.union(v.literal("active"), v.literal("inactive"), v.literal("error")),
   ),
   pollingErrorMessage: v.optional(v.string()),
+  // Legacy per-cycle bookkeeping. Now stored in the pollingSessions table so
+  // each poll cycle no longer writes to (and invalidates subscriptions on)
+  // the tournament document. Kept optional until the
+  // clearLegacyPollingFields migration has run.
   pollingSessionId: v.optional(v.string()),
   pollingCycleId: v.optional(v.string()),
   pollingCycleStartedAt: v.optional(v.number()),
@@ -48,6 +52,17 @@ export const tournamentValidator = v.object({
   commentatorRightSubText: v.optional(v.string()),
   createdAt: v.number(),
   updatedAt: v.number(),
+});
+
+// High-churn polling bookkeeping, kept off the tournaments document so the
+// poll loop's claim/finish writes do not re-run every tournament subscription.
+export const pollingSessionValidator = v.object({
+  _id: v.id("pollingSessions"),
+  _creationTime: v.number(),
+  tournamentId: v.id("tournaments"),
+  pollingSessionId: v.string(),
+  pollingCycleId: v.string(),
+  pollingCycleStartedAt: v.optional(v.number()),
 });
 
 export const externalTournamentValidator = v.object({
