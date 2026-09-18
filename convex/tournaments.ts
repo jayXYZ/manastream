@@ -11,6 +11,7 @@ import { requireAuth, requireTournamentAccess } from "./lib/auth";
 import { getOwnTournament } from "./lib/tournaments";
 import { getUserSettings, hasMeleeCredentials } from "./lib/settings";
 import { hasExternalTournamentChanged } from "./lib/pollingBehavior";
+import { clearPollingSession } from "./lib/pollingSession";
 
 export const createTournament = internalMutation({
   args: {
@@ -169,10 +170,8 @@ export const updateTournamentMode = mutation({
       await ctx.db.patch(args.tournamentId, {
         mode: "manual",
         pollingStatus: "inactive",
-        pollingSessionId: undefined,
-        pollingCycleId: undefined,
-        pollingCycleStartedAt: undefined,
       });
+      await clearPollingSession(ctx, args.tournamentId);
       return;
     }
 
@@ -226,9 +225,6 @@ export const updateTournamentSettings = mutation({
           ...updates,
           pollingStatus: "inactive" as const,
           pollingErrorMessage: undefined,
-          pollingSessionId: undefined,
-          pollingCycleId: undefined,
-          pollingCycleStartedAt: undefined,
           currentRound: undefined,
           currentRoundDisplayName: undefined,
         }
@@ -247,16 +243,14 @@ export const updateTournamentSettings = mutation({
       }
 
       // Check if polling is already active to prevent duplicate polling sessions
-      if (
-        tournament.pollingStatus === "active" &&
-        !externalTournamentChanged
-      ) {
+      if (tournament.pollingStatus === "active" && !externalTournamentChanged) {
         // If already active, just update the settings without scheduling a new polling session
         await ctx.db.patch(tournament._id, updates);
         return;
       }
 
       await ctx.db.patch(tournament._id, updatesWithSyncReset);
+      await clearPollingSession(ctx, tournament._id);
       await ctx.scheduler.runAfter(
         0,
         internal.tournamentSync.validateAndStartPolling,
@@ -266,14 +260,12 @@ export const updateTournamentSettings = mutation({
       await ctx.db.patch(tournament._id, {
         ...updatesWithSyncReset,
         ...(updates.mode === "manual"
-          ? {
-              pollingStatus: "inactive" as const,
-              pollingSessionId: undefined,
-              pollingCycleId: undefined,
-              pollingCycleStartedAt: undefined,
-            }
+          ? { pollingStatus: "inactive" as const }
           : {}),
       });
+      if (externalTournamentChanged || updates.mode === "manual") {
+        await clearPollingSession(ctx, tournament._id);
+      }
     }
   },
 });

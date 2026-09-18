@@ -19,4 +19,4 @@ export const LIFEAPP_TIMEOUT = 1000 * 60 * 2; // 2 min
 
 export const TOURNAMENT_TIMEOUT = 1000 * 60 * 60 * 24; // 24 hours
 
-export const POLLING_INTERVAL = 1000 * 30; // 30 seconds
+export const POLLING_INTERVAL = 1000 * 60 * 2; // 2 minutes
