@@ -5,7 +5,7 @@ import {
   mutation,
   query,
 } from "./_generated/server";
-import type { MutationCtx } from "./_generated/server";
+import type { ActionCtx, MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
@@ -40,6 +40,7 @@ import {
   standingsByPlayerId,
 } from "./models/melee";
 import {
+  MeleeMatch,
   MeleePlayerListEntry,
   MeleeStanding,
   MeleeTournamentOverviewResponse,
@@ -473,6 +474,7 @@ export const requestImmediatePoll = mutation({
         userId,
         pollingSessionId: session.pollingSessionId,
         pollingCycleId: nextPollingCycleId,
+        forceFullFetch: true,
       },
     );
     await schedulePollingCycleWatchdog(ctx, {
@@ -624,18 +626,24 @@ export const detectNewRound = internalMutation({
 });
 
 /**
- * Fetch matches + standings for the current round and compose them into a
- * RoundSnapshot. Returns undefined when Melee reports no current matches.
+ * Fetch standings for the already-fetched current-round matches and compose
+ * them into a RoundSnapshot. Returns undefined when there are no matches.
+ * Only called when the round changed or a full fetch was requested, so the
+ * standings requests are per round rather than per cycle.
  */
 async function fetchRoundSnapshot(
   externalTournamentId: number,
   overview: MeleeTournamentOverviewResponse,
+  matches: MeleeMatch[],
   credentials: MeleeCredentials,
 ): Promise<RoundSnapshot | undefined> {
-  const [matches, standings] = await Promise.all([
-    fetchMeleeCurrentRoundMatches(externalTournamentId, credentials),
-    fetchMeleeCurrentStandings(externalTournamentId, credentials),
-  ]);
+  if (matches.length === 0) {
+    return undefined;
+  }
+  const standings = await fetchMeleeCurrentStandings(
+    externalTournamentId,
+    credentials,
+  );
 
   let lastSwissSeedByPlayerId: Map<number, number> | undefined;
   const currentRoundId = matches[0]?.RoundId;
@@ -706,6 +714,104 @@ function buildNewPlayerArgs(
     deckName: "MISSING_DECKLIST",
     deckList: "MISSING_DECKLIST",
   };
+}
+
+/**
+ * Pull the Melee player list once and reconcile it: registration statuses
+ * (drops), players not yet cached, and decklists for players cached without
+ * one (late submissions). The player list is the largest Melee payload, so
+ * this runs at validation, on round change, and on manual refresh only.
+ */
+async function syncPlayersFromMelee(
+  ctx: ActionCtx,
+  externalTournamentId: number,
+  credentials: MeleeCredentials,
+): Promise<void> {
+  const playerEntries = await fetchMeleePlayerList(
+    externalTournamentId,
+    credentials,
+  );
+  await ctx.runMutation(internal.player.updatePlayerRegistrationStatuses, {
+    externalTournamentId,
+    players: playerEntries.map((entry) => ({
+      externalPlayerId: entry.ID,
+      registrationStatus: parseMeleeRegistrationStatus(entry),
+    })),
+  });
+
+  const cachedPlayerIds = await ctx.runQuery(
+    internal.player.getAllTournamentPlayerExternalIds,
+    { externalTournamentId },
+  );
+  const cachedPlayerIdSet = new Set(cachedPlayerIds);
+  const newEntries = playerEntries.filter(
+    (entry) => !cachedPlayerIdSet.has(entry.ID),
+  );
+  if (newEntries.length > 0) {
+    await ctx.runMutation(internal.player.createPlayers, {
+      players: newEntries.map((entry) =>
+        buildNewPlayerArgs(externalTournamentId, entry),
+      ),
+    });
+  }
+
+  // Re-check decklists for existing players that were cached without one
+  const playersWithMissingDecklists = await ctx.runQuery(
+    internal.player.getPlayersWithMissingDecklists,
+    { externalTournamentId },
+  );
+  if (playersWithMissingDecklists.length === 0) {
+    return;
+  }
+  const entriesByPlayerId = new Map(
+    playerEntries.map((entry) => [entry.ID, entry]),
+  );
+  const decklistUpdates: {
+    playerId: Id<"players">;
+    deckName: string;
+    deckList: string;
+    externalDecklistId?: string;
+    decklistStatus: "ready" | "fetch_failed";
+  }[] = [];
+  const playersToFetch: {
+    playerId: Id<"players">;
+    externalDecklistId: string;
+  }[] = [];
+
+  for (const player of playersWithMissingDecklists) {
+    const embedded = entriesByPlayerId.get(player.externalPlayerId)
+      ?.Decklists[0];
+    if (embedded && Array.isArray(embedded.Records)) {
+      const decklist = buildDecklistFromMeleeRecords({
+        records: embedded.Records,
+        formatName: embedded.FormatName,
+        decklistName: embedded.DecklistName || embedded.Name || undefined,
+      });
+      decklistUpdates.push({
+        playerId: player.playerId,
+        deckName: decklist.deckname,
+        deckList: decklist.decklist,
+        externalDecklistId: embedded.Guid,
+        decklistStatus: "ready",
+      });
+    } else if (player.externalDecklistId) {
+      playersToFetch.push({
+        playerId: player.playerId,
+        externalDecklistId: player.externalDecklistId,
+      });
+    }
+  }
+
+  const fetchedUpdates = await fetchDecklistsInBatches(
+    playersToFetch,
+    credentials,
+  );
+  const allUpdates = [...decklistUpdates, ...fetchedUpdates];
+  if (allUpdates.length > 0) {
+    await ctx.runMutation(internal.player.updatePlayerDecklists, {
+      players: allUpdates,
+    });
+  }
 }
 
 /**
@@ -805,94 +911,17 @@ export const validateAndStartPolling = internalAction({
       );
 
       // Seed registered players (with embedded decklists where available)
-      const playerEntries = await fetchMeleePlayerList(
+      await syncPlayersFromMelee(ctx, externalTournamentId, credentials);
+
+      // Snapshot the current round (round info and pairings)
+      const matches = await fetchMeleeCurrentRoundMatches(
         externalTournamentId,
         credentials,
       );
-      await ctx.runMutation(internal.player.updatePlayerRegistrationStatuses, {
-        externalTournamentId,
-        players: playerEntries.map((entry) => ({
-          externalPlayerId: entry.ID,
-          registrationStatus: parseMeleeRegistrationStatus(entry),
-        })),
-      });
-
-      const cachedPlayerIds = await ctx.runQuery(
-        internal.player.getAllTournamentPlayerExternalIds,
-        { externalTournamentId },
-      );
-      const newEntries = playerEntries.filter(
-        (entry) => !cachedPlayerIds.some((id) => id === entry.ID),
-      );
-      if (newEntries.length > 0) {
-        await ctx.runMutation(internal.player.createPlayers, {
-          players: newEntries.map((entry) =>
-            buildNewPlayerArgs(externalTournamentId, entry),
-          ),
-        });
-      }
-
-      // Re-check decklists for existing players that were cached without one
-      const playersWithMissingDecklists = await ctx.runQuery(
-        internal.player.getPlayersWithMissingDecklists,
-        { externalTournamentId },
-      );
-      if (playersWithMissingDecklists.length > 0) {
-        const entriesByPlayerId = new Map(
-          playerEntries.map((entry) => [entry.ID, entry]),
-        );
-        const decklistUpdates: {
-          playerId: Id<"players">;
-          deckName: string;
-          deckList: string;
-          externalDecklistId?: string;
-          decklistStatus: "ready" | "fetch_failed";
-        }[] = [];
-        const playersToFetch: {
-          playerId: Id<"players">;
-          externalDecklistId: string;
-        }[] = [];
-
-        for (const player of playersWithMissingDecklists) {
-          const embedded = entriesByPlayerId.get(player.externalPlayerId)
-            ?.Decklists[0];
-          if (embedded && Array.isArray(embedded.Records)) {
-            const decklist = buildDecklistFromMeleeRecords({
-              records: embedded.Records,
-              formatName: embedded.FormatName,
-              decklistName: embedded.DecklistName || embedded.Name || undefined,
-            });
-            decklistUpdates.push({
-              playerId: player.playerId,
-              deckName: decklist.deckname,
-              deckList: decklist.decklist,
-              externalDecklistId: embedded.Guid,
-              decklistStatus: "ready",
-            });
-          } else if (player.externalDecklistId) {
-            playersToFetch.push({
-              playerId: player.playerId,
-              externalDecklistId: player.externalDecklistId,
-            });
-          }
-        }
-
-        const fetchedUpdates = await fetchDecklistsInBatches(
-          playersToFetch,
-          credentials,
-        );
-        const allUpdates = [...decklistUpdates, ...fetchedUpdates];
-        if (allUpdates.length > 0) {
-          await ctx.runMutation(internal.player.updatePlayerDecklists, {
-            players: allUpdates,
-          });
-        }
-      }
-
-      // Snapshot the current round (round info, pairings, feature matches)
       const snapshot = await fetchRoundSnapshot(
         externalTournamentId,
         overview,
+        matches,
         credentials,
       );
       if (snapshot) {
@@ -1023,6 +1052,9 @@ export const pollTournamentAndScheduleNext = internalAction({
     userId: v.id("users"),
     pollingSessionId: v.string(),
     pollingCycleId: v.string(),
+    // Re-fetch standings and the player list even when the round is
+    // unchanged (manual "refresh now").
+    forceFullFetch: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const pollingCycleClaimed: boolean = await ctx.runMutation(
@@ -1095,13 +1127,15 @@ export const pollTournamentAndScheduleNext = internalAction({
         return;
       }
 
-      const snapshot = await fetchRoundSnapshot(
+      // The current match list is the only per-cycle fetch besides the
+      // overview: it tells us the round id, which is all a quiet cycle needs.
+      const matches = await fetchMeleeCurrentRoundMatches(
         externalTournamentId,
-        overview,
         credentials,
       );
+      const currentMatch = matches[0];
 
-      if (!snapshot) {
+      if (!currentMatch) {
         // Between rounds or before pairings post: keep polling without
         // touching stored round state. Not logged per cycle; the next
         // FETCH_EVENT_SUCCESS entry marks when a round is found.
@@ -1120,15 +1154,44 @@ export const pollTournamentAndScheduleNext = internalAction({
         return;
       }
 
-      // Confirm the session is still current before writing round state.
-      // The status is already "active", so this only writes when logging a
-      // newly detected round; quiet cycles leave the tournament untouched.
       const roundChanged = isRoundChange({
         storedRoundId: externalTournament.currentRoundId,
         storedRoundNumber: externalTournament.currentRoundNumber,
-        polledRoundId: snapshot.roundId,
-        polledRoundNumber: snapshot.roundNumber,
+        polledRoundId: currentMatch.RoundId,
+        polledRoundNumber: currentMatch.RoundNumber,
       });
+
+      if (!roundChanged && !args.forceFullFetch) {
+        // Quiet cycle: the round's pairings are already captured and feature
+        // matches are chosen in Manastream, so there is nothing to sync.
+        console.log(
+          `Tournament ${externalTournamentId}: round ${currentMatch.RoundNumber} unchanged, skipping full fetch`,
+        );
+        await ctx.runMutation(
+          internal.tournamentSync.finishPollingCycleAndScheduleNext,
+          {
+            userId: args.userId,
+            expectedPollingSessionId: args.pollingSessionId,
+            expectedPollingCycleId: args.pollingCycleId,
+            delayMs: POLLING_INTERVAL,
+          },
+        );
+        return;
+      }
+
+      const snapshot = await fetchRoundSnapshot(
+        externalTournamentId,
+        overview,
+        matches,
+        credentials,
+      );
+      if (!snapshot) {
+        throw new Error("Failed to build round snapshot from current matches");
+      }
+
+      // Confirm the session is still current before writing round state.
+      // The status is already "active", so this only writes when logging a
+      // newly detected round.
       const pollingStatusUpdated: boolean = await ctx.runMutation(
         internal.tournamentSync.updateTournamentPollingStatus,
         {
@@ -1161,53 +1224,8 @@ export const pollTournamentAndScheduleNext = internalAction({
         completedRounds: parseCompletedRounds(overview, snapshot.roundId),
       });
 
-      // Find new feature matches and players
-      const newPlayerAndDecklistIds: {
-        playerId: Id<"players">;
-        externalDecklistId?: string;
-      }[] = await ctx.runMutation(
-        internal.featurematches.createNewFeatureMatches,
-        {
-          externalTournamentId,
-          snapshot,
-        },
-      );
-
-      // Update registration statuses from the player list
-      const playerEntries = await fetchMeleePlayerList(
-        externalTournamentId,
-        credentials,
-      );
-      await ctx.runMutation(internal.player.updatePlayerRegistrationStatuses, {
-        externalTournamentId,
-        players: playerEntries.map((entry) => ({
-          externalPlayerId: entry.ID,
-          registrationStatus: parseMeleeRegistrationStatus(entry),
-        })),
-      });
-
-      // Fetch decklists for players discovered via feature matches
-      const playersWithDecks = newPlayerAndDecklistIds.flatMap((player) =>
-        player.externalDecklistId
-          ? [
-              {
-                playerId: player.playerId,
-                externalDecklistId: player.externalDecklistId,
-              },
-            ]
-          : [],
-      );
-      if (playersWithDecks.length > 0) {
-        const newPlayerDecklists = await fetchDecklistsInBatches(
-          playersWithDecks,
-          credentials,
-        );
-        if (newPlayerDecklists.length > 0) {
-          await ctx.runMutation(internal.player.updatePlayerDecklists, {
-            players: newPlayerDecklists,
-          });
-        }
-      }
+      // Drops and late decklists: once per round instead of every cycle
+      await syncPlayersFromMelee(ctx, externalTournamentId, credentials);
 
       // Atomically invalidate this cycle's watchdog and hand off to the next
       // scheduled execution.

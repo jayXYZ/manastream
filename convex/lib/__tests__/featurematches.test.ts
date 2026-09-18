@@ -1,6 +1,30 @@
 import { describe, expect, it } from "vitest";
 
-import { getFeatureMatchesWithPlayerData } from "../featurematches";
+import {
+  featureMatchExternalMatchId,
+  generateFeatureMatchExternalId,
+  getFeatureMatchesWithPlayerData,
+} from "../featurematches";
+
+describe("feature match external ids", () => {
+  it("builds the id from the tournament and Melee match guid", () => {
+    expect(
+      generateFeatureMatchExternalId(999, { externalMatchId: "abc-123" }),
+    ).toBe("feature:999:abc-123");
+  });
+
+  it("prefers the stored match guid and falls back to parsing the id", () => {
+    expect(
+      featureMatchExternalMatchId({
+        externalId: "feature:999:abc-123",
+        externalMatchId: "abc-123",
+      }),
+    ).toBe("abc-123");
+    expect(
+      featureMatchExternalMatchId({ externalId: "feature:999:abc-123" }),
+    ).toBe("abc-123");
+  });
+});
 
 describe("getFeatureMatchesWithPlayerData", () => {
   it("uses the external round id when round numbers repeat", async () => {

@@ -118,6 +118,7 @@ export async function snapshotCurrentRoundPairings(
       player2TotalMatchPoints: competitor2.matchPoints,
       tableNumber: match.tableNumber,
       status: match.hasResult ? "COMPLETE" : "IN_PROGRESS",
+      featuredInMelee: match.isFeatureMatch,
       createdAt: Date.now(),
     });
   }
