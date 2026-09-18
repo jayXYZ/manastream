@@ -2,6 +2,7 @@ import {
   internalAction,
   internalMutation,
   internalQuery,
+  mutation,
   query,
 } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
@@ -9,12 +10,13 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { logIntegrationEvent } from "./lib/logging";
-import { POLLING_INTERVAL } from "./lib/constants";
+import { MANUAL_POLL_COOLDOWN, POLLING_INTERVAL } from "./lib/constants";
 import {
   settingsValidator,
   externalTournamentValidator,
   tournamentValidator,
   roundSnapshotValidator,
+  manualPollResultValidator,
 } from "./validators";
 import { checkForNewRound } from "./lib/rounds";
 import {
@@ -52,11 +54,14 @@ import {
   changedPollingStatusFields,
   isPollingCycleCurrent,
   isRoundChange,
+  manualPollDecision,
   parseAllowCompletedTournamentPolling,
   pollingCycleFailureUpdates,
   shouldStopPollingForCompletedTournament,
 } from "./lib/pollingBehavior";
 import { getPollingSession } from "./lib/pollingSession";
+import { requireAuth } from "./lib/auth";
+import { getOwnTournament } from "./lib/tournaments";
 import {
   getMeleeCredentialsFromSettings,
   hasMeleeCredentials,
@@ -409,6 +414,7 @@ export const finishPollingCycleAndScheduleNext = internalMutation({
     await ctx.db.patch(session._id, {
       pollingCycleId: nextPollingCycleId,
       pollingCycleStartedAt: undefined,
+      lastCycleFinishedAt: Date.now(),
     });
     await ctx.scheduler.runAfter(
       args.delayMs,
@@ -426,6 +432,62 @@ export const finishPollingCycleAndScheduleNext = internalMutation({
       delayMs: args.delayMs,
     });
     return true;
+  },
+});
+
+/**
+ * "Refresh now": run a poll cycle immediately instead of waiting for the
+ * scheduled one. Rotates the cycle id so the already-scheduled run (and its
+ * watchdog) fail their cycle check and exit, then schedules a fresh cycle at
+ * delay 0. Refuses while a cycle is executing or shortly after one finished.
+ */
+export const requestImmediatePoll = mutation({
+  args: {},
+  returns: manualPollResultValidator,
+  handler: async (ctx) => {
+    const userId = await requireAuth(ctx);
+    const tournament = await getOwnTournament(ctx);
+    const session = await getPollingSession(ctx, tournament._id);
+    const decision = manualPollDecision({
+      mode: tournament.mode,
+      pollingStatus: tournament.pollingStatus,
+      hasSession: session !== null,
+      pollingCycleStartedAt: session?.pollingCycleStartedAt,
+      lastCycleFinishedAt: session?.lastCycleFinishedAt,
+      now: Date.now(),
+      cooldownMs: MANUAL_POLL_COOLDOWN,
+    });
+    if (decision !== "scheduled" || !session) {
+      return decision;
+    }
+
+    const nextPollingCycleId = crypto.randomUUID();
+    await ctx.db.patch(session._id, {
+      pollingCycleId: nextPollingCycleId,
+      pollingCycleStartedAt: undefined,
+    });
+    await ctx.scheduler.runAfter(
+      0,
+      internal.tournamentSync.pollTournamentAndScheduleNext,
+      {
+        userId,
+        pollingSessionId: session.pollingSessionId,
+        pollingCycleId: nextPollingCycleId,
+      },
+    );
+    await schedulePollingCycleWatchdog(ctx, {
+      userId,
+      pollingSessionId: session.pollingSessionId,
+      pollingCycleId: nextPollingCycleId,
+    });
+    await logIntegrationEvent(ctx, {
+      userId,
+      tournamentId: tournament._id,
+      action: "MANUAL_POLL_REQUESTED",
+      status: "info",
+      message: "Refresh requested. Polling Melee now.",
+    });
+    return decision;
   },
 });
 

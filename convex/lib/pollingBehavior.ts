@@ -135,3 +135,42 @@ export function isRoundChange(args: {
     args.polledRoundNumber !== args.storedRoundNumber
   );
 }
+
+export type ManualPollDecision =
+  | "scheduled"
+  | "not_polling"
+  | "in_progress"
+  | "cooldown";
+
+/**
+ * Whether a "refresh now" request may start a poll cycle immediately.
+ * Refuses while a cycle is executing, and briefly after one finishes so a
+ * double-click cannot hammer Melee.
+ */
+export function manualPollDecision(args: {
+  mode: "manual" | "auto";
+  pollingStatus?: "active" | "inactive" | "error";
+  hasSession: boolean;
+  pollingCycleStartedAt?: number;
+  lastCycleFinishedAt?: number;
+  now: number;
+  cooldownMs: number;
+}): ManualPollDecision {
+  if (
+    args.mode !== "auto" ||
+    args.pollingStatus !== "active" ||
+    !args.hasSession
+  ) {
+    return "not_polling";
+  }
+  if (args.pollingCycleStartedAt !== undefined) {
+    return "in_progress";
+  }
+  if (
+    args.lastCycleFinishedAt !== undefined &&
+    args.now - args.lastCycleFinishedAt < args.cooldownMs
+  ) {
+    return "cooldown";
+  }
+  return "scheduled";
+}

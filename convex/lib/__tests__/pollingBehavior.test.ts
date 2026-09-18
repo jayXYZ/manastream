@@ -9,6 +9,7 @@ import {
   pollingCycleFailureUpdates,
   changedPollingStatusFields,
   isRoundChange,
+  manualPollDecision,
   shouldStopPollingForCompletedTournament,
 } from "../pollingBehavior";
 
@@ -247,5 +248,49 @@ describe("isRoundChange", () => {
         polledRoundNumber: 4,
       }),
     ).toBe(true);
+  });
+});
+
+describe("manualPollDecision", () => {
+  const polling = {
+    mode: "auto" as const,
+    pollingStatus: "active" as const,
+    hasSession: true,
+    now: 100_000,
+    cooldownMs: 15_000,
+  };
+
+  it("schedules when auto sync is idle between cycles", () => {
+    expect(manualPollDecision(polling)).toBe("scheduled");
+    expect(
+      manualPollDecision({ ...polling, lastCycleFinishedAt: 50_000 }),
+    ).toBe("scheduled");
+  });
+
+  it("refuses when auto sync is not running", () => {
+    expect(manualPollDecision({ ...polling, mode: "manual" })).toBe(
+      "not_polling",
+    );
+    expect(manualPollDecision({ ...polling, pollingStatus: "inactive" })).toBe(
+      "not_polling",
+    );
+    expect(manualPollDecision({ ...polling, hasSession: false })).toBe(
+      "not_polling",
+    );
+  });
+
+  it("refuses while a cycle is executing", () => {
+    expect(
+      manualPollDecision({ ...polling, pollingCycleStartedAt: 99_000 }),
+    ).toBe("in_progress");
+  });
+
+  it("refuses briefly after a cycle finishes", () => {
+    expect(
+      manualPollDecision({ ...polling, lastCycleFinishedAt: 90_000 }),
+    ).toBe("cooldown");
+    expect(
+      manualPollDecision({ ...polling, lastCycleFinishedAt: 85_000 }),
+    ).toBe("scheduled");
   });
 });
