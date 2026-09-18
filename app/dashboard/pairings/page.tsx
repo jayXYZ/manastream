@@ -1,9 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
+import { Star } from "lucide-react";
 import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 import { filterPairingsByMinimumMatchPoints } from "@/convex/lib/pairingRankings";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -38,20 +43,49 @@ const emptyStateCopy = {
 
 export default function PairingsPage() {
   const result = useQuery(api.pairings.getCurrentRoundPairings);
+  const featuredMatchIds = useQuery(
+    api.featurematches.getCurrentRoundFeaturedMatchIds,
+  );
+  const setPairingFeatured = useMutation(api.featurematches.setPairingFeatured);
   const [minimumPointsThreshold, setMinimumPointsThreshold] = useState(0);
+  const [featuredOnly, setFeaturedOnly] = useState(false);
+  const [pendingPairingId, setPendingPairingId] =
+    useState<Id<"pairings"> | null>(null);
+  const featuredSet = useMemo(
+    () => new Set(featuredMatchIds ?? []),
+    [featuredMatchIds],
+  );
   const maximumPointsThreshold = getMaximumPointsThreshold(result?.roundNumber);
   const selectedMinimumPointsThreshold = Math.min(
     minimumPointsThreshold,
     maximumPointsThreshold,
   );
-  const visiblePairings = useMemo(
-    () =>
-      filterPairingsByMinimumMatchPoints(
-        result?.pairings ?? [],
-        selectedMinimumPointsThreshold,
-      ),
-    [result?.pairings, selectedMinimumPointsThreshold],
-  );
+  const visiblePairings = useMemo(() => {
+    const byPoints = filterPairingsByMinimumMatchPoints(
+      result?.pairings ?? [],
+      selectedMinimumPointsThreshold,
+    );
+    return featuredOnly
+      ? byPoints.filter((pairing) => featuredSet.has(pairing.externalMatchId))
+      : byPoints;
+  }, [
+    result?.pairings,
+    selectedMinimumPointsThreshold,
+    featuredOnly,
+    featuredSet,
+  ]);
+
+  const handleToggleFeatured = async (
+    pairingId: Id<"pairings">,
+    featured: boolean,
+  ) => {
+    setPendingPairingId(pairingId);
+    try {
+      await setPairingFeatured({ pairingId, featured });
+    } finally {
+      setPendingPairingId(null);
+    }
+  };
 
   if (result === undefined) {
     return <PairingsLoading />;
@@ -75,6 +109,7 @@ export default function PairingsPage() {
         <div className="flex gap-6 text-sm">
           <Stat label="Captured" value={String(result.pairingCount)} />
           <Stat label="Showing" value={String(visiblePairings.length)} />
+          <Stat label="Featured" value={String(featuredSet.size)} />
           <Stat label="Round" value={roundLabel || "N/A"} />
         </div>
       </div>
@@ -92,6 +127,16 @@ export default function PairingsPage() {
               <p className="text-xs text-muted-foreground">
                 Shows pairings where either player meets the threshold.
               </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                id="featured-only"
+                checked={featuredOnly}
+                onCheckedChange={setFeaturedOnly}
+              />
+              <Label htmlFor="featured-only" className="text-sm">
+                Featured only
+              </Label>
             </div>
             <div className="flex w-full flex-col gap-2 md:w-72">
               <Slider
@@ -115,6 +160,7 @@ export default function PairingsPage() {
             <Table>
               <TableHeader className="[&_tr]:border-0">
                 <TableRow className="bg-muted/40 hover:bg-muted/40">
+                  <TableHead className="w-14">Feature</TableHead>
                   <TableHead className="w-16">Rank</TableHead>
                   <TableHead className="w-16">Table</TableHead>
                   <TableHead>Player 1</TableHead>
@@ -130,58 +176,95 @@ export default function PairingsPage() {
             {visiblePairings.length > 0 ? (
               <Table>
                 <TableBody>
-                  {visiblePairings.map((pairing) => (
-                    <TableRow key={pairing._id} className="hover:bg-muted/30">
-                      <TableCell className="w-16 font-mono text-muted-foreground">
-                        {pairing.rank}
-                      </TableCell>
-                      <TableCell className="w-16 font-mono">
-                        {pairing.tableNumber ?? "N/A"}
-                      </TableCell>
-                      <TableCell>
-                        <PlayerCell
-                          name={pairing.player1Data?.name}
-                          deck={pairing.player1Data?.deckName}
-                          record={pairing.player1TournamentRecord}
-                          points={pairing.player1TotalMatchPoints}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <PlayerCell
-                          name={pairing.player2Data?.name}
-                          deck={pairing.player2Data?.deckName}
-                          record={pairing.player2TournamentRecord}
-                          points={pairing.player2TotalMatchPoints}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <div
-                          className={cn(
-                            "max-w-[24rem] truncate text-sm",
-                            !pairing.hasKnownDecks && "text-muted-foreground",
-                          )}
-                        >
-                          {pairing.player1MacroArchetype &&
-                          pairing.player2MacroArchetype
-                            ? `${pairing.player1MacroArchetype} vs ${pairing.player2MacroArchetype}`
-                            : "Unknown matchup"}
-                        </div>
-                      </TableCell>
-                      <TableCell className="w-24 text-right font-mono">
-                        {pairing.uniquenessScore ?? "N/A"}
-                      </TableCell>
-                      <TableCell className="w-28">
-                        <span className="text-xs uppercase tracking-wide text-muted-foreground">
-                          {pairing.status}
-                        </span>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {visiblePairings.map((pairing) => {
+                    const isFeatured = featuredSet.has(pairing.externalMatchId);
+                    return (
+                      <TableRow key={pairing._id} className="hover:bg-muted/30">
+                        <TableCell className="w-14">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            aria-pressed={isFeatured}
+                            aria-label={
+                              isFeatured
+                                ? "Remove from feature matches"
+                                : "Mark as feature match"
+                            }
+                            title={
+                              pairing.featuredInMelee
+                                ? "Flagged as a feature match in Melee"
+                                : undefined
+                            }
+                            disabled={pendingPairingId === pairing._id}
+                            onClick={() =>
+                              handleToggleFeatured(pairing._id, !isFeatured)
+                            }
+                          >
+                            <Star
+                              className={cn(
+                                isFeatured
+                                  ? "fill-yellow-400 text-yellow-400"
+                                  : pairing.featuredInMelee
+                                    ? "text-yellow-400/60"
+                                    : "text-muted-foreground/50",
+                              )}
+                            />
+                          </Button>
+                        </TableCell>
+                        <TableCell className="w-16 font-mono text-muted-foreground">
+                          {pairing.rank}
+                        </TableCell>
+                        <TableCell className="w-16 font-mono">
+                          {pairing.tableNumber ?? "N/A"}
+                        </TableCell>
+                        <TableCell>
+                          <PlayerCell
+                            name={pairing.player1Data?.name}
+                            deck={pairing.player1Data?.deckName}
+                            record={pairing.player1TournamentRecord}
+                            points={pairing.player1TotalMatchPoints}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <PlayerCell
+                            name={pairing.player2Data?.name}
+                            deck={pairing.player2Data?.deckName}
+                            record={pairing.player2TournamentRecord}
+                            points={pairing.player2TotalMatchPoints}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <div
+                            className={cn(
+                              "max-w-[24rem] truncate text-sm",
+                              !pairing.hasKnownDecks && "text-muted-foreground",
+                            )}
+                          >
+                            {pairing.player1MacroArchetype &&
+                            pairing.player2MacroArchetype
+                              ? `${pairing.player1MacroArchetype} vs ${pairing.player2MacroArchetype}`
+                              : "Unknown matchup"}
+                          </div>
+                        </TableCell>
+                        <TableCell className="w-24 text-right font-mono">
+                          {pairing.uniquenessScore ?? "N/A"}
+                        </TableCell>
+                        <TableCell className="w-28">
+                          <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                            {pairing.status}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             ) : (
               <div className="p-6 text-sm text-muted-foreground">
-                No pairings match the current points threshold.
+                {featuredOnly
+                  ? "No feature matches selected yet. Star a pairing to feature it."
+                  : "No pairings match the current points threshold."}
               </div>
             )}
           </ScrollArea>

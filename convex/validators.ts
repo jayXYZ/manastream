@@ -105,6 +105,8 @@ export const featureMatchValidator = v.object({
   player1TournamentRecord: v.string(),
   player2TournamentRecord: v.string(),
   tableNumber: v.optional(v.number()),
+  // Melee match GUID; set on rows created from a pairing.
+  externalMatchId: v.optional(v.string()),
   createdAt: v.number(),
 });
 
@@ -127,6 +129,9 @@ export const pairingValidator = v.object({
   player2TotalMatchPoints: v.optional(v.number()),
   tableNumber: v.optional(v.number()),
   status: v.string(),
+  // Melee's own feature-match flag at the time the round was captured. A
+  // hint only; feature matches are selected in Manastream.
+  featuredInMelee: v.optional(v.boolean()),
   createdAt: v.number(),
 });
 
