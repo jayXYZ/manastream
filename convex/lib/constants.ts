@@ -20,3 +20,6 @@ export const LIFEAPP_TIMEOUT = 1000 * 60 * 2; // 2 min
 export const TOURNAMENT_TIMEOUT = 1000 * 60 * 60 * 24; // 24 hours
 
 export const POLLING_INTERVAL = 1000 * 60 * 2; // 2 minutes
+
+// Minimum gap between a finished poll cycle and a manually requested one.
+export const MANUAL_POLL_COOLDOWN = 1000 * 15; // 15 seconds

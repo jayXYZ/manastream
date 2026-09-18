@@ -63,7 +63,15 @@ export const pollingSessionValidator = v.object({
   pollingSessionId: v.string(),
   pollingCycleId: v.string(),
   pollingCycleStartedAt: v.optional(v.number()),
+  lastCycleFinishedAt: v.optional(v.number()),
 });
+
+export const manualPollResultValidator = v.union(
+  v.literal("scheduled"),
+  v.literal("not_polling"),
+  v.literal("in_progress"),
+  v.literal("cooldown"),
+);
 
 export const externalTournamentValidator = v.object({
   _id: v.id("externalTournaments"),
