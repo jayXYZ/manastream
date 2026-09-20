@@ -211,8 +211,11 @@ export const setOverlayFeatureMatch = mutation({
       ? featureMatch.player1TournamentRecord
       : featureMatch.player2TournamentRecord;
 
-    // TODO: am i forgetting to swap the tournament records?
+    // Start from a clean match so a feature match selected mid-round (after a
+    // previous match finished on this overlay) doesn't inherit stale life
+    // totals, game counts, or manual display overrides.
     await ctx.db.patch(args.overlayId, {
+      ...DEFAULT_MATCH,
       player1,
       player2,
       player1TournamentRecord,
