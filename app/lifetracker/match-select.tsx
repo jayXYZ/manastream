@@ -65,6 +65,22 @@ export default function MatchSelect(props: {
     </Button>
   ) : null;
 
+  // Always available on the confirmation screen so a wrong tap can be undone
+  // without leaving the picker, at round start or mid-round.
+  const backToListButton = (
+    <Button
+      variant="outline"
+      onClick={() => {
+        setShowPlayerSelect(false);
+        setSelectedMatch(null);
+      }}
+      className="w-full h-16 text-lg font-bold"
+    >
+      <ArrowLeft className="size-5 mr-2" />
+      Back to Feature Match List
+    </Button>
+  );
+
   if (!tournament) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -106,7 +122,7 @@ export default function MatchSelect(props: {
           <div className="text-xl font-bold text-center">
             No match selected or player data not found
           </div>
-          {cancelButton}
+          {backToListButton}
         </div>
       );
     }
@@ -132,7 +148,7 @@ export default function MatchSelect(props: {
               Confirm
             </Button>
           </div>
-          {cancelButton}
+          {backToListButton}
         </div>
         <div className="text-2xl font-bold text-center">
           {playersSwitched
