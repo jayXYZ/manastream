@@ -593,3 +593,183 @@ export const roundSnapshotValidator = v.object({
   isEliminationRound: v.boolean(),
   matches: v.array(snapshotMatchValidator),
 });
+
+// ---------------------------------------------------------------------------
+// Automations: triggers, conditions, actions, deliveries, and OBS bridge
+// ---------------------------------------------------------------------------
+
+export const AUTOMATION_TRIGGERS = [
+  "round.started",
+  "timer.started",
+  "timer.paused",
+  "tournament.polling.started",
+  "tournament.polling.stopped",
+  "tournament.polling.error",
+  "obs.streaming.started",
+  "obs.streaming.stopped",
+  "obs.scene.changed",
+] as const;
+
+export type AutomationTrigger = (typeof AUTOMATION_TRIGGERS)[number];
+
+export const automationTriggerValidator = v.union(
+  ...AUTOMATION_TRIGGERS.map((trigger) => v.literal(trigger)),
+);
+
+export const automationConditionValidator = v.object({
+  // Dot path into the event payload, e.g. "roundNumber" or "scene.name".
+  path: v.string(),
+  op: v.union(
+    v.literal("equals"),
+    v.literal("notEquals"),
+    v.literal("gt"),
+    v.literal("gte"),
+    v.literal("lt"),
+    v.literal("lte"),
+    v.literal("contains"),
+  ),
+  value: v.union(v.string(), v.number(), v.boolean()),
+});
+
+export const obsCommandValidator = v.union(
+  v.object({ kind: v.literal("streaming.start") }),
+  v.object({ kind: v.literal("streaming.stop") }),
+  v.object({ kind: v.literal("recording.start") }),
+  v.object({ kind: v.literal("recording.stop") }),
+  v.object({ kind: v.literal("replayBuffer.save") }),
+  v.object({ kind: v.literal("scene.set"), sceneName: v.string() }),
+  v.object({
+    kind: v.literal("sceneItem.setEnabled"),
+    sceneName: v.string(),
+    sourceName: v.string(),
+    enabled: v.boolean(),
+  }),
+  v.object({
+    kind: v.literal("filter.setEnabled"),
+    sourceName: v.string(),
+    filterName: v.string(),
+    enabled: v.boolean(),
+  }),
+  v.object({
+    kind: v.literal("raw"),
+    requestType: v.string(),
+    requestData: v.optional(v.any()),
+  }),
+);
+
+export const webhookActionValidator = v.object({
+  type: v.literal("webhook"),
+  url: v.string(),
+  method: v.union(v.literal("POST"), v.literal("PUT"), v.literal("GET")),
+  headers: v.optional(v.record(v.string(), v.string())),
+  // Optional body template. `{{path}}` placeholders are resolved against the
+  // event envelope, e.g. `{{type}}` or `{{payload.roundNumber}}`. When omitted
+  // the full event envelope is sent as JSON.
+  bodyTemplate: v.optional(v.string()),
+});
+
+export const obsActionValidator = v.object({
+  type: v.literal("obs"),
+  controllerId: v.id("obsControllers"),
+  command: obsCommandValidator,
+});
+
+export const automationActionValidator = v.union(
+  webhookActionValidator,
+  obsActionValidator,
+);
+
+export const automationValidator = v.object({
+  _id: v.id("automations"),
+  _creationTime: v.number(),
+  userId: v.id("users"),
+  name: v.string(),
+  enabled: v.boolean(),
+  trigger: automationTriggerValidator,
+  conditions: v.array(automationConditionValidator),
+  action: automationActionValidator,
+  // Used to sign webhook requests. Never returned to the client.
+  webhookSecret: v.optional(v.string()),
+  consecutiveFailures: v.number(),
+  lastTriggeredAt: v.optional(v.number()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+});
+
+export const automationEventValidator = v.object({
+  _id: v.id("automationEvents"),
+  _creationTime: v.number(),
+  userId: v.id("users"),
+  tournamentId: v.optional(v.id("tournaments")),
+  type: automationTriggerValidator,
+  payload: v.any(),
+  dedupeKey: v.optional(v.string()),
+  isTest: v.optional(v.boolean()),
+  createdAt: v.number(),
+});
+
+export const automationDeliveryStatusValidator = v.union(
+  v.literal("pending"),
+  v.literal("success"),
+  v.literal("failed"),
+);
+
+export const automationDeliveryValidator = v.object({
+  _id: v.id("automationDeliveries"),
+  _creationTime: v.number(),
+  userId: v.id("users"),
+  automationId: v.id("automations"),
+  eventId: v.id("automationEvents"),
+  actionType: v.union(v.literal("webhook"), v.literal("obs")),
+  status: automationDeliveryStatusValidator,
+  attempts: v.number(),
+  lastError: v.optional(v.string()),
+  responseStatus: v.optional(v.number()),
+  obsCommandId: v.optional(v.id("obsCommands")),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+});
+
+export const obsStateValidator = v.object({
+  connected: v.boolean(),
+  streaming: v.optional(v.boolean()),
+  recording: v.optional(v.boolean()),
+  currentScene: v.optional(v.string()),
+});
+
+export const obsControllerValidator = v.object({
+  _id: v.id("obsControllers"),
+  _creationTime: v.number(),
+  userId: v.id("users"),
+  name: v.string(),
+  // Capability token used by the bridge. Treat like a public overlay UUID.
+  token: v.string(),
+  lastSeenAt: v.optional(v.number()),
+  bridgeVersion: v.optional(v.string()),
+  obsState: v.optional(obsStateValidator),
+  createdAt: v.number(),
+});
+
+export const obsCommandStatusValidator = v.union(
+  v.literal("pending"),
+  v.literal("running"),
+  v.literal("succeeded"),
+  v.literal("failed"),
+  v.literal("expired"),
+);
+
+export const obsCommandRowValidator = v.object({
+  _id: v.id("obsCommands"),
+  _creationTime: v.number(),
+  userId: v.id("users"),
+  controllerId: v.id("obsControllers"),
+  deliveryId: v.optional(v.id("automationDeliveries")),
+  command: obsCommandValidator,
+  status: obsCommandStatusValidator,
+  expiresAt: v.number(),
+  claimedAt: v.optional(v.number()),
+  completedAt: v.optional(v.number()),
+  result: v.optional(v.any()),
+  error: v.optional(v.string()),
+  createdAt: v.number(),
+});

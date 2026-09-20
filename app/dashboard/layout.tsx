@@ -9,6 +9,7 @@ import {
   ChevronsRight,
   User,
   Swords,
+  Zap,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -53,6 +54,11 @@ const navigationItems = [
     name: "Pairings",
     href: "/dashboard/pairings",
     icon: Swords,
+  },
+  {
+    name: "Automations",
+    href: "/dashboard/automations",
+    icon: Zap,
   },
 ];
 

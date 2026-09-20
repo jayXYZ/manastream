@@ -30,6 +30,11 @@ and lifetracker/controller workflows for live matches.
   player workflows.
 - **Decklist PDF tooling** for generating DCI decklist PDFs from exported
   Convex player data.
+- **Automations** that react to events such as a new round, a timer change,
+  or a sync status change by calling signed webhooks or sending commands to
+  OBS (start/stop streaming, switch scenes, toggle sources) through the
+  bundled OBS bridge. See `packages/obs-bridge/README.md` and
+  `docs/superpowers/specs/2026-09-17-automations-design.md`.
 
 ## Tech Stack
 
@@ -109,6 +114,8 @@ User-specific Spicerack credentials are entered in the app under
 | `npm run lint` | Runs ESLint across the repository. |
 | `npm run test` | Runs the Vitest suite. |
 | `npm run decklists:pdf` | Generates decklist PDFs with `scripts/generate-decklist-pdfs.mjs`. |
+| `npm run bridge:build` | Builds the OBS bridge CLI in `packages/obs-bridge`. |
+| `npm run bridge:start` | Runs the built OBS bridge (see its README for configuration). |
 
 ## Project Map
 
@@ -122,6 +129,8 @@ User-specific Spicerack credentials are entered in the app under
 - `lib/` contains frontend and shared helpers for time, overlay templates,
   palette data, pairings, meta breakdowns, and related tests.
 - `scripts/` contains command-line tooling for decklist PDF generation.
+- `packages/obs-bridge/` contains the Node CLI that runs next to OBS and
+  executes automation commands over obs-websocket.
 - `public/` contains fonts, PWA files, logos, card/overlay imagery, and static
   assets served by the app.
 - `docs/superpowers/` contains design specs and implementation plans produced
@@ -132,6 +141,8 @@ User-specific Spicerack credentials are entered in the app under
 - `/` is the landing page and authenticated entry point.
 - `/login` and nested login routes handle sign-in, email verification, and
   password reset flows.
+- `/dashboard/automations` manages OBS controllers, trigger/action rules,
+  and the delivery log.
 - `/dashboard/controllers` is the primary live-control surface for stream
   operators.
 - `/dashboard/overlays` manages overlay URLs and settings.

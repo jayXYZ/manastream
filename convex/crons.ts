@@ -10,4 +10,11 @@ crons.daily(
   internal.settings.cleanupOldIntegrationLogs,
 );
 
+// Clean up automation events, deliveries, and OBS commands older than a week
+crons.daily(
+  "cleanupOldAutomationHistory",
+  { hourUTC: 0, minuteUTC: 15 },
+  internal.automations.cleanupOldAutomationHistory,
+);
+
 export default crons;

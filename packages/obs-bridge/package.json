@@ -1,0 +1,29 @@
+{
+  "name": "@manastream/obs-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Runs on the OBS machine and executes ManaStream automation commands through obs-websocket.",
+  "type": "module",
+  "bin": {
+    "manastream-obs-bridge": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "node dist/cli.js"
+  },
+  "dependencies": {
+    "convex": "^1.36.1",
+    "obs-websocket-js": "^5.0.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "typescript": "^5"
+  }
+}

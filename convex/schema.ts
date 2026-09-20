@@ -15,6 +15,11 @@ import {
   roundStandingsValidator,
   pairingValidator,
   scryfallCardCacheValidator,
+  automationValidator,
+  automationEventValidator,
+  automationDeliveryValidator,
+  obsControllerValidator,
+  obsCommandRowValidator,
 } from "./validators";
 
 // The schema is normally optional, but Convex Auth
@@ -112,4 +117,33 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_user_and_timestamp", ["userId", "timestamp"])
     .index("by_timestamp", ["timestamp"]),
+
+  // Automations: user-defined trigger -> action rules
+  automations: defineTable(automationValidator)
+    .index("by_user", ["userId"])
+    .index("by_user_and_trigger", ["userId", "trigger"]),
+
+  // Durable record of emitted events (outbox + history)
+  automationEvents: defineTable(automationEventValidator)
+    .index("by_user_and_created", ["userId", "createdAt"])
+    .index("by_dedupe_key", ["dedupeKey"])
+    .index("by_created", ["createdAt"]),
+
+  // One row per automation matched by an event; tracks delivery outcome
+  automationDeliveries: defineTable(automationDeliveryValidator)
+    .index("by_user_and_created", ["userId", "createdAt"])
+    .index("by_automation", ["automationId"])
+    .index("by_created", ["createdAt"]),
+
+  // OBS bridge registrations (one per OBS machine)
+  obsControllers: defineTable(obsControllerValidator)
+    .index("by_user", ["userId"])
+    .index("by_token", ["token"]),
+
+  // Command queue drained by OBS bridges
+  obsCommands: defineTable(obsCommandRowValidator)
+    .index("by_controller_and_status", ["controllerId", "status"])
+    .index("by_status_and_expires", ["status", "expiresAt"])
+    .index("by_user_and_created", ["userId", "createdAt"])
+    .index("by_created", ["createdAt"]),
 });
