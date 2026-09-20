@@ -102,10 +102,11 @@ export default function MatchSelect(props: {
       !selectedMatch.player2Data
     ) {
       return (
-        <div className="flex items-center justify-center h-full">
+        <div className="flex flex-col items-center justify-center h-full gap-4">
           <div className="text-xl font-bold text-center">
             No match selected or player data not found
           </div>
+          {cancelButton}
         </div>
       );
     }
@@ -116,19 +117,22 @@ export default function MatchSelect(props: {
             ? selectedMatch.player1Data.name
             : selectedMatch.player2Data.name}
         </div>
-        <div className="flex gap-4">
-          <Button
-            onClick={() => setPlayersSwitched(!playersSwitched)}
-            className="w-full h-20 text-xl font-bold px-6 whitespace-normal break-words"
-          >
-            Switch Players
-          </Button>
-          <Button
-            onClick={handlePlayerSelect}
-            className="h-20 text-xl font-bold px-8 whitespace-normal"
-          >
-            Confirm
-          </Button>
+        <div className="flex flex-col gap-4">
+          <div className="flex gap-4">
+            <Button
+              onClick={() => setPlayersSwitched(!playersSwitched)}
+              className="w-full h-20 text-xl font-bold px-6 whitespace-normal break-words"
+            >
+              Switch Players
+            </Button>
+            <Button
+              onClick={handlePlayerSelect}
+              className="h-20 text-xl font-bold px-8 whitespace-normal"
+            >
+              Confirm
+            </Button>
+          </div>
+          {cancelButton}
         </div>
         <div className="text-2xl font-bold text-center">
           {playersSwitched
