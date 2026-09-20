@@ -5,8 +5,15 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { FeatureMatchWithPlayers } from "@/convex/types";
 import { Id } from "@/convex/_generated/dataModel";
+import { ArrowLeft } from "lucide-react";
 
-export default function MatchSelect() {
+export default function MatchSelect(props: {
+  /** Called after a feature match has been applied to the overlay. */
+  onSelected?: () => void;
+  /** When provided, shows a back button that leaves the picker without changes. */
+  onCancel?: () => void;
+}) {
+  const { onSelected, onCancel } = props;
   const [showPlayerSelect, setShowPlayerSelect] = useState(false);
   const [selectedMatch, setSelectedMatch] =
     useState<FeatureMatchWithPlayers | null>(null);
@@ -16,6 +23,9 @@ export default function MatchSelect() {
   const playersSwitched = useLifeTrackerStore((state) => state.playersSwitched);
   const setPlayersSwitched = useLifeTrackerStore(
     (state) => state.setPlayersSwitched,
+  );
+  const resetBothPlayers = useLifeTrackerStore(
+    (state) => state.resetBothPlayers,
   );
   const tournament = useQuery(api.tournaments.getUserTournament);
 
@@ -31,14 +41,45 @@ export default function MatchSelect() {
     setShowPlayerSelect(true);
   };
 
-  const handlePlayerSelect = () => {
+  const handlePlayerSelect = async () => {
     setShowPlayerSelect(false);
-    setOverlayFeatureMatch({
+    await setOverlayFeatureMatch({
       overlayId: connectedOverlayId as Id<"overlays">,
       featureMatchId: selectedMatch?._id as Id<"featureMatches">,
       playersSwapped: playersSwitched,
     });
+    // The mutation resets the overlay's life totals; mirror that locally so the
+    // trackers don't show the previous match's totals.
+    resetBothPlayers();
+    onSelected?.();
   };
+
+  const cancelButton = onCancel ? (
+    <Button
+      variant="outline"
+      onClick={onCancel}
+      className="w-[80%] h-16 text-lg font-bold mx-auto"
+    >
+      <ArrowLeft className="size-5 mr-2" />
+      Back to Current Match
+    </Button>
+  ) : null;
+
+  // Always available on the confirmation screen so a wrong tap can be undone
+  // without leaving the picker, at round start or mid-round.
+  const backToListButton = (
+    <Button
+      variant="outline"
+      onClick={() => {
+        setShowPlayerSelect(false);
+        setSelectedMatch(null);
+      }}
+      className="w-full h-16 text-lg font-bold"
+    >
+      <ArrowLeft className="size-5 mr-2" />
+      Back to Feature Match List
+    </Button>
+  );
 
   if (!tournament) {
     return (
@@ -65,6 +106,7 @@ export default function MatchSelect() {
         <div className="text-lg text-muted-foreground text-center">
           Waiting for feature matches to be selected for the current round.
         </div>
+        {cancelButton}
       </div>
     );
   }
@@ -76,10 +118,11 @@ export default function MatchSelect() {
       !selectedMatch.player2Data
     ) {
       return (
-        <div className="flex items-center justify-center h-full">
+        <div className="flex flex-col items-center justify-center h-full gap-4">
           <div className="text-xl font-bold text-center">
             No match selected or player data not found
           </div>
+          {backToListButton}
         </div>
       );
     }
@@ -90,19 +133,22 @@ export default function MatchSelect() {
             ? selectedMatch.player1Data.name
             : selectedMatch.player2Data.name}
         </div>
-        <div className="flex gap-4">
-          <Button
-            onClick={() => setPlayersSwitched(!playersSwitched)}
-            className="w-full h-20 text-xl font-bold px-6 whitespace-normal break-words"
-          >
-            Switch Players
-          </Button>
-          <Button
-            onClick={handlePlayerSelect}
-            className="h-20 text-xl font-bold px-8 whitespace-normal"
-          >
-            Confirm
-          </Button>
+        <div className="flex flex-col gap-4">
+          <div className="flex gap-4">
+            <Button
+              onClick={() => setPlayersSwitched(!playersSwitched)}
+              className="w-full h-20 text-xl font-bold px-6 whitespace-normal break-words"
+            >
+              Switch Players
+            </Button>
+            <Button
+              onClick={handlePlayerSelect}
+              className="h-20 text-xl font-bold px-8 whitespace-normal"
+            >
+              Confirm
+            </Button>
+          </div>
+          {backToListButton}
         </div>
         <div className="text-2xl font-bold text-center">
           {playersSwitched
@@ -125,6 +171,7 @@ export default function MatchSelect() {
           {match.player2Data?.name || "Player 2"}
         </Button>
       ))}
+      {cancelButton}
     </div>
   );
 }

@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Check, RotateCcw, X, ArrowLeft } from "lucide-react";
+import { Check, RotateCcw, X, ArrowLeft, ListChecks } from "lucide-react";
 import { Id } from "@/convex/_generated/dataModel";
 
 // Utility function to clear localStorage if there are persistence issues
@@ -49,8 +49,10 @@ function useOverlayValidation() {
 
 export default function AdminSettings(props: {
   setShowAdminSettings: (show: boolean) => void;
+  /** Reopens the feature match picker mid-round. Omitted when unavailable. */
+  onSelectFeatureMatch?: () => void;
 }) {
-  const { setShowAdminSettings } = props;
+  const { setShowAdminSettings, onSelectFeatureMatch } = props;
   const { allOverlays, connectedOverlayId, setConnectedOverlayId } =
     useOverlayValidation();
   const connectedOverlayValue = connectedOverlayId || "none";
@@ -177,6 +179,18 @@ export default function AdminSettings(props: {
               Admin Actions
             </h3>
             <div className="space-y-2">
+              {onSelectFeatureMatch && (
+                <Button
+                  onClick={onSelectFeatureMatch}
+                  variant="outline"
+                  className="w-full h-10"
+                  disabled={!connectedOverlayId}
+                >
+                  <ListChecks className="h-4 w-4 mr-2" />
+                  Select Feature Match
+                </Button>
+              )}
+
               <Button
                 onClick={handleMatchReset}
                 variant="destructive"

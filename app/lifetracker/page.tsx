@@ -33,6 +33,9 @@ function LifeTrackerContent() {
     (state) => state.connectedOverlayId,
   );
   const [showAdminSettings, setShowAdminSettings] = useState(false);
+  // Forces the feature match picker mid-round (e.g. a new match is being put on
+  // camera after the previous one on this table finished).
+  const [showMatchSelect, setShowMatchSelect] = useState(false);
   const tournament = useQuery(api.tournaments.getUserTournament);
   const tournamentMode = tournament?.mode;
   const overlayData = useQuery(
@@ -80,7 +83,19 @@ function LifeTrackerContent() {
   }
 
   if (!connectedOverlayId || showAdminSettings) {
-    return <AdminSettings setShowAdminSettings={setShowAdminSettings} />;
+    return (
+      <AdminSettings
+        setShowAdminSettings={setShowAdminSettings}
+        onSelectFeatureMatch={
+          tournamentMode === "auto"
+            ? () => {
+                setShowMatchSelect(true);
+                setShowAdminSettings(false);
+              }
+            : undefined
+        }
+      />
+    );
   }
 
   if (!overlayData) {
@@ -98,13 +113,13 @@ function LifeTrackerContent() {
     throw new Error("Overlay is not a match overlay");
   }
 
-  if (
-    tournamentMode === "auto" &&
+  const overlayHasNoMatch =
     !overlayData.player1 &&
     !overlayData.player2 &&
     !overlayData.player1DisplayName &&
-    !overlayData.player2DisplayName
-  ) {
+    !overlayData.player2DisplayName;
+
+  if (tournamentMode === "auto" && (overlayHasNoMatch || showMatchSelect)) {
     return (
       <div className="flex flex-col h-screen-dynamic w-full overscroll-none overflow-hidden">
         <div className="absolute top-4 right-4 z-10 dark:hover:bg-black/30 hover:bg-black/30 active:bg-black/50 dark:active:bg-black/50">
@@ -117,7 +132,14 @@ function LifeTrackerContent() {
           </Button>
         </div>
         <div className="flex-1 flex items-center justify-center w-full">
-          <MatchSelect />
+          <MatchSelect
+            onSelected={() => setShowMatchSelect(false)}
+            onCancel={
+              showMatchSelect && !overlayHasNoMatch
+                ? () => setShowMatchSelect(false)
+                : undefined
+            }
+          />
         </div>
       </div>
     );
