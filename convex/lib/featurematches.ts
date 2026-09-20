@@ -115,8 +115,8 @@ export async function createFeatureMatchFromPairing(
 }
 
 /**
- * Remove the feature match for a pairing, clearing any deck overlay that
- * still points at it so overlays never reference a missing row.
+ * Remove the shared feature match for a pairing, clearing deck overlays
+ * across all tournaments that reference it in the same transaction.
  */
 export async function removeFeatureMatchForPairing(
   ctx: MutationCtx,
@@ -134,17 +134,11 @@ export async function removeFeatureMatchForPairing(
     return;
   }
 
-  const overlays = await ctx.db
+  const overlays = ctx.db
     .query("overlays")
-    .withIndex("by_tournament", (q) =>
-      q.eq("tournamentId", pairing.tournamentId),
-    )
-    .collect();
-  for (const overlay of overlays) {
-    if (
-      overlay.overlayType === "deck" &&
-      overlay.matchId === featureMatch._id
-    ) {
+    .withIndex("by_matchId", (q) => q.eq("matchId", featureMatch._id));
+  for await (const overlay of overlays) {
+    if (overlay.overlayType === "deck") {
       await ctx.db.patch(overlay._id, { matchId: undefined });
     }
   }

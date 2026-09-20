@@ -52,6 +52,7 @@ export default defineSchema({
   overlays: defineTable(overlayValidator)
     .index("by_tournament", ["tournamentId"])
     .index("by_public_uuid", ["publicUuid"])
+    .index("by_matchId", ["matchId"])
     .index("by_overlay_type", ["overlayType"]),
 
   // Templates table
