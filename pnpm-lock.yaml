@@ -13,10 +13,10 @@ importers:
         version: 0.37.4
       '@convex-dev/auth':
         specifier: ^0.0.90
-        version: 0.0.90(@auth/core@0.37.4)(convex@1.36.1(react@19.2.4))(react@19.2.4)
+        version: 0.0.90(@auth/core@0.37.4)(convex@1.46.0(react@19.2.4))(react@19.2.4)
       '@convex-dev/migrations':
         specifier: ^0.3.4
-        version: 0.3.4(convex@1.36.1(react@19.2.4))
+        version: 0.3.4(convex@1.46.0(react@19.2.4))
       '@radix-ui/react-accordion':
         specifier: ^1.2.11
         version: 1.2.11(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -72,8 +72,8 @@ importers:
         specifier: ^1.1.1
         version: 1.1.1(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       convex:
-        specifier: ^1.36.1
-        version: 1.36.1(react@19.2.4)
+        specifier: ^1.46.0
+        version: 1.46.0(react@19.2.4)
       fabric:
         specifier: ^6.7.0
         version: 6.7.0
@@ -131,7 +131,7 @@ importers:
         version: 19.2.3(@types/react@19.2.14)
       convex-test:
         specifier: ^0.0.59
-        version: 0.0.59(convex@1.36.1(react@19.2.4))
+        version: 0.0.59(convex@1.46.0(react@19.2.4))
       dotenv:
         specifier: ^16.4.7
         version: 16.5.0
@@ -2371,9 +2371,9 @@ packages:
     peerDependencies:
       convex: ^1.43.0
 
-  convex@1.36.1:
-    resolution: {integrity: sha512-NVnwNqU+h8jyPuS0Itvj4MPH9c2yF+tA/RNoSDpCqiLhmYD4+kZxm0dDkVM0QDzz66wem9NqheBb9YQGsHwzBQ==}
-    engines: {node: '>=18.0.0', npm: '>=7.0.0'}
+  convex@1.46.0:
+    resolution: {integrity: sha512-dhBwDQTZDOhi5SUGAX17EWNehCdNq6/UFrSL0eLZuGfMkdsQbCVWVRZCzbZ5CF+/pgvoGxtApbEoTSipqL4JTw==}
+    engines: {node: '>=20.0.0', npm: '>=7.0.0'}
     hasBin: true
     peerDependencies:
       '@auth0/auth0-react': ^2.0.1
@@ -4336,8 +4336,8 @@ packages:
   wrappy@1.0.2:
     resolution: {integrity: sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ==}
 
-  ws@8.18.0:
-    resolution: {integrity: sha512-8VbfWfHLbbwu3+N6OKsOMpBdT4kXPDDB9cJk2bJ6mh9ucxdlnNvH1e+roYkKmN9Nxw2yjz7VzeO9oOz2zJ04Pw==}
+  ws@8.18.2:
+    resolution: {integrity: sha512-DMricUmwGZUVr++AEAe2uiVM7UoO9MAVZMDu05UQOaUII0lp+zOzLLU4Xqh/JvTqklB1T4uELaaPBKyjE1r4fQ==}
     engines: {node: '>=10.0.0'}
     peerDependencies:
       bufferutil: ^4.0.1
@@ -4348,8 +4348,8 @@ packages:
       utf-8-validate:
         optional: true
 
-  ws@8.18.2:
-    resolution: {integrity: sha512-DMricUmwGZUVr++AEAe2uiVM7UoO9MAVZMDu05UQOaUII0lp+zOzLLU4Xqh/JvTqklB1T4uELaaPBKyjE1r4fQ==}
+  ws@8.21.0:
+    resolution: {integrity: sha512-Vsp28b7DRcimFQvrqu2Wek3z1iYxDCWqHYB8Qsnk/S4RfaCQzPGPyBNuVjJV3cd6UiKtUtp6sNM77gWvzcCH+g==}
     engines: {node: '>=10.0.0'}
     peerDependencies:
       bufferutil: ^4.0.1
@@ -4525,12 +4525,12 @@ snapshots:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.28.5
 
-  '@convex-dev/auth@0.0.90(@auth/core@0.37.4)(convex@1.36.1(react@19.2.4))(react@19.2.4)':
+  '@convex-dev/auth@0.0.90(@auth/core@0.37.4)(convex@1.46.0(react@19.2.4))(react@19.2.4)':
     dependencies:
       '@auth/core': 0.37.4
       '@oslojs/crypto': 1.0.1
       '@oslojs/encoding': 1.1.0
-      convex: 1.36.1(react@19.2.4)
+      convex: 1.46.0(react@19.2.4)
       cookie: 1.0.2
       is-network-error: 1.1.0
       jose: 5.10.0
@@ -4542,9 +4542,9 @@ snapshots:
     optionalDependencies:
       react: 19.2.4
 
-  '@convex-dev/migrations@0.3.4(convex@1.36.1(react@19.2.4))':
+  '@convex-dev/migrations@0.3.4(convex@1.46.0(react@19.2.4))':
     dependencies:
-      convex: 1.36.1(react@19.2.4)
+      convex: 1.46.0(react@19.2.4)
 
   '@edge-runtime/primitives@6.0.0': {}
 
@@ -6580,15 +6580,15 @@ snapshots:
 
   convert-source-map@2.0.0: {}
 
-  convex-test@0.0.59(convex@1.36.1(react@19.2.4)):
+  convex-test@0.0.59(convex@1.46.0(react@19.2.4)):
     dependencies:
-      convex: 1.36.1(react@19.2.4)
+      convex: 1.46.0(react@19.2.4)
 
-  convex@1.36.1(react@19.2.4):
+  convex@1.46.0(react@19.2.4):
     dependencies:
       esbuild: 0.27.0
       prettier: 3.5.3
-      ws: 8.18.0
+      ws: 8.21.0
     optionalDependencies:
       react: 19.2.4
     transitivePeerDependencies:
@@ -7130,6 +7130,10 @@ snapshots:
   fdir@6.5.0(picomatch@4.0.4):
     optionalDependencies:
       picomatch: 4.0.4
+
+  fdir@6.5.0(picomatch@4.0.7):
+    optionalDependencies:
+      picomatch: 4.0.7
 
   file-entry-cache@8.0.0:
     dependencies:
@@ -8561,8 +8565,8 @@ snapshots:
 
   tinyglobby@0.2.17:
     dependencies:
-      fdir: 6.5.0(picomatch@4.0.4)
-      picomatch: 4.0.4
+      fdir: 6.5.0(picomatch@4.0.7)
+      picomatch: 4.0.7
 
   to-regex-range@5.0.1:
     dependencies:
@@ -8733,10 +8737,10 @@ snapshots:
   vite@8.0.2(@emnapi/core@1.9.1)(@emnapi/runtime@1.8.1)(@types/node@22.20.4)(esbuild@0.27.0)(jiti@2.4.2):
     dependencies:
       lightningcss: 1.32.0
-      picomatch: 4.0.4
+      picomatch: 4.0.7
       postcss: 8.5.12
       rolldown: 1.0.0-rc.11(@emnapi/core@1.9.1)(@emnapi/runtime@1.8.1)
-      tinyglobby: 0.2.16
+      tinyglobby: 0.2.17
     optionalDependencies:
       '@types/node': 22.20.4
       esbuild: 0.27.0
@@ -8864,10 +8868,10 @@ snapshots:
   wrappy@1.0.2:
     optional: true
 
-  ws@8.18.0: {}
-
   ws@8.18.2:
     optional: true
+
+  ws@8.21.0: {}
 
   xml-name-validator@4.0.0:
     optional: true
