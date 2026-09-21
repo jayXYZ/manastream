@@ -222,6 +222,100 @@ it("changing the Melee tournament clears a pending player refresh", async () => 
   ).toBe("scheduled");
 });
 
+it("a run's writes stop once the Melee tournament changes after preflight", async () => {
+  const { t, owner, ids } = await setup({ externalTournamentId: 999 });
+  const playerId = await insertReadyPlayer(t, { externalPlayerId: 1, name: "Ada" });
+  await owner.mutation(api.tournamentSync.requestPlayerRefresh, {});
+  const running = await t.run((ctx) => ctx.db.get(ids.tournament));
+  const run = {
+    userId: ids.user,
+    tournamentId: ids.tournament,
+    externalTournamentId: 999,
+    startedAt: running!.playerRefresh!.startedAt,
+  };
+  const newPlayer = {
+    externalTournamentId: 999,
+    name: "Ben",
+    externalPlayerId: 2,
+    externalDecklistId: "g2",
+    decklistStatus: "missing" as const,
+    deckName: "MISSING_DECKLIST",
+    deckList: "MISSING_DECKLIST",
+  };
+  const decklist = {
+    playerId,
+    deckName: "Burn",
+    deckList: "4 Fireblast",
+    externalDecklistId: "g1",
+    decklistStatus: "ready" as const,
+  };
+
+  // Preflight passes and the run's first write phase lands.
+  expect(
+    await t.query(internal.tournamentSync.isPlayerRefreshRunCurrent, run),
+  ).toBe(true);
+  expect(
+    await t.mutation(internal.player.updatePlayerRegistrationStatuses, {
+      externalTournamentId: 999,
+      players: [{ externalPlayerId: 1, registrationStatus: "DROPPED" }],
+      run,
+    }),
+  ).toBe(true);
+
+  // The operator switches tournaments while the player list is in flight.
+  await owner.mutation(api.tournaments.updateTournamentSettings, {
+    externalTournamentId: 1000,
+  });
+
+  expect(
+    await t.query(internal.tournamentSync.isPlayerRefreshRunCurrent, run),
+  ).toBe(false);
+  expect(
+    await t.mutation(internal.player.updatePlayerRegistrationStatuses, {
+      externalTournamentId: 999,
+      players: [{ externalPlayerId: 1, registrationStatus: "REGISTERED" }],
+      run,
+    }),
+  ).toBe(false);
+  expect(
+    await t.mutation(internal.player.createPlayers, {
+      players: [newPlayer],
+      run,
+    }),
+  ).toBeNull();
+  expect(
+    await t.mutation(internal.player.updatePlayerNames, {
+      players: [{ playerId, name: "Ada Lovelace" }],
+      run,
+    }),
+  ).toBeNull();
+  expect(
+    await t.mutation(internal.player.updatePlayerDecklists, {
+      players: [decklist],
+      run,
+    }),
+  ).toBeNull();
+
+  // Nothing after the switch reached the old tournament's rows.
+  const players = await t.run((ctx) =>
+    ctx.db
+      .query("players")
+      .withIndex("by_external_tournament_id", (q) =>
+        q.eq("externalTournamentId", 999),
+      )
+      .collect(),
+  );
+  expect(players.map((p) => [p.externalPlayerId, p.name, p.registrationStatus])).toEqual([
+    [1, "Ada", "DROPPED"],
+  ]);
+  expect((await readDecklist(t, playerId))?.deckList).toBe("4 Lightning Bolt");
+
+  // The same writes without a run (the poll loop's sync) are not guarded.
+  expect(
+    await t.mutation(internal.player.createPlayers, { players: [newPlayer] }),
+  ).toEqual([{ playerId: expect.any(String), externalPlayerId: 2, externalDecklistId: "g2" }]);
+});
+
 async function insertReadyPlayer(
   t: TestBackend,
   args: {
@@ -322,7 +416,7 @@ it("updatePlayerDecklists re-checks each row at commit time and returns what it 
       },
     ],
   });
-  expect(applied.map((update) => update.playerId)).toEqual([missingId]);
+  expect(applied?.map((update) => update.playerId)).toEqual([missingId]);
 
   expect((await readDecklist(t, manualId))?.decklistStatus).toBe("manual");
   expect((await readDecklist(t, manualId))?.deckList).toBe("4 Lightning Bolt");

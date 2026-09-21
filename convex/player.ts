@@ -9,7 +9,11 @@ import type { MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { getOwnTournament } from "./lib/tournaments";
-import { decklistStatusValidator } from "./validators";
+import {
+  decklistStatusValidator,
+  playerRefreshRunValidator,
+} from "./validators";
+import { isPlayerRefreshRunCurrent } from "./lib/playerRefresh";
 import {
   composePlayerData,
   getChangedRegistrationStatuses,
@@ -105,11 +109,29 @@ export const createPlayers = internalMutation({
         deckList: v.string(),
       }),
     ),
+    // Set by a "Refresh players" run: nothing is written, and null is
+    // returned, when the run is no longer the tournament's current one.
+    run: v.optional(playerRefreshRunValidator),
   },
-  returns: v.array(v.object({ playerId: v.id("players"), externalDecklistId: v.optional(v.string()) })),
+  returns: v.union(
+    v.null(),
+    v.array(
+      v.object({
+        playerId: v.id("players"),
+        externalPlayerId: v.number(),
+        externalDecklistId: v.optional(v.string()),
+      }),
+    ),
+  ),
   handler: async (ctx, args) => {
-    const playerIdsAndDeckIds: { playerId: Id<"players">; externalDecklistId?: string }[] =
-      [];
+    if (args.run && !(await isPlayerRefreshRunCurrent(ctx, args.run))) {
+      return null;
+    }
+    const created: {
+      playerId: Id<"players">;
+      externalPlayerId: number;
+      externalDecklistId?: string;
+    }[] = [];
     const playerIdsToResolve: Id<"players">[] = [];
     for (const player of args.players) {
       // The poll loop and a manual player refresh can both discover the same
@@ -141,10 +163,14 @@ export const createPlayers = internalMutation({
       if (isResolvableDeckList(player.deckList)) {
         playerIdsToResolve.push(playerId);
       }
-      playerIdsAndDeckIds.push({ playerId, externalDecklistId: player.externalDecklistId });
+      created.push({
+        playerId,
+        externalPlayerId: player.externalPlayerId,
+        externalDecklistId: player.externalDecklistId,
+      });
     }
     await scheduleDeckCardsResolutionBatch(ctx, playerIdsToResolve);
-    return playerIdsAndDeckIds;
+    return created;
   },
 });
 
@@ -153,14 +179,19 @@ export const createPlayers = internalMutation({
  * row as it is now, not the snapshot the sync planned from: a player edited
  * by hand in the meantime is left alone, a usable decklist is never replaced
  * by a failed fetch, and an overlapping sync that already stored a newer
- * LastUpdated is not rolled back. Returns the updates actually written.
+ * LastUpdated is not rolled back. Returns the updates actually written, or
+ * null (nothing written) when the refresh run that requested them is stale.
  */
 export const updatePlayerDecklists = internalMutation({
   args: {
     players: v.array(decklistUpdateValidator),
+    run: v.optional(playerRefreshRunValidator),
   },
-  returns: v.array(decklistUpdateValidator),
+  returns: v.union(v.null(), v.array(decklistUpdateValidator)),
   handler: async (ctx, args) => {
+    if (args.run && !(await isPlayerRefreshRunCurrent(ctx, args.run))) {
+      return null;
+    }
     const applied: typeof args.players = [];
     const playerIdsToResolve: Id<"players">[] = [];
     for (const player of args.players) {
@@ -257,6 +288,11 @@ export const getAllTournamentPlayers = query({
   },
 });
 
+/**
+ * Apply registration statuses (drops) from the Melee player list. Returns
+ * false, having written nothing, when the refresh run that requested them
+ * is stale.
+ */
 export const updatePlayerRegistrationStatuses = internalMutation({
   args: {
     externalTournamentId: v.number(),
@@ -266,8 +302,13 @@ export const updatePlayerRegistrationStatuses = internalMutation({
         registrationStatus: v.string(),
       }),
     ),
+    run: v.optional(playerRefreshRunValidator),
   },
+  returns: v.boolean(),
   handler: async (ctx, args) => {
+    if (args.run && !(await isPlayerRefreshRunCurrent(ctx, args.run))) {
+      return false;
+    }
     const statusRows = await ctx.db
       .query("playerStatuses")
       .withIndex("by_external_tournament_id", (q) =>
@@ -306,7 +347,7 @@ export const updatePlayerRegistrationStatuses = internalMutation({
       (player) => !statusTargetsByExternalPlayerId.has(player.externalPlayerId),
     );
     if (missingStatusPlayerIds.length === 0) {
-      return;
+      return true;
     }
 
     const missingStatusByExternalPlayerId = new Map(
@@ -340,6 +381,7 @@ export const updatePlayerRegistrationStatuses = internalMutation({
         updatedAt: Date.now(),
       });
     }
+    return true;
   },
 });
 
@@ -390,7 +432,8 @@ export const getTournamentPlayersForSync = internalQuery({
 
 /**
  * Apply names from Melee. A player edited by hand since the sync was planned
- * keeps the edited name. Returns the number of names written.
+ * keeps the edited name. Returns the number of names written, or null
+ * (nothing written) when the refresh run that requested them is stale.
  */
 export const updatePlayerNames = internalMutation({
   args: {
@@ -400,9 +443,13 @@ export const updatePlayerNames = internalMutation({
         name: v.string(),
       }),
     ),
+    run: v.optional(playerRefreshRunValidator),
   },
-  returns: v.number(),
+  returns: v.union(v.null(), v.number()),
   handler: async (ctx, args) => {
+    if (args.run && !(await isPlayerRefreshRunCurrent(ctx, args.run))) {
+      return null;
+    }
     let updated = 0;
     for (const player of args.players) {
       const existingPlayer = await ctx.db.get(player.playerId);

@@ -8,6 +8,7 @@ import {
 import {
   CachedPlayerForSync,
   DecklistUpdate,
+  decklistFetchesForCreatedPlayers,
   formatPlayerSyncSummary,
   isOlderDecklistVersion,
   planPlayerSync,
@@ -118,6 +119,35 @@ describe("planPlayerSync", () => {
     expect(plan.decklistUpdates).toEqual([]);
     expect(plan.decklistsToFetch).toEqual([]);
     expect(plan.nameUpdates).toEqual([]);
+  });
+
+  it("keeps the decklist id of an uncached player whose cards are not embedded", () => {
+    const plan = planPlayerSync({
+      externalTournamentId: TOURNAMENT_ID,
+      entries: [
+        makeEntry({
+          id: 1,
+          name: "Ada",
+          decklist: makeDecklist({ guid: "g1", records: null, lastUpdated: T1 }),
+        }),
+      ],
+      cached: [],
+      mode: "full",
+    });
+    expect(plan.newPlayers).toEqual([
+      {
+        externalTournamentId: TOURNAMENT_ID,
+        name: "Ada",
+        externalPlayerId: 1,
+        registrationStatus: "REGISTERED",
+        externalDecklistId: "g1",
+        decklistStatus: "missing",
+        deckName: "MISSING_DECKLIST",
+        deckList: "MISSING_DECKLIST",
+      },
+    ]);
+    // The row does not exist yet, so the fetch is planned once it does.
+    expect(plan.decklistsToFetch).toEqual([]);
   });
 
   it("fill_missing fills a late submission for a player cached without a decklist", () => {
@@ -405,6 +435,45 @@ describe("planPlayerSync", () => {
       mode: "fill_missing",
     });
     expect(plan.decklistsToFetch).toEqual([
+      { playerId: "player_1", externalDecklistId: "g1" },
+    ]);
+  });
+});
+
+describe("decklistFetchesForCreatedPlayers", () => {
+  it("fetches for inserted players planned without a decklist but with an id", () => {
+    const entries = [
+      makeEntry({
+        id: 1,
+        name: "Ada",
+        decklist: makeDecklist({ guid: "g1", records: null }),
+      }),
+      makeEntry({
+        id: 2,
+        name: "Ben",
+        decklist: makeDecklist({ guid: "g2", records: READY_RECORDS }),
+      }),
+      makeEntry({ id: 3, name: "Cy" }),
+      makeEntry({
+        id: 4,
+        name: "Di",
+        decklist: makeDecklist({ guid: "g4", records: null }),
+      }),
+    ];
+    const plan = planPlayerSync({
+      externalTournamentId: TOURNAMENT_ID,
+      entries,
+      cached: [],
+      mode: "fill_missing",
+    });
+    // Di was inserted first by an overlapping sync, so createPlayers skipped
+    // her; that sync fetches her decklist.
+    const created = [
+      { playerId: "player_1" as Id<"players">, externalPlayerId: 1 },
+      { playerId: "player_2" as Id<"players">, externalPlayerId: 2 },
+      { playerId: "player_3" as Id<"players">, externalPlayerId: 3 },
+    ];
+    expect(decklistFetchesForCreatedPlayers(plan.newPlayers, created)).toEqual([
       { playerId: "player_1", externalDecklistId: "g1" },
     ]);
   });

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  capturablePairingMatchIds,
   getCurrentRoundPairingsWithPlayerData,
+  roundHasUncapturedPairings,
   snapshotCurrentRoundPairings,
 } from "../pairings";
 
@@ -69,6 +71,62 @@ describe("snapshotCurrentRoundPairings", () => {
       player1TournamentRecord: "#1",
       player2TournamentRecord: "#8",
     });
+  });
+});
+
+describe("capturablePairingMatchIds", () => {
+  it("lists the matches a snapshot would store, skipping byes", () => {
+    const snapshot = makeEliminationSnapshot();
+    snapshot.matches.push({
+      externalMatchId: "bye-guid",
+      tableNumber: undefined,
+      isFeatureMatch: false,
+      hasResult: true,
+      competitors: [makeCompetitor(103, "Cora", 3)],
+    });
+    expect(capturablePairingMatchIds(snapshot)).toEqual(["match-guid-9001"]);
+  });
+});
+
+describe("roundHasUncapturedPairings", () => {
+  const stored = [
+    makePairing({
+      id: "day1",
+      tournamentId: "tournament1",
+      externalRoundId: 101,
+      roundNumber: 1,
+      player1: "player1",
+      player2: "player2",
+    }),
+  ];
+
+  it("is false while every match of the round has a pairing row", async () => {
+    const ctx = makePairingsCtx({ pairings: stored, players: [] });
+    expect(
+      await roundHasUncapturedPairings(ctx, {
+        externalTournamentId: 999,
+        externalRoundId: 101,
+        externalMatchIds: ["day1"],
+      }),
+    ).toBe(false);
+    expect(
+      await roundHasUncapturedPairings(ctx, {
+        externalTournamentId: 999,
+        externalRoundId: 101,
+        externalMatchIds: [],
+      }),
+    ).toBe(false);
+  });
+
+  it("is true once Melee posts a match the round snapshot did not have", async () => {
+    const ctx = makePairingsCtx({ pairings: stored, players: [] });
+    expect(
+      await roundHasUncapturedPairings(ctx, {
+        externalTournamentId: 999,
+        externalRoundId: 101,
+        externalMatchIds: ["day1", "late-table"],
+      }),
+    ).toBe(true);
   });
 });
 
@@ -215,7 +273,7 @@ function makeEliminationSnapshot() {
     matches: [
       {
         externalMatchId: "match-guid-9001",
-        tableNumber: 1,
+        tableNumber: 1 as number | undefined,
         isFeatureMatch: false,
         hasResult: false,
         competitors: [

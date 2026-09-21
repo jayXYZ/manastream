@@ -112,11 +112,14 @@ export function buildNewPlayerArgs(
       deckList: decklist.decklist,
     };
   }
+  // A decklist id without its cards: keep the id so the decklist is fetched
+  // in this same sync once the player row exists, not on the next one.
   return {
     externalTournamentId,
     name: playerEntryName(entry),
     externalPlayerId: entry.ID,
     registrationStatus: parseMeleeRegistrationStatus(entry),
+    ...(embedded?.Guid ? { externalDecklistId: embedded.Guid } : {}),
     decklistStatus: "missing",
     deckName: "MISSING_DECKLIST",
     deckList: "MISSING_DECKLIST",
@@ -287,6 +290,31 @@ export function planPlayerSync(args: {
     }
   }
   return plan;
+}
+
+/**
+ * Decklists to fetch for the players createPlayers just inserted: those
+ * planned without a decklist but with a decklist id. A player createPlayers
+ * skipped (inserted first by an overlapping sync) is left to that sync.
+ */
+export function decklistFetchesForCreatedPlayers(
+  newPlayers: NewPlayerArgs[],
+  created: { playerId: Id<"players">; externalPlayerId: number }[],
+): DecklistFetchRequest[] {
+  const playerIdsByExternalPlayerId = new Map(
+    created.map((player) => [player.externalPlayerId, player.playerId]),
+  );
+  return newPlayers.flatMap((player) => {
+    const playerId = playerIdsByExternalPlayerId.get(player.externalPlayerId);
+    if (
+      playerId === undefined ||
+      player.decklistStatus !== "missing" ||
+      !player.externalDecklistId
+    ) {
+      return [];
+    }
+    return [{ playerId, externalDecklistId: player.externalDecklistId }];
+  });
 }
 
 /**

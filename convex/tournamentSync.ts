@@ -22,8 +22,18 @@ import {
   roundSnapshotValidator,
   manualPollResultValidator,
   playerRefreshResultValidator,
+  playerRefreshRunValidator,
 } from "./validators";
 import { checkForNewRound } from "./lib/rounds";
+import {
+  capturablePairingMatchIds,
+  roundHasUncapturedPairings,
+} from "./lib/pairings";
+import {
+  PlayerRefreshRun,
+  PlayerRefreshSupersededError,
+  isPlayerRefreshRunCurrent as isRunCurrent,
+} from "./lib/playerRefresh";
 import {
   MeleeCredentials,
   fetchMeleeCurrentRoundMatches,
@@ -53,6 +63,7 @@ import {
   DecklistUpdate,
   PlayerSyncMode,
   PlayerSyncSummary,
+  decklistFetchesForCreatedPlayers,
   formatPlayerSyncSummary,
   planPlayerSync,
   playerRefreshDecision,
@@ -640,6 +651,39 @@ export const detectNewRound = internalMutation({
 });
 
 /**
+ * Whether the current round has matches with no pairing row yet, so a quiet
+ * poll cycle can tell whether detectNewRound has anything to capture without
+ * fetching standings or writing.
+ */
+export const hasUncapturedPairings = internalQuery({
+  args: {
+    externalTournamentId: v.number(),
+    externalRoundId: v.number(),
+    externalMatchIds: v.array(v.string()),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    return await roundHasUncapturedPairings(ctx, args);
+  },
+});
+
+/**
+ * The pairings snapshotCurrentRoundPairings would store for these matches.
+ * Which matches those are does not depend on standings, so none are fetched.
+ */
+function capturableMatchIds(
+  overview: MeleeTournamentOverviewResponse,
+  matches: MeleeMatch[],
+): string[] {
+  const snapshot = buildRoundSnapshot({
+    overview,
+    matches,
+    standingsByPlayerId: new Map(),
+  });
+  return snapshot ? capturablePairingMatchIds(snapshot) : [];
+}
+
+/**
  * Fetch standings for the already-fetched current-round matches and compose
  * them into a RoundSnapshot. Returns undefined when there are no matches.
  * Only called when the round changed or a full fetch was requested, so the
@@ -686,24 +730,37 @@ async function fetchRoundSnapshot(
  * not known to be current is re-downloaded and names are refreshed. The
  * player list is the largest Melee payload, so the polling loop runs this at
  * validation and on round change only.
+ *
+ * For a "Refresh players" run, every write re-checks in its own transaction
+ * that the run is still current, and the sync stops at the first stale one
+ * (PlayerRefreshSupersededError) so a tournament switched mid-run gets no
+ * further writes.
  */
 async function syncPlayersFromMelee(
   ctx: ActionCtx,
   externalTournamentId: number,
   credentials: MeleeCredentials,
   mode: PlayerSyncMode,
+  run?: PlayerRefreshRun,
 ): Promise<PlayerSyncSummary> {
   const playerEntries = await fetchMeleePlayerList(
     externalTournamentId,
     credentials,
   );
-  await ctx.runMutation(internal.player.updatePlayerRegistrationStatuses, {
-    externalTournamentId,
-    players: playerEntries.map((entry) => ({
-      externalPlayerId: entry.ID,
-      registrationStatus: parseMeleeRegistrationStatus(entry),
-    })),
-  });
+  const statusesApplied = await ctx.runMutation(
+    internal.player.updatePlayerRegistrationStatuses,
+    {
+      externalTournamentId,
+      players: playerEntries.map((entry) => ({
+        externalPlayerId: entry.ID,
+        registrationStatus: parseMeleeRegistrationStatus(entry),
+      })),
+      ...(run && { run }),
+    },
+  );
+  if (!statusesApplied) {
+    throw new PlayerRefreshSupersededError();
+  }
 
   const cached = await ctx.runQuery(
     internal.player.getTournamentPlayersForSync,
@@ -720,21 +777,51 @@ async function syncPlayersFromMelee(
   // inserted a player first, and an update is skipped at commit time when
   // the row was hand-edited or a newer decklist landed in the meantime.
   let created = 0;
+  // A new player whose decklist id came without its cards gets that
+  // decklist fetched now, using the row id createPlayers just assigned.
+  const createdDecklistsToFetch: DecklistFetchRequest[] = [];
   if (plan.newPlayers.length > 0) {
     const inserted = await ctx.runMutation(internal.player.createPlayers, {
       players: plan.newPlayers,
+      ...(run && { run }),
     });
+    if (inserted === null) {
+      throw new PlayerRefreshSupersededError();
+    }
     created = inserted.length;
+    createdDecklistsToFetch.push(
+      ...decklistFetchesForCreatedPlayers(plan.newPlayers, inserted),
+    );
   }
   let namesUpdated = 0;
   if (plan.nameUpdates.length > 0) {
-    namesUpdated = await ctx.runMutation(internal.player.updatePlayerNames, {
+    const updated = await ctx.runMutation(internal.player.updatePlayerNames, {
       players: plan.nameUpdates,
+      ...(run && { run }),
     });
+    if (updated === null) {
+      throw new PlayerRefreshSupersededError();
+    }
+    namesUpdated = updated;
   }
 
+  const decklistsToFetch = [
+    ...plan.decklistsToFetch,
+    ...createdDecklistsToFetch,
+  ];
+  // Decklist fetches are most of a refresh's Melee traffic: not worth making
+  // for a run cancelled while the player list was being reconciled.
+  if (run && decklistsToFetch.length > 0) {
+    const runCurrent: boolean = await ctx.runQuery(
+      internal.tournamentSync.isPlayerRefreshRunCurrent,
+      run,
+    );
+    if (!runCurrent) {
+      throw new PlayerRefreshSupersededError();
+    }
+  }
   const fetchedUpdates = await fetchDecklistsInBatches(
-    plan.decklistsToFetch,
+    decklistsToFetch,
     credentials,
   );
   const decklistUpdates = [
@@ -743,10 +830,14 @@ async function syncPlayersFromMelee(
   ];
   let appliedDecklistUpdates: DecklistUpdate[] = [];
   if (decklistUpdates.length > 0) {
-    appliedDecklistUpdates = await ctx.runMutation(
+    const applied = await ctx.runMutation(
       internal.player.updatePlayerDecklists,
-      { players: decklistUpdates },
+      { players: decklistUpdates, ...(run && { run }) },
     );
+    if (applied === null) {
+      throw new PlayerRefreshSupersededError();
+    }
+    appliedDecklistUpdates = applied;
   }
   return summarizePlayerSync({
     playerCount: playerEntries.length,
@@ -1096,21 +1187,38 @@ export const pollTournamentAndScheduleNext = internalAction({
       });
 
       if (!roundChanged && !args.forceFullFetch) {
-        // Quiet cycle: the round's pairings are already captured and feature
-        // matches are chosen in Manastream, so there is nothing to sync.
-        console.log(
-          `Tournament ${externalTournamentId}: round ${currentMatch.RoundNumber} unchanged, skipping full fetch`,
-        );
-        await ctx.runMutation(
-          internal.tournamentSync.finishPollingCycleAndScheduleNext,
+        // Melee can post more pairings inside a round (late tables, a
+        // re-pair), and only detectNewRound stores them. Checking the match
+        // ids against the pairings index costs no fetch and no write.
+        const pairingsPosted: boolean = await ctx.runQuery(
+          internal.tournamentSync.hasUncapturedPairings,
           {
-            userId: args.userId,
-            expectedPollingSessionId: args.pollingSessionId,
-            expectedPollingCycleId: args.pollingCycleId,
-            delayMs: POLLING_INTERVAL,
+            externalTournamentId,
+            externalRoundId: currentMatch.RoundId,
+            externalMatchIds: capturableMatchIds(overview, matches),
           },
         );
-        return;
+        if (!pairingsPosted) {
+          // Quiet cycle: the round's pairings are already captured and
+          // feature matches are chosen in Manastream, so there is nothing
+          // to sync.
+          console.log(
+            `Tournament ${externalTournamentId}: round ${currentMatch.RoundNumber} unchanged, skipping full fetch`,
+          );
+          await ctx.runMutation(
+            internal.tournamentSync.finishPollingCycleAndScheduleNext,
+            {
+              userId: args.userId,
+              expectedPollingSessionId: args.pollingSessionId,
+              expectedPollingCycleId: args.pollingCycleId,
+              delayMs: POLLING_INTERVAL,
+            },
+          );
+          return;
+        }
+        console.log(
+          `Tournament ${externalTournamentId}: round ${currentMatch.RoundNumber} unchanged, new pairings posted`,
+        );
       }
 
       const snapshot = await fetchRoundSnapshot(
@@ -1347,14 +1455,7 @@ export const getPlayerRefreshRun = internalQuery({
   },
   returns: v.union(v.null(), v.object({ settings: settingsValidator })),
   handler: async (ctx, args) => {
-    const tournament = await ctx.db.get(args.tournamentId);
-    if (
-      !tournament ||
-      tournament.userId !== args.userId ||
-      tournament.externalTournamentId !== args.externalTournamentId ||
-      tournament.playerRefresh?.status !== "running" ||
-      tournament.playerRefresh.startedAt !== args.startedAt
-    ) {
+    if (!(await isRunCurrent(ctx, args))) {
       return null;
     }
     const settings = await ctx.db
@@ -1368,13 +1469,17 @@ export const getPlayerRefreshRun = internalQuery({
   },
 });
 
-export const refreshPlayersFromMelee = internalAction({
-  args: {
-    userId: v.id("users"),
-    tournamentId: v.id("tournaments"),
-    externalTournamentId: v.number(),
-    startedAt: v.number(),
+/** Whether a player refresh run is still the tournament's current one. */
+export const isPlayerRefreshRunCurrent = internalQuery({
+  args: playerRefreshRunValidator.fields,
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    return await isRunCurrent(ctx, args);
   },
+});
+
+export const refreshPlayersFromMelee = internalAction({
+  args: playerRefreshRunValidator.fields,
   handler: async (ctx, args) => {
     try {
       const run = await ctx.runQuery(
@@ -1382,18 +1487,7 @@ export const refreshPlayersFromMelee = internalAction({
         args,
       );
       if (!run) {
-        // Expired, superseded, or the Melee tournament changed since the
-        // request. finishPlayerRefresh is a no-op unless this run is somehow
-        // still on record, in which case it is closed out as an error.
-        await ctx.runMutation(internal.tournamentSync.finishPlayerRefresh, {
-          userId: args.userId,
-          tournamentId: args.tournamentId,
-          startedAt: args.startedAt,
-          status: "error",
-          message:
-            "Player refresh skipped: the Melee tournament changed or the run was superseded.",
-        });
-        return;
+        throw new PlayerRefreshSupersededError();
       }
       const credentials: MeleeCredentials =
         getMeleeCredentialsFromSettings(run.settings);
@@ -1402,6 +1496,7 @@ export const refreshPlayersFromMelee = internalAction({
         args.externalTournamentId,
         credentials,
         "full",
+        args,
       );
       await ctx.runMutation(internal.tournamentSync.finishPlayerRefresh, {
         userId: args.userId,
@@ -1412,6 +1507,24 @@ export const refreshPlayersFromMelee = internalAction({
         logMetadata: summary,
       });
     } catch (error) {
+      if (error instanceof PlayerRefreshSupersededError) {
+        // Expired, superseded, or the Melee tournament changed since the
+        // request, before or during the sync. finishPlayerRefresh is a no-op
+        // unless this run is somehow still on record, in which case it is
+        // closed out as an error.
+        console.log(
+          `Player refresh for ${args.userId} stopped: ${error.message}`,
+        );
+        await ctx.runMutation(internal.tournamentSync.finishPlayerRefresh, {
+          userId: args.userId,
+          tournamentId: args.tournamentId,
+          startedAt: args.startedAt,
+          status: "error",
+          message:
+            "Player refresh skipped: the Melee tournament changed or the run was superseded.",
+        });
+        return;
+      }
       console.error(`Error refreshing players for ${args.userId}:`, error);
       await ctx.runMutation(internal.tournamentSync.finishPlayerRefresh, {
         userId: args.userId,

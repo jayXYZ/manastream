@@ -28,6 +28,16 @@ export const playerRefreshValidator = v.object({
   message: v.optional(v.string()),
 });
 
+// Identifies one "Refresh players" run so its write mutations can confirm, at
+// commit time, that it is still the tournament's current run for the Melee
+// tournament it was requested for.
+export const playerRefreshRunValidator = v.object({
+  userId: v.id("users"),
+  tournamentId: v.id("tournaments"),
+  externalTournamentId: v.number(),
+  startedAt: v.number(),
+});
+
 export const tournamentValidator = v.object({
   _id: v.id("tournaments"),
   _creationTime: v.number(),
