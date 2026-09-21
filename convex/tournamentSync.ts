@@ -716,13 +716,19 @@ async function syncPlayersFromMelee(
     mode,
   });
 
+  // The mutations report what they wrote. An overlapping sync may have
+  // inserted a player first, and an update is skipped at commit time when
+  // the row was hand-edited or a newer decklist landed in the meantime.
+  let created = 0;
   if (plan.newPlayers.length > 0) {
-    await ctx.runMutation(internal.player.createPlayers, {
+    const inserted = await ctx.runMutation(internal.player.createPlayers, {
       players: plan.newPlayers,
     });
+    created = inserted.length;
   }
+  let namesUpdated = 0;
   if (plan.nameUpdates.length > 0) {
-    await ctx.runMutation(internal.player.updatePlayerNames, {
+    namesUpdated = await ctx.runMutation(internal.player.updatePlayerNames, {
       players: plan.nameUpdates,
     });
   }
@@ -735,15 +741,18 @@ async function syncPlayersFromMelee(
     ...plan.decklistUpdates,
     ...selectFetchedDecklistUpdates(fetchedUpdates, cached),
   ];
+  let appliedDecklistUpdates: DecklistUpdate[] = [];
   if (decklistUpdates.length > 0) {
-    await ctx.runMutation(internal.player.updatePlayerDecklists, {
-      players: decklistUpdates,
-    });
+    appliedDecklistUpdates = await ctx.runMutation(
+      internal.player.updatePlayerDecklists,
+      { players: decklistUpdates },
+    );
   }
   return summarizePlayerSync({
     playerCount: playerEntries.length,
-    plan,
-    appliedDecklistUpdates: decklistUpdates,
+    created,
+    namesUpdated,
+    appliedDecklistUpdates,
   });
 }
 
@@ -1212,10 +1221,17 @@ export const requestPlayerRefresh = mutation({
     await ctx.db.patch(tournament._id, {
       playerRefresh: { status: "running", startedAt },
     });
+    // The run is bound to the Melee tournament selected now; the action
+    // checks that binding before it touches anything.
     await ctx.scheduler.runAfter(
       0,
       internal.tournamentSync.refreshPlayersFromMelee,
-      { userId, tournamentId: tournament._id, startedAt },
+      {
+        userId,
+        tournamentId: tournament._id,
+        externalTournamentId: tournament.externalTournamentId!,
+        startedAt,
+      },
     );
     await ctx.scheduler.runAfter(
       PLAYER_REFRESH_TIMEOUT,
@@ -1315,26 +1331,75 @@ export const expirePlayerRefresh = internalMutation({
   },
 });
 
+/**
+ * The Melee credentials for a player refresh run, provided the run is still
+ * the tournament's current one: the tournament belongs to the user, its
+ * player refresh is "running" with this run's startedAt (not expired by the
+ * watchdog or superseded), and it still points at the Melee tournament the
+ * run was requested for. Null means the run must not write anything.
+ */
+export const getPlayerRefreshRun = internalQuery({
+  args: {
+    userId: v.id("users"),
+    tournamentId: v.id("tournaments"),
+    externalTournamentId: v.number(),
+    startedAt: v.number(),
+  },
+  returns: v.union(v.null(), v.object({ settings: settingsValidator })),
+  handler: async (ctx, args) => {
+    const tournament = await ctx.db.get(args.tournamentId);
+    if (
+      !tournament ||
+      tournament.userId !== args.userId ||
+      tournament.externalTournamentId !== args.externalTournamentId ||
+      tournament.playerRefresh?.status !== "running" ||
+      tournament.playerRefresh.startedAt !== args.startedAt
+    ) {
+      return null;
+    }
+    const settings = await ctx.db
+      .query("settings")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .unique();
+    if (!settings || !hasMeleeCredentials(settings)) {
+      throw new Error("No Melee credentials found. Check your settings.");
+    }
+    return { settings };
+  },
+});
+
 export const refreshPlayersFromMelee = internalAction({
   args: {
     userId: v.id("users"),
     tournamentId: v.id("tournaments"),
+    externalTournamentId: v.number(),
     startedAt: v.number(),
   },
   handler: async (ctx, args) => {
     try {
-      const { tournament, settings } = await ctx.runQuery(
-        internal.tournamentSync.getTournamentPollingData,
-        { userId: args.userId },
+      const run = await ctx.runQuery(
+        internal.tournamentSync.getPlayerRefreshRun,
+        args,
       );
-      if (!tournament.externalTournamentId) {
-        throw new Error("No Melee tournament ID is set.");
+      if (!run) {
+        // Expired, superseded, or the Melee tournament changed since the
+        // request. finishPlayerRefresh is a no-op unless this run is somehow
+        // still on record, in which case it is closed out as an error.
+        await ctx.runMutation(internal.tournamentSync.finishPlayerRefresh, {
+          userId: args.userId,
+          tournamentId: args.tournamentId,
+          startedAt: args.startedAt,
+          status: "error",
+          message:
+            "Player refresh skipped: the Melee tournament changed or the run was superseded.",
+        });
+        return;
       }
       const credentials: MeleeCredentials =
-        getMeleeCredentialsFromSettings(settings);
+        getMeleeCredentialsFromSettings(run.settings);
       const summary = await syncPlayersFromMelee(
         ctx,
-        tournament.externalTournamentId,
+        args.externalTournamentId,
         credentials,
         "full",
       );

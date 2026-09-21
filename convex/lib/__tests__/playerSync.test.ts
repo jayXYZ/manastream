@@ -9,6 +9,7 @@ import {
   CachedPlayerForSync,
   DecklistUpdate,
   formatPlayerSyncSummary,
+  isOlderDecklistVersion,
   planPlayerSync,
   playerRefreshDecision,
   selectFetchedDecklistUpdates,
@@ -492,6 +493,31 @@ describe("shouldApplyDecklistUpdate", () => {
     expect(shouldApplyDecklistUpdate(cached, readyUpdate)).toBe(false);
   });
 
+  it("does not roll a decklist back to an older LastUpdated of the same id", () => {
+    const cached = cachedPlayer({
+      externalPlayerId: 1,
+      decklistStatus: "ready",
+      externalDecklistId: "g1",
+      externalDecklistUpdatedAt: T2,
+      deckName: "Burn",
+      deckList: "4 Fireblast",
+    });
+    // A slower overlapping sync carrying the previous version.
+    const older = { ...readyUpdate, externalDecklistUpdatedAt: T1 };
+    expect(isOlderDecklistVersion(cached, older)).toBe(true);
+    expect(shouldApplyDecklistUpdate(cached, older)).toBe(false);
+    // A different decklist id is not comparable, so it still applies.
+    const otherList = { ...older, externalDecklistId: "g2" };
+    expect(isOlderDecklistVersion(cached, otherList)).toBe(false);
+    expect(shouldApplyDecklistUpdate(cached, otherList)).toBe(true);
+    // Unknown timestamps on either side never block a write.
+    expect(isOlderDecklistVersion({ ...cached, externalDecklistUpdatedAt: undefined }, older)).toBe(false);
+    expect(isOlderDecklistVersion(cached, readyUpdate)).toBe(false);
+    expect(
+      isOlderDecklistVersion(cached, { ...older, externalDecklistUpdatedAt: "not a date" }),
+    ).toBe(false);
+  });
+
   it("selectFetchedDecklistUpdates keeps results for unknown players", () => {
     expect(selectFetchedDecklistUpdates([readyUpdate], [])).toEqual([readyUpdate]);
   });
@@ -501,21 +527,8 @@ describe("summaries", () => {
   it("counts applied updates and formats them", () => {
     const summary = summarizePlayerSync({
       playerCount: 3,
-      plan: {
-        newPlayers: [
-          {
-            externalTournamentId: TOURNAMENT_ID,
-            name: "Ada",
-            externalPlayerId: 1,
-            decklistStatus: "missing",
-            deckName: "MISSING_DECKLIST",
-            deckList: "MISSING_DECKLIST",
-          },
-        ],
-        decklistUpdates: [],
-        decklistsToFetch: [],
-        nameUpdates: [{ playerId: "player_2" as Id<"players">, name: "Ben" }],
-      },
+      created: 1,
+      namesUpdated: 1,
       appliedDecklistUpdates: [
         {
           playerId: "player_2" as Id<"players">,

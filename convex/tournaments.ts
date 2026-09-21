@@ -227,6 +227,9 @@ export const updateTournamentSettings = mutation({
           pollingErrorMessage: undefined,
           currentRound: undefined,
           currentRoundDisplayName: undefined,
+          // A player refresh in flight was for the previous Melee
+          // tournament; its action sees the cleared state and does nothing.
+          playerRefresh: undefined,
         }
       : updates;
 

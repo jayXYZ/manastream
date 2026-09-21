@@ -1,4 +1,4 @@
-import { Id } from "./_generated/dataModel";
+import { Doc, Id } from "./_generated/dataModel";
 import {
   internalMutation,
   internalQuery,
@@ -18,6 +18,41 @@ import {
   insertPlayerDataRows,
   upsertPlayerDecklist,
 } from "./lib/playerData";
+import {
+  CachedPlayerForSync,
+  shouldApplyDecklistUpdate,
+} from "./lib/playerSync";
+
+const decklistUpdateValidator = v.object({
+  playerId: v.id("players"),
+  deckName: v.string(),
+  deckList: v.string(),
+  externalDecklistId: v.optional(v.string()),
+  externalDecklistUpdatedAt: v.optional(v.string()),
+  decklistStatus: v.union(v.literal("ready"), v.literal("fetch_failed")),
+});
+
+/**
+ * The player fields the Melee sync planner compares against, composed from
+ * the players row and its playerDecklists row the same way everywhere so a
+ * decision made at plan time can be re-checked at commit time.
+ */
+function toCachedPlayerForSync(
+  player: Doc<"players">,
+  decklist: Doc<"playerDecklists"> | null | undefined,
+): CachedPlayerForSync {
+  const data = composePlayerData(player, undefined, decklist);
+  return {
+    playerId: player._id,
+    externalPlayerId: player.externalPlayerId,
+    name: player.name,
+    externalDecklistId: data.externalDecklistId,
+    externalDecklistUpdatedAt: decklist?.externalDecklistUpdatedAt,
+    decklistStatus: data.decklistStatus,
+    deckName: data.deckName,
+    deckList: data.deckList,
+  };
+}
 
 export const createPlayer = internalMutation({
   args: {
@@ -113,20 +148,20 @@ export const createPlayers = internalMutation({
   },
 });
 
+/**
+ * Apply decklists pulled from Melee. Each update is re-checked against the
+ * row as it is now, not the snapshot the sync planned from: a player edited
+ * by hand in the meantime is left alone, a usable decklist is never replaced
+ * by a failed fetch, and an overlapping sync that already stored a newer
+ * LastUpdated is not rolled back. Returns the updates actually written.
+ */
 export const updatePlayerDecklists = internalMutation({
   args: {
-    players: v.array(
-      v.object({
-        playerId: v.id("players"),
-        deckName: v.string(),
-        deckList: v.string(),
-        externalDecklistId: v.optional(v.string()),
-        externalDecklistUpdatedAt: v.optional(v.string()),
-        decklistStatus: v.optional(decklistStatusValidator),
-      }),
-    ),
+    players: v.array(decklistUpdateValidator),
   },
+  returns: v.array(decklistUpdateValidator),
   handler: async (ctx, args) => {
+    const applied: typeof args.players = [];
     const playerIdsToResolve: Id<"players">[] = [];
     for (const player of args.players) {
       const existingPlayer = await ctx.db.get(player.playerId);
@@ -137,15 +172,23 @@ export const updatePlayerDecklists = internalMutation({
         ctx,
         player.playerId,
       );
+      const current = toCachedPlayerForSync(existingPlayer, existingDecklist);
+      if (!shouldApplyDecklistUpdate(current, player)) {
+        continue;
+      }
       const externalDecklistId =
-        player.externalDecklistId ?? existingPlayer.externalDecklistId;
-      const decklistStatus =
-        player.decklistStatus ?? existingPlayer.decklistStatus ?? "ready";
+        player.externalDecklistId ?? current.externalDecklistId;
       // Only a changed list text invalidates the resolved cards; a write that
       // just records a new decklist id or timestamp keeps them.
-      const deckListChanged =
-        (existingDecklist?.deckList ?? existingPlayer.deckList) !==
-        player.deckList;
+      const deckListChanged = current.deckList !== player.deckList;
+      // A stored LastUpdated still describes the decklist when neither the
+      // decklist id nor the text changed, so a response that carried none
+      // does not erase it.
+      const externalDecklistUpdatedAt =
+        player.externalDecklistUpdatedAt ??
+        (externalDecklistId === current.externalDecklistId && !deckListChanged
+          ? current.externalDecklistUpdatedAt
+          : undefined);
       await ctx.db.patch(player.playerId, {
         deckName: player.deckName,
         deckList: player.deckList,
@@ -153,18 +196,18 @@ export const updatePlayerDecklists = internalMutation({
           deckCardsStatus: getInitialDeckCardsStatus(player.deckList),
           deckCards: undefined,
         }),
-        ...(player.externalDecklistId !== undefined && { externalDecklistId: player.externalDecklistId }),
-        ...(player.decklistStatus !== undefined && {
-          decklistStatus: player.decklistStatus,
+        ...(player.externalDecklistId !== undefined && {
+          externalDecklistId: player.externalDecklistId,
         }),
+        decklistStatus: player.decklistStatus,
       });
       if (existingPlayer.externalTournamentId !== undefined) {
         await upsertPlayerDecklist(ctx, player.playerId, {
           externalTournamentId: existingPlayer.externalTournamentId,
           externalPlayerId: existingPlayer.externalPlayerId,
           externalDecklistId,
-          externalDecklistUpdatedAt: player.externalDecklistUpdatedAt,
-          decklistStatus,
+          externalDecklistUpdatedAt,
+          decklistStatus: player.decklistStatus,
           deckName: player.deckName,
           deckList: player.deckList,
         });
@@ -172,8 +215,10 @@ export const updatePlayerDecklists = internalMutation({
       if (deckListChanged && isResolvableDeckList(player.deckList)) {
         playerIdsToResolve.push(player.playerId);
       }
+      applied.push(player);
     }
     await scheduleDeckCardsResolutionBatch(ctx, playerIdsToResolve);
+    return applied;
   },
 });
 
@@ -337,23 +382,16 @@ export const getTournamentPlayersForSync = internalQuery({
     const decklistsByPlayerId = new Map(
       decklists.map((decklist) => [decklist.playerId, decklist]),
     );
-    return players.map((player) => {
-      const decklist = decklistsByPlayerId.get(player._id);
-      const data = composePlayerData(player, undefined, decklist);
-      return {
-        playerId: player._id,
-        externalPlayerId: player.externalPlayerId,
-        name: player.name,
-        externalDecklistId: data.externalDecklistId,
-        externalDecklistUpdatedAt: decklist?.externalDecklistUpdatedAt,
-        decklistStatus: data.decklistStatus,
-        deckName: data.deckName,
-        deckList: data.deckList,
-      };
-    });
+    return players.map((player) =>
+      toCachedPlayerForSync(player, decklistsByPlayerId.get(player._id)),
+    );
   },
 });
 
+/**
+ * Apply names from Melee. A player edited by hand since the sync was planned
+ * keeps the edited name. Returns the number of names written.
+ */
 export const updatePlayerNames = internalMutation({
   args: {
     players: v.array(
@@ -363,13 +401,29 @@ export const updatePlayerNames = internalMutation({
       }),
     ),
   },
+  returns: v.number(),
   handler: async (ctx, args) => {
+    let updated = 0;
     for (const player of args.players) {
+      const existingPlayer = await ctx.db.get(player.playerId);
+      if (!existingPlayer) {
+        continue;
+      }
+      const existingDecklist = await getPlayerDecklistByPlayerId(
+        ctx,
+        player.playerId,
+      );
+      const current = toCachedPlayerForSync(existingPlayer, existingDecklist);
+      if (current.decklistStatus === "manual" || current.name === player.name) {
+        continue;
+      }
       await ctx.db.patch(player.playerId, {
         name: player.name,
         updatedAt: Date.now(),
       });
+      updated += 1;
     }
+    return updated;
   },
 });
 
