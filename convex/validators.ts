@@ -448,6 +448,9 @@ export const playerDecklistValidator = v.object({
   externalTournamentId: v.number(),
   externalPlayerId: v.number(),
   externalDecklistId: v.optional(v.string()), // Melee decklist GUID
+  // Melee's LastUpdated for the decklist (ISO 8601). Lets a sync skip
+  // decklists that have not changed since they were stored.
+  externalDecklistUpdatedAt: v.optional(v.string()),
   decklistStatus: v.optional(decklistStatusValidator),
   deckName: v.string(), // Archetype name
   deckList: v.string(), // Plaintext deck list

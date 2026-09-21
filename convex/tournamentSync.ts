@@ -681,10 +681,11 @@ async function fetchRoundSnapshot(
 /**
  * Pull the Melee player list once and reconcile it against the cached
  * players: registration statuses (drops), players not yet cached, and
- * decklists. In "fill_missing" mode only players cached without a decklist
- * are re-checked (late submissions); in "full" mode every player's decklist
- * and name is re-downloaded. The player list is the largest Melee payload,
- * so the polling loop runs this at validation and on round change only.
+ * decklists. In "fill_missing" mode only decklists that are missing or that
+ * the payload shows have changed are written; in "full" mode every decklist
+ * not known to be current is re-downloaded and names are refreshed. The
+ * player list is the largest Melee payload, so the polling loop runs this at
+ * validation and on round change only.
  */
 async function syncPlayersFromMelee(
   ctx: ActionCtx,
@@ -944,6 +945,7 @@ async function fetchDecklistsInBatches(
             deckName: decklist.deckname,
             deckList: decklist.decklist,
             externalDecklistId: player.externalDecklistId,
+            externalDecklistUpdatedAt: decklist.lastUpdated,
             decklistStatus: "ready" as const,
           };
         } catch (error) {

@@ -67,6 +67,7 @@ export type NewPlayerEntry = {
   externalTournamentId: number;
   registrationStatus?: string;
   externalDecklistId?: string;
+  externalDecklistUpdatedAt?: string;
   decklistStatus?: Player["decklistStatus"];
   deckName: string;
   deckList: string;
