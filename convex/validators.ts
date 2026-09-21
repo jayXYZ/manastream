@@ -15,6 +15,19 @@ export const settingsValidator = v.object({
   updatedAt: v.number(),
 });
 
+// State of the most recent "Refresh players" run (full re-download of the
+// player list and decklists from Melee). Written twice per run.
+export const playerRefreshValidator = v.object({
+  status: v.union(
+    v.literal("running"),
+    v.literal("success"),
+    v.literal("error"),
+  ),
+  startedAt: v.number(),
+  finishedAt: v.optional(v.number()),
+  message: v.optional(v.string()),
+});
+
 export const tournamentValidator = v.object({
   _id: v.id("tournaments"),
   _creationTime: v.number(),
@@ -50,6 +63,7 @@ export const tournamentValidator = v.object({
   commentatorLeftSubText: v.optional(v.string()),
   commentatorRight: v.optional(v.string()),
   commentatorRightSubText: v.optional(v.string()),
+  playerRefresh: v.optional(playerRefreshValidator),
   createdAt: v.number(),
   updatedAt: v.number(),
 });
@@ -71,6 +85,13 @@ export const manualPollResultValidator = v.union(
   v.literal("not_polling"),
   v.literal("in_progress"),
   v.literal("cooldown"),
+);
+
+export const playerRefreshResultValidator = v.union(
+  v.literal("scheduled"),
+  v.literal("in_progress"),
+  v.literal("no_tournament"),
+  v.literal("no_credentials"),
 );
 
 export const externalTournamentValidator = v.object({
