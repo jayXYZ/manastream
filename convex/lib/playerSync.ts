@@ -124,11 +124,49 @@ export function buildNewPlayerArgs(
 }
 
 /**
+ * Whether Melee's LastUpdated for the incoming decklist is behind the one
+ * already stored for the same decklist. Overlapping syncs (the poll loop and
+ * a full refresh) can commit their Melee responses in either order, so the
+ * later commit must not roll back a newer version. Timestamps of different
+ * decklist ids are not comparable: a player can switch to an older list.
+ */
+export function isOlderDecklistVersion(
+  cached: Pick<
+    CachedPlayerForSync,
+    "externalDecklistId" | "externalDecklistUpdatedAt"
+  >,
+  update: Pick<
+    DecklistUpdate,
+    "externalDecklistId" | "externalDecklistUpdatedAt"
+  >,
+): boolean {
+  if (
+    cached.externalDecklistId === undefined ||
+    cached.externalDecklistId !== update.externalDecklistId ||
+    cached.externalDecklistUpdatedAt === undefined ||
+    update.externalDecklistUpdatedAt === undefined
+  ) {
+    return false;
+  }
+  const cachedTime = Date.parse(cached.externalDecklistUpdatedAt);
+  const updateTime = Date.parse(update.externalDecklistUpdatedAt);
+  if (Number.isNaN(cachedTime) || Number.isNaN(updateTime)) {
+    return false;
+  }
+  return updateTime < cachedTime;
+}
+
+/**
  * Whether a decklist pulled from Melee should overwrite what is cached.
  * Never overwrites hand-edited decklists, never replaces a usable decklist
- * with a failed fetch, and skips writes that would not change anything. A
- * newly learned LastUpdated counts as a change so it gets recorded; a write
- * with the same list text keeps the resolved deck cards.
+ * with a failed fetch, never rolls a decklist back to an older LastUpdated,
+ * and skips writes that would not change anything. A newly learned
+ * LastUpdated counts as a change so it gets recorded; a write with the same
+ * list text keeps the resolved deck cards.
+ *
+ * The write mutation re-evaluates this against the row as it is at commit
+ * time, since the plan may have been built from a snapshot that a manual
+ * edit or an overlapping sync has since changed.
  */
 export function shouldApplyDecklistUpdate(
   cached: CachedPlayerForSync,
@@ -145,6 +183,9 @@ export function shouldApplyDecklistUpdate(
         cached.externalDecklistId === update.externalDecklistId
       )
     );
+  }
+  if (isOlderDecklistVersion(cached, update)) {
+    return false;
   }
   return (
     cached.decklistStatus !== "ready" ||
@@ -266,9 +307,15 @@ export function selectFetchedDecklistUpdates(
   });
 }
 
+/**
+ * Counts come from what the mutations actually wrote, not from the plan: an
+ * overlapping sync may have inserted the same player first, and a decklist
+ * or name update is skipped at commit time when the row changed underneath.
+ */
 export function summarizePlayerSync(args: {
   playerCount: number;
-  plan: PlayerSyncPlan;
+  created: number;
+  namesUpdated: number;
   appliedDecklistUpdates: DecklistUpdate[];
 }): PlayerSyncSummary {
   let decklistsUpdated = 0;
@@ -282,10 +329,10 @@ export function summarizePlayerSync(args: {
   }
   return {
     playerCount: args.playerCount,
-    created: args.plan.newPlayers.length,
+    created: args.created,
     decklistsUpdated,
     decklistFetchesFailed,
-    namesUpdated: args.plan.nameUpdates.length,
+    namesUpdated: args.namesUpdated,
   };
 }
 
