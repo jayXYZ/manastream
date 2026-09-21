@@ -10,6 +10,7 @@ type PlayerDataInput = Pick<
   | "externalPlayerId"
   | "registrationStatus"
   | "externalDecklistId"
+  | "externalDecklistUpdatedAt"
   | "decklistStatus"
   | "deckName"
   | "deckList"
@@ -131,6 +132,7 @@ export async function insertPlayerDataRows(
       externalTournamentId: player.externalTournamentId,
       externalPlayerId: player.externalPlayerId,
       externalDecklistId: player.externalDecklistId,
+      externalDecklistUpdatedAt: player.externalDecklistUpdatedAt,
       decklistStatus: player.decklistStatus,
       deckName: player.deckName,
       deckList: player.deckList,
@@ -149,6 +151,7 @@ export async function upsertPlayerDecklist(
     externalTournamentId: player.externalTournamentId,
     externalPlayerId: player.externalPlayerId,
     externalDecklistId: player.externalDecklistId,
+    externalDecklistUpdatedAt: player.externalDecklistUpdatedAt,
     decklistStatus: player.decklistStatus,
     deckName: player.deckName,
     deckList: player.deckList,

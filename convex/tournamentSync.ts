@@ -10,13 +10,18 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { logIntegrationEvent } from "./lib/logging";
-import { MANUAL_POLL_COOLDOWN, POLLING_INTERVAL } from "./lib/constants";
+import {
+  MANUAL_POLL_COOLDOWN,
+  PLAYER_REFRESH_TIMEOUT,
+  POLLING_INTERVAL,
+} from "./lib/constants";
 import {
   settingsValidator,
   externalTournamentValidator,
   tournamentValidator,
   roundSnapshotValidator,
   manualPollResultValidator,
+  playerRefreshResultValidator,
 } from "./validators";
 import { checkForNewRound } from "./lib/rounds";
 import {
@@ -28,7 +33,6 @@ import {
   fetchMeleeRoundStandings,
   fetchMeleeTournament,
 } from "./lib/melee/api";
-import { buildDecklistFromMeleeRecords } from "./lib/melee/decklist";
 import {
   RoundSnapshot,
   buildRoundSnapshot,
@@ -41,10 +45,20 @@ import {
 } from "./models/melee";
 import {
   MeleeMatch,
-  MeleePlayerListEntry,
   MeleeStanding,
   MeleeTournamentOverviewResponse,
 } from "./types/melee";
+import {
+  DecklistFetchRequest,
+  DecklistUpdate,
+  PlayerSyncMode,
+  PlayerSyncSummary,
+  formatPlayerSyncSummary,
+  planPlayerSync,
+  playerRefreshDecision,
+  selectFetchedDecklistUpdates,
+  summarizePlayerSync,
+} from "./lib/playerSync";
 import {
   createExternalTournamentHelper,
   updateExternalTournamentHelper,
@@ -664,69 +678,21 @@ async function fetchRoundSnapshot(
   });
 }
 
-type NewPlayerArgs = {
-  externalTournamentId: number;
-  name: string;
-  externalPlayerId: number;
-  registrationStatus?: string;
-  externalDecklistId?: string;
-  decklistStatus: "ready" | "missing";
-  deckName: string;
-  deckList: string;
-};
-
-function playerEntryName(entry: MeleePlayerListEntry): string {
-  return entry.DisplayName || entry.PlayerName || entry.Username;
-}
-
 /**
- * Build a createPlayers row from a player-list entry, using the embedded
- * decklist (with card records) when the player has submitted one.
- */
-function buildNewPlayerArgs(
-  externalTournamentId: number,
-  entry: MeleePlayerListEntry,
-): NewPlayerArgs {
-  const embedded = entry.Decklists[0];
-  if (embedded && Array.isArray(embedded.Records)) {
-    const decklist = buildDecklistFromMeleeRecords({
-      records: embedded.Records,
-      formatName: embedded.FormatName,
-      decklistName: embedded.DecklistName || embedded.Name || undefined,
-    });
-    return {
-      externalTournamentId,
-      name: playerEntryName(entry),
-      externalPlayerId: entry.ID,
-      registrationStatus: parseMeleeRegistrationStatus(entry),
-      externalDecklistId: embedded.Guid,
-      decklistStatus: "ready",
-      deckName: decklist.deckname,
-      deckList: decklist.decklist,
-    };
-  }
-  return {
-    externalTournamentId,
-    name: playerEntryName(entry),
-    externalPlayerId: entry.ID,
-    registrationStatus: parseMeleeRegistrationStatus(entry),
-    decklistStatus: "missing",
-    deckName: "MISSING_DECKLIST",
-    deckList: "MISSING_DECKLIST",
-  };
-}
-
-/**
- * Pull the Melee player list once and reconcile it: registration statuses
- * (drops), players not yet cached, and decklists for players cached without
- * one (late submissions). The player list is the largest Melee payload, so
- * this runs at validation, on round change, and on manual refresh only.
+ * Pull the Melee player list once and reconcile it against the cached
+ * players: registration statuses (drops), players not yet cached, and
+ * decklists. In "fill_missing" mode only decklists that are missing or that
+ * the payload shows have changed are written; in "full" mode every decklist
+ * not known to be current is re-downloaded and names are refreshed. The
+ * player list is the largest Melee payload, so the polling loop runs this at
+ * validation and on round change only.
  */
 async function syncPlayersFromMelee(
   ctx: ActionCtx,
   externalTournamentId: number,
   credentials: MeleeCredentials,
-): Promise<void> {
+  mode: PlayerSyncMode,
+): Promise<PlayerSyncSummary> {
   const playerEntries = await fetchMeleePlayerList(
     externalTournamentId,
     credentials,
@@ -739,79 +705,55 @@ async function syncPlayersFromMelee(
     })),
   });
 
-  const cachedPlayerIds = await ctx.runQuery(
-    internal.player.getAllTournamentPlayerExternalIds,
+  const cached = await ctx.runQuery(
+    internal.player.getTournamentPlayersForSync,
     { externalTournamentId },
   );
-  const cachedPlayerIdSet = new Set(cachedPlayerIds);
-  const newEntries = playerEntries.filter(
-    (entry) => !cachedPlayerIdSet.has(entry.ID),
-  );
-  if (newEntries.length > 0) {
-    await ctx.runMutation(internal.player.createPlayers, {
-      players: newEntries.map((entry) =>
-        buildNewPlayerArgs(externalTournamentId, entry),
-      ),
+  const plan = planPlayerSync({
+    externalTournamentId,
+    entries: playerEntries,
+    cached,
+    mode,
+  });
+
+  // The mutations report what they wrote. An overlapping sync may have
+  // inserted a player first, and an update is skipped at commit time when
+  // the row was hand-edited or a newer decklist landed in the meantime.
+  let created = 0;
+  if (plan.newPlayers.length > 0) {
+    const inserted = await ctx.runMutation(internal.player.createPlayers, {
+      players: plan.newPlayers,
     });
+    created = inserted.length;
   }
-
-  // Re-check decklists for existing players that were cached without one
-  const playersWithMissingDecklists = await ctx.runQuery(
-    internal.player.getPlayersWithMissingDecklists,
-    { externalTournamentId },
-  );
-  if (playersWithMissingDecklists.length === 0) {
-    return;
-  }
-  const entriesByPlayerId = new Map(
-    playerEntries.map((entry) => [entry.ID, entry]),
-  );
-  const decklistUpdates: {
-    playerId: Id<"players">;
-    deckName: string;
-    deckList: string;
-    externalDecklistId?: string;
-    decklistStatus: "ready" | "fetch_failed";
-  }[] = [];
-  const playersToFetch: {
-    playerId: Id<"players">;
-    externalDecklistId: string;
-  }[] = [];
-
-  for (const player of playersWithMissingDecklists) {
-    const embedded = entriesByPlayerId.get(player.externalPlayerId)
-      ?.Decklists[0];
-    if (embedded && Array.isArray(embedded.Records)) {
-      const decklist = buildDecklistFromMeleeRecords({
-        records: embedded.Records,
-        formatName: embedded.FormatName,
-        decklistName: embedded.DecklistName || embedded.Name || undefined,
-      });
-      decklistUpdates.push({
-        playerId: player.playerId,
-        deckName: decklist.deckname,
-        deckList: decklist.decklist,
-        externalDecklistId: embedded.Guid,
-        decklistStatus: "ready",
-      });
-    } else if (player.externalDecklistId) {
-      playersToFetch.push({
-        playerId: player.playerId,
-        externalDecklistId: player.externalDecklistId,
-      });
-    }
+  let namesUpdated = 0;
+  if (plan.nameUpdates.length > 0) {
+    namesUpdated = await ctx.runMutation(internal.player.updatePlayerNames, {
+      players: plan.nameUpdates,
+    });
   }
 
   const fetchedUpdates = await fetchDecklistsInBatches(
-    playersToFetch,
+    plan.decklistsToFetch,
     credentials,
   );
-  const allUpdates = [...decklistUpdates, ...fetchedUpdates];
-  if (allUpdates.length > 0) {
-    await ctx.runMutation(internal.player.updatePlayerDecklists, {
-      players: allUpdates,
-    });
+  const decklistUpdates = [
+    ...plan.decklistUpdates,
+    ...selectFetchedDecklistUpdates(fetchedUpdates, cached),
+  ];
+  let appliedDecklistUpdates: DecklistUpdate[] = [];
+  if (decklistUpdates.length > 0) {
+    appliedDecklistUpdates = await ctx.runMutation(
+      internal.player.updatePlayerDecklists,
+      { players: decklistUpdates },
+    );
   }
+  return summarizePlayerSync({
+    playerCount: playerEntries.length,
+    created,
+    namesUpdated,
+    appliedDecklistUpdates,
+  });
 }
 
 /**
@@ -911,7 +853,12 @@ export const validateAndStartPolling = internalAction({
       );
 
       // Seed registered players (with embedded decklists where available)
-      await syncPlayersFromMelee(ctx, externalTournamentId, credentials);
+      await syncPlayersFromMelee(
+        ctx,
+        externalTournamentId,
+        credentials,
+        "fill_missing",
+      );
 
       // Snapshot the current round (round info and pairings)
       const matches = await fetchMeleeCurrentRoundMatches(
@@ -984,24 +931,10 @@ export const validateAndStartPolling = internalAction({
 });
 
 async function fetchDecklistsInBatches(
-  players: { playerId: Id<"players">; externalDecklistId: string }[],
+  players: DecklistFetchRequest[],
   credentials: MeleeCredentials,
-): Promise<
-  {
-    playerId: Id<"players">;
-    deckName: string;
-    deckList: string;
-    externalDecklistId?: string;
-    decklistStatus: "ready" | "fetch_failed";
-  }[]
-> {
-  const results: {
-    playerId: Id<"players">;
-    deckName: string;
-    deckList: string;
-    externalDecklistId?: string;
-    decklistStatus: "ready" | "fetch_failed";
-  }[] = [];
+): Promise<DecklistUpdate[]> {
+  const results: DecklistUpdate[] = [];
 
   for (
     let index = 0;
@@ -1021,6 +954,7 @@ async function fetchDecklistsInBatches(
             deckName: decklist.deckname,
             deckList: decklist.decklist,
             externalDecklistId: player.externalDecklistId,
+            externalDecklistUpdatedAt: decklist.lastUpdated,
             decklistStatus: "ready" as const,
           };
         } catch (error) {
@@ -1225,7 +1159,12 @@ export const pollTournamentAndScheduleNext = internalAction({
       });
 
       // Drops and late decklists: once per round instead of every cycle
-      await syncPlayersFromMelee(ctx, externalTournamentId, credentials);
+      await syncPlayersFromMelee(
+        ctx,
+        externalTournamentId,
+        credentials,
+        "fill_missing",
+      );
 
       // Atomically invalidate this cycle's watchdog and hand off to the next
       // scheduled execution.
@@ -1247,6 +1186,239 @@ export const pollTournamentAndScheduleNext = internalAction({
         pollingErrorMessage: `Error polling tournament: ${error}`,
         logAction: "POLL_ERROR",
         logMessage: `Error during poll cycle: ${error}`,
+        logMetadata: { error: String(error) },
+      });
+    }
+  },
+});
+
+/**
+ * "Refresh players": re-download the whole player list and every decklist
+ * from Melee. Independent of the polling loop, so it also works in manual
+ * mode. Refuses while a refresh is already running; a watchdog clears a run
+ * that never finished.
+ */
+export const requestPlayerRefresh = mutation({
+  args: {},
+  returns: playerRefreshResultValidator,
+  handler: async (ctx) => {
+    const userId = await requireAuth(ctx);
+    const tournament = await getOwnTournament(ctx);
+    const settings = await ctx.db
+      .query("settings")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .unique();
+    const decision = playerRefreshDecision({
+      externalTournamentId: tournament.externalTournamentId,
+      hasCredentials: settings !== null && hasMeleeCredentials(settings),
+      refresh: tournament.playerRefresh,
+    });
+    if (decision !== "scheduled") {
+      return decision;
+    }
+
+    const startedAt = Date.now();
+    await ctx.db.patch(tournament._id, {
+      playerRefresh: { status: "running", startedAt },
+    });
+    // The run is bound to the Melee tournament selected now; the action
+    // checks that binding before it touches anything.
+    await ctx.scheduler.runAfter(
+      0,
+      internal.tournamentSync.refreshPlayersFromMelee,
+      {
+        userId,
+        tournamentId: tournament._id,
+        externalTournamentId: tournament.externalTournamentId!,
+        startedAt,
+      },
+    );
+    await ctx.scheduler.runAfter(
+      PLAYER_REFRESH_TIMEOUT,
+      internal.tournamentSync.expirePlayerRefresh,
+      { userId, tournamentId: tournament._id, startedAt },
+    );
+    await logIntegrationEvent(ctx, {
+      userId,
+      tournamentId: tournament._id,
+      action: "PLAYER_REFRESH_REQUESTED",
+      status: "info",
+      message: "Player refresh requested. Downloading players and decklists from Melee.",
+    });
+    return decision;
+  },
+});
+
+/**
+ * Record the outcome of a player refresh. Ignored when the tournament's
+ * current run is not the one identified by startedAt (already finished, or
+ * superseded after a timeout).
+ */
+async function finishPlayerRefreshRun(
+  ctx: MutationCtx,
+  args: {
+    userId: Id<"users">;
+    tournamentId: Id<"tournaments">;
+    startedAt: number;
+    status: "success" | "error";
+    message: string;
+    logAction: string;
+    logMetadata?: unknown;
+  },
+): Promise<boolean> {
+  const tournament = await ctx.db.get(args.tournamentId);
+  if (
+    !tournament ||
+    tournament.playerRefresh?.status !== "running" ||
+    tournament.playerRefresh.startedAt !== args.startedAt
+  ) {
+    return false;
+  }
+  await ctx.db.patch(args.tournamentId, {
+    playerRefresh: {
+      status: args.status,
+      startedAt: args.startedAt,
+      finishedAt: Date.now(),
+      message: args.message,
+    },
+  });
+  await logIntegrationEvent(ctx, {
+    userId: args.userId,
+    tournamentId: args.tournamentId,
+    action: args.logAction,
+    status: args.status,
+    message: args.message,
+    metadata: args.logMetadata,
+  });
+  return true;
+}
+
+export const finishPlayerRefresh = internalMutation({
+  args: {
+    userId: v.id("users"),
+    tournamentId: v.id("tournaments"),
+    startedAt: v.number(),
+    status: v.union(v.literal("success"), v.literal("error")),
+    message: v.string(),
+    logMetadata: v.optional(v.any()),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    return await finishPlayerRefreshRun(ctx, {
+      ...args,
+      logAction:
+        args.status === "success"
+          ? "PLAYER_REFRESH_SUCCESS"
+          : "PLAYER_REFRESH_ERROR",
+    });
+  },
+});
+
+export const expirePlayerRefresh = internalMutation({
+  args: {
+    userId: v.id("users"),
+    tournamentId: v.id("tournaments"),
+    startedAt: v.number(),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    return await finishPlayerRefreshRun(ctx, {
+      ...args,
+      status: "error",
+      message: "Player refresh timed out before it completed. Try again.",
+      logAction: "PLAYER_REFRESH_TIMEOUT",
+    });
+  },
+});
+
+/**
+ * The Melee credentials for a player refresh run, provided the run is still
+ * the tournament's current one: the tournament belongs to the user, its
+ * player refresh is "running" with this run's startedAt (not expired by the
+ * watchdog or superseded), and it still points at the Melee tournament the
+ * run was requested for. Null means the run must not write anything.
+ */
+export const getPlayerRefreshRun = internalQuery({
+  args: {
+    userId: v.id("users"),
+    tournamentId: v.id("tournaments"),
+    externalTournamentId: v.number(),
+    startedAt: v.number(),
+  },
+  returns: v.union(v.null(), v.object({ settings: settingsValidator })),
+  handler: async (ctx, args) => {
+    const tournament = await ctx.db.get(args.tournamentId);
+    if (
+      !tournament ||
+      tournament.userId !== args.userId ||
+      tournament.externalTournamentId !== args.externalTournamentId ||
+      tournament.playerRefresh?.status !== "running" ||
+      tournament.playerRefresh.startedAt !== args.startedAt
+    ) {
+      return null;
+    }
+    const settings = await ctx.db
+      .query("settings")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .unique();
+    if (!settings || !hasMeleeCredentials(settings)) {
+      throw new Error("No Melee credentials found. Check your settings.");
+    }
+    return { settings };
+  },
+});
+
+export const refreshPlayersFromMelee = internalAction({
+  args: {
+    userId: v.id("users"),
+    tournamentId: v.id("tournaments"),
+    externalTournamentId: v.number(),
+    startedAt: v.number(),
+  },
+  handler: async (ctx, args) => {
+    try {
+      const run = await ctx.runQuery(
+        internal.tournamentSync.getPlayerRefreshRun,
+        args,
+      );
+      if (!run) {
+        // Expired, superseded, or the Melee tournament changed since the
+        // request. finishPlayerRefresh is a no-op unless this run is somehow
+        // still on record, in which case it is closed out as an error.
+        await ctx.runMutation(internal.tournamentSync.finishPlayerRefresh, {
+          userId: args.userId,
+          tournamentId: args.tournamentId,
+          startedAt: args.startedAt,
+          status: "error",
+          message:
+            "Player refresh skipped: the Melee tournament changed or the run was superseded.",
+        });
+        return;
+      }
+      const credentials: MeleeCredentials =
+        getMeleeCredentialsFromSettings(run.settings);
+      const summary = await syncPlayersFromMelee(
+        ctx,
+        args.externalTournamentId,
+        credentials,
+        "full",
+      );
+      await ctx.runMutation(internal.tournamentSync.finishPlayerRefresh, {
+        userId: args.userId,
+        tournamentId: args.tournamentId,
+        startedAt: args.startedAt,
+        status: "success",
+        message: formatPlayerSyncSummary(summary),
+        logMetadata: summary,
+      });
+    } catch (error) {
+      console.error(`Error refreshing players for ${args.userId}:`, error);
+      await ctx.runMutation(internal.tournamentSync.finishPlayerRefresh, {
+        userId: args.userId,
+        tournamentId: args.tournamentId,
+        startedAt: args.startedAt,
+        status: "error",
+        message: `Player refresh failed: ${error}`,
         logMetadata: { error: String(error) },
       });
     }
