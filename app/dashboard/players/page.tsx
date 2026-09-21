@@ -47,6 +47,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
+import { RefreshPlayersButton } from "@/components/sync/refresh-players-button";
 import { Download, Eye, EyeOff, SearchIcon, Settings2, X } from "lucide-react";
 
 type MetaBreakdownDialogSettings = {
@@ -212,6 +213,7 @@ export default function PlayersPage() {
             </InputGroup>
           </div>
           <div className="flex items-center gap-3">
+            {tournament && <RefreshPlayersButton tournament={tournament} />}
             <DropdownMenu modal={false}>
               <DropdownMenuTrigger
                 id="player-table-settings-menu-trigger"

@@ -11,10 +11,10 @@ import { v } from "convex/values";
 import { getOwnTournament } from "./lib/tournaments";
 import { decklistStatusValidator } from "./validators";
 import {
+  composePlayerData,
   getChangedRegistrationStatuses,
   getPlayerData,
   insertPlayerDataRows,
-  isMissingDecklistData,
   upsertPlayerDecklist,
 } from "./lib/playerData";
 
@@ -75,6 +75,19 @@ export const createPlayers = internalMutation({
       [];
     const playerIdsToResolve: Id<"players">[] = [];
     for (const player of args.players) {
+      // The poll loop and a manual player refresh can both discover the same
+      // new player; the second insert to commit sees the first and skips.
+      const existing = await ctx.db
+        .query("players")
+        .withIndex("by_external_tournament_id_and_external_player_id", (q) =>
+          q
+            .eq("externalTournamentId", player.externalTournamentId)
+            .eq("externalPlayerId", player.externalPlayerId),
+        )
+        .first();
+      if (existing) {
+        continue;
+      }
       const playerId = await ctx.db.insert("players", {
         name: player.name,
         externalTournamentId: player.externalTournamentId,
@@ -270,7 +283,12 @@ export const updatePlayerRegistrationStatuses = internalMutation({
   },
 });
 
-export const getPlayersWithMissingDecklists = internalQuery({
+/**
+ * Every cached player for the tournament with the decklist fields the Melee
+ * player sync compares against. Reads the players and playerDecklists tables
+ * once each rather than one lookup per player.
+ */
+export const getTournamentPlayersForSync = internalQuery({
   args: {
     externalTournamentId: v.number(),
   },
@@ -278,86 +296,66 @@ export const getPlayersWithMissingDecklists = internalQuery({
     v.object({
       playerId: v.id("players"),
       externalPlayerId: v.number(),
+      name: v.string(),
       externalDecklistId: v.optional(v.string()),
       decklistStatus: v.optional(decklistStatusValidator),
+      deckName: v.string(),
+      deckList: v.string(),
     }),
   ),
   handler: async (ctx, args) => {
-    const missingDecklists = new Map<
-      Id<"players">,
-      {
-        playerId: Id<"players">;
-        externalPlayerId: number;
-        externalDecklistId?: string;
-        decklistStatus?: "pending" | "ready" | "missing" | "fetch_failed" | "manual";
-      }
-    >();
-    for (const status of ["missing", "fetch_failed"] as const) {
-      const decklists = await ctx.db
-        .query("playerDecklists")
-        .withIndex("by_external_tournament_id_and_decklist_status", (q) =>
-          q
-            .eq("externalTournamentId", args.externalTournamentId)
-            .eq("decklistStatus", status),
+    const [players, decklists] = await Promise.all([
+      ctx.db
+        .query("players")
+        .withIndex("by_external_tournament_id", (q) =>
+          q.eq("externalTournamentId", args.externalTournamentId),
         )
-        .collect();
-      for (const decklist of decklists) {
-        missingDecklists.set(decklist.playerId, {
-          playerId: decklist.playerId,
-          externalPlayerId: decklist.externalPlayerId,
-          externalDecklistId: decklist.externalDecklistId,
-          decklistStatus: decklist.decklistStatus,
-        });
-      }
-    }
-
-    const legacyPlayers = await ctx.db
-      .query("players")
-      .withIndex("by_external_tournament_id", (q) =>
-        q.eq("externalTournamentId", args.externalTournamentId),
-      )
-      .collect();
-    for (const player of legacyPlayers) {
-      if (missingDecklists.has(player._id) || !isMissingDecklistData(player)) {
-        continue;
-      }
-      missingDecklists.set(player._id, {
+        .collect(),
+      ctx.db
+        .query("playerDecklists")
+        .withIndex("by_external_tournament_id", (q) =>
+          q.eq("externalTournamentId", args.externalTournamentId),
+        )
+        .collect(),
+    ]);
+    const decklistsByPlayerId = new Map(
+      decklists.map((decklist) => [decklist.playerId, decklist]),
+    );
+    return players.map((player) => {
+      const data = composePlayerData(
+        player,
+        undefined,
+        decklistsByPlayerId.get(player._id),
+      );
+      return {
         playerId: player._id,
         externalPlayerId: player.externalPlayerId,
-        externalDecklistId: player.externalDecklistId,
-        decklistStatus: player.decklistStatus,
-      });
-    }
-    return [...missingDecklists.values()];
+        name: player.name,
+        externalDecklistId: data.externalDecklistId,
+        decklistStatus: data.decklistStatus,
+        deckName: data.deckName,
+        deckList: data.deckList,
+      };
+    });
   },
 });
 
-export const getAllTournamentPlayerExternalIds = internalQuery({
+export const updatePlayerNames = internalMutation({
   args: {
-    externalTournamentId: v.number(),
+    players: v.array(
+      v.object({
+        playerId: v.id("players"),
+        name: v.string(),
+      }),
+    ),
   },
-  returns: v.array(v.number()),
   handler: async (ctx, args) => {
-    const statusRows = await ctx.db
-      .query("playerStatuses")
-      .withIndex("by_external_tournament_id", (q) =>
-        q.eq("externalTournamentId", args.externalTournamentId),
-      )
-      .collect();
-    const externalPlayerIds = new Set(
-      statusRows.map((player) => player.externalPlayerId),
-    );
-
-    const legacyPlayers = await ctx.db
-      .query("players")
-      .withIndex("by_external_tournament_id", (q) =>
-        q.eq("externalTournamentId", args.externalTournamentId),
-      )
-      .collect();
-    for (const player of legacyPlayers) {
-      externalPlayerIds.add(player.externalPlayerId);
+    for (const player of args.players) {
+      await ctx.db.patch(player.playerId, {
+        name: player.name,
+        updatedAt: Date.now(),
+      });
     }
-    return [...externalPlayerIds];
   },
 });
 
