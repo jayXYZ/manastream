@@ -12,12 +12,14 @@ export type DecklistStatus =
   | "manual";
 
 /**
- * "fill_missing": add players not yet cached and fill decklists for players
- * cached without one. Used by the polling loop on each round change.
+ * "fill_missing": add players not yet cached, fill decklists for players
+ * cached without one, and pick up edits that the player-list payload proves
+ * (cards embedded, or a changed decklist id / LastUpdated). Never fetches a
+ * decklist by id unless it is known to be missing or changed. Used by the
+ * polling loop on each round change.
  *
- * "full": additionally re-download every player's decklist and name so that
- * changes made in Melee after the player was first cached are picked up.
- * Used by the "Refresh players" button.
+ * "full": additionally re-download every decklist whose LastUpdated is not
+ * known to match, and refresh names. Used by the "Refresh players" button.
  *
  * Players edited by hand in the dashboard (decklistStatus "manual") are never
  * touched in either mode.
@@ -29,6 +31,8 @@ export type CachedPlayerForSync = {
   externalPlayerId: number;
   name: string;
   externalDecklistId?: string;
+  /** Melee's LastUpdated for the stored decklist, when known. */
+  externalDecklistUpdatedAt?: string;
   decklistStatus?: DecklistStatus;
   deckName: string;
   deckList: string;
@@ -40,6 +44,7 @@ export type NewPlayerArgs = {
   externalPlayerId: number;
   registrationStatus?: string;
   externalDecklistId?: string;
+  externalDecklistUpdatedAt?: string;
   decklistStatus: "ready" | "missing";
   deckName: string;
   deckList: string;
@@ -50,6 +55,7 @@ export type DecklistUpdate = {
   deckName: string;
   deckList: string;
   externalDecklistId?: string;
+  externalDecklistUpdatedAt?: string;
   decklistStatus: "ready" | "fetch_failed";
 };
 
@@ -100,6 +106,7 @@ export function buildNewPlayerArgs(
       externalPlayerId: entry.ID,
       registrationStatus: parseMeleeRegistrationStatus(entry),
       externalDecklistId: embedded.Guid,
+      externalDecklistUpdatedAt: embedded.LastUpdated ?? undefined,
       decklistStatus: "ready",
       deckName: decklist.deckname,
       deckList: decklist.decklist,
@@ -119,8 +126,9 @@ export function buildNewPlayerArgs(
 /**
  * Whether a decklist pulled from Melee should overwrite what is cached.
  * Never overwrites hand-edited decklists, never replaces a usable decklist
- * with a failed fetch, and skips writes that would not change anything (each
- * write resets the resolved deck cards and re-queues Scryfall resolution).
+ * with a failed fetch, and skips writes that would not change anything. A
+ * newly learned LastUpdated counts as a change so it gets recorded; a write
+ * with the same list text keeps the resolved deck cards.
  */
 export function shouldApplyDecklistUpdate(
   cached: CachedPlayerForSync,
@@ -142,7 +150,9 @@ export function shouldApplyDecklistUpdate(
     cached.decklistStatus !== "ready" ||
     cached.deckName !== update.deckName ||
     cached.deckList !== update.deckList ||
-    cached.externalDecklistId !== update.externalDecklistId
+    cached.externalDecklistId !== update.externalDecklistId ||
+    (update.externalDecklistUpdatedAt !== undefined &&
+      cached.externalDecklistUpdatedAt !== update.externalDecklistUpdatedAt)
   );
 }
 
@@ -182,12 +192,12 @@ export function planPlayerSync(args: {
       if (name !== cached.name) {
         plan.nameUpdates.push({ playerId: cached.playerId, name });
       }
-    } else if (!isMissingDecklistData(cached)) {
-      continue;
     }
 
     const embedded = entry.Decklists[0];
     if (embedded && Array.isArray(embedded.Records)) {
+      // The cards are in the payload, so comparing costs nothing: an edited
+      // decklist is picked up in both modes.
       const decklist = buildDecklistFromMeleeRecords({
         records: embedded.Records,
         formatName: embedded.FormatName,
@@ -198,6 +208,7 @@ export function planPlayerSync(args: {
         deckName: decklist.deckname,
         deckList: decklist.decklist,
         externalDecklistId: embedded.Guid,
+        externalDecklistUpdatedAt: embedded.LastUpdated ?? undefined,
         decklistStatus: "ready",
       };
       if (shouldApplyDecklistUpdate(cached, update)) {
@@ -206,15 +217,32 @@ export function planPlayerSync(args: {
       continue;
     }
 
-    // The list payload names a decklist without its cards: fetch it by id.
-    // In full mode this re-downloads even a cached decklist, since an edited
-    // decklist keeps its id.
+    // The list payload names a decklist without its cards. Fetching by id is
+    // the expensive path, so use the decklist id and LastUpdated to decide.
     const externalDecklistId = embedded?.Guid ?? cached.externalDecklistId;
-    if (externalDecklistId) {
-      plan.decklistsToFetch.push({
-        playerId: cached.playerId,
-        externalDecklistId,
-      });
+    if (!externalDecklistId) {
+      continue;
+    }
+    const fetchRequest = { playerId: cached.playerId, externalDecklistId };
+    if (isMissingDecklistData(cached)) {
+      plan.decklistsToFetch.push(fetchRequest);
+      continue;
+    }
+    const sameDecklistId = embedded?.Guid === cached.externalDecklistId;
+    const timestampsKnown =
+      embedded?.LastUpdated !== undefined &&
+      cached.externalDecklistUpdatedAt !== undefined;
+    if (
+      sameDecklistId &&
+      timestampsKnown &&
+      embedded.LastUpdated === cached.externalDecklistUpdatedAt
+    ) {
+      continue;
+    }
+    const knownToHaveChanged =
+      embedded !== undefined && (!sameDecklistId || timestampsKnown);
+    if (args.mode === "full" || knownToHaveChanged) {
+      plan.decklistsToFetch.push(fetchRequest);
     }
   }
   return plan;

@@ -26,15 +26,20 @@ function makeDecklist(args: {
   guid: string;
   name?: string;
   records?: MeleeDecklistRecord[] | null;
+  lastUpdated?: string;
 }): MeleeDecklistResponse {
   return {
     Guid: args.guid,
     DecklistName: args.name ?? "Mono Red",
     Name: args.name ?? "Mono Red",
     FormatName: "Standard",
+    LastUpdated: args.lastUpdated,
     ...(args.records === null ? {} : { Records: args.records ?? [] }),
   } as unknown as MeleeDecklistResponse;
 }
+
+const T1 = "2026-05-31T19:44:27Z";
+const T2 = "2026-06-01T09:00:00Z";
 
 function makeEntry(args: {
   id: number;
@@ -139,7 +144,7 @@ describe("planPlayerSync", () => {
     ]);
   });
 
-  it("fill_missing leaves players that already have a decklist alone, even when Melee's differs", () => {
+  it("fill_missing picks up an edited decklist when its cards are in the payload, but not the name", () => {
     const plan = planPlayerSync({
       externalTournamentId: TOURNAMENT_ID,
       entries: [
@@ -150,7 +155,45 @@ describe("planPlayerSync", () => {
             guid: "g1",
             name: "Burn",
             records: [record(4, "Fireblast")],
+            lastUpdated: T2,
           }),
+        }),
+      ],
+      cached: [
+        cachedPlayer({
+          externalPlayerId: 1,
+          name: "Ada",
+          decklistStatus: "ready",
+          externalDecklistId: "g1",
+          externalDecklistUpdatedAt: T1,
+          deckName: "Mono Red",
+          deckList: READY_LIST,
+        }),
+      ],
+      mode: "fill_missing",
+    });
+    expect(plan.decklistUpdates).toEqual([
+      {
+        playerId: "player_1",
+        deckName: "Burn",
+        deckList: "4 Fireblast",
+        externalDecklistId: "g1",
+        externalDecklistUpdatedAt: T2,
+        decklistStatus: "ready",
+      },
+    ]);
+    expect(plan.decklistsToFetch).toEqual([]);
+    expect(plan.nameUpdates).toEqual([]);
+  });
+
+  it("records a LastUpdated it did not have, without touching anything else", () => {
+    const plan = planPlayerSync({
+      externalTournamentId: TOURNAMENT_ID,
+      entries: [
+        makeEntry({
+          id: 1,
+          name: "Ada",
+          decklist: makeDecklist({ guid: "g1", records: READY_RECORDS, lastUpdated: T1 }),
         }),
       ],
       cached: [
@@ -165,9 +208,16 @@ describe("planPlayerSync", () => {
       ],
       mode: "fill_missing",
     });
-    expect(plan.decklistUpdates).toEqual([]);
-    expect(plan.decklistsToFetch).toEqual([]);
-    expect(plan.nameUpdates).toEqual([]);
+    expect(plan.decklistUpdates).toEqual([
+      {
+        playerId: "player_1",
+        deckName: "Mono Red",
+        deckList: READY_LIST,
+        externalDecklistId: "g1",
+        externalDecklistUpdatedAt: T1,
+        decklistStatus: "ready",
+      },
+    ]);
   });
 
   it("full re-downloads a changed decklist and name for a cached player", () => {
@@ -273,49 +323,69 @@ describe("planPlayerSync", () => {
     }
   });
 
-  it("fetches by id when the list payload names a decklist without cards", () => {
-    const entries = [
-      makeEntry({
-        id: 1,
-        name: "Ada",
-        decklist: makeDecklist({ guid: "g1", records: null }),
-      }),
+  describe("when the list payload names a decklist without cards", () => {
+    const fetchG1 = [{ playerId: "player_1", externalDecklistId: "g1" }];
+    const entriesWith = (decklist: MeleeDecklistResponse) => [
+      makeEntry({ id: 1, name: "Ada", decklist }),
     ];
-    const readyCached = cachedPlayer({
-      externalPlayerId: 1,
-      name: "Ada",
-      decklistStatus: "ready",
-      externalDecklistId: "g1",
-      deckName: "Mono Red",
-      deckList: READY_LIST,
+    const readyCached = (externalDecklistUpdatedAt?: string) =>
+      cachedPlayer({
+        externalPlayerId: 1,
+        name: "Ada",
+        decklistStatus: "ready",
+        externalDecklistId: "g1",
+        externalDecklistUpdatedAt,
+        deckName: "Mono Red",
+        deckList: READY_LIST,
+      });
+    const toFetch = (
+      entries: MeleePlayerListEntry[],
+      cached: CachedPlayerForSync,
+      mode: "fill_missing" | "full",
+    ) =>
+      planPlayerSync({
+        externalTournamentId: TOURNAMENT_ID,
+        entries,
+        cached: [cached],
+        mode,
+      }).decklistsToFetch;
+
+    it("fetches a missing decklist in both modes", () => {
+      const entries = entriesWith(makeDecklist({ guid: "g1", records: null }));
+      expect(toFetch(entries, cachedPlayer({ externalPlayerId: 1 }), "fill_missing")).toEqual(fetchG1);
+      expect(toFetch(entries, cachedPlayer({ externalPlayerId: 1 }), "full")).toEqual(fetchG1);
     });
-    // Incremental: already have it, nothing to do.
-    expect(
-      planPlayerSync({
-        externalTournamentId: TOURNAMENT_ID,
-        entries,
-        cached: [readyCached],
-        mode: "fill_missing",
-      }).decklistsToFetch,
-    ).toEqual([]);
-    // Full: an edited decklist keeps its id, so re-download it.
-    expect(
-      planPlayerSync({
-        externalTournamentId: TOURNAMENT_ID,
-        entries,
-        cached: [readyCached],
-        mode: "full",
-      }).decklistsToFetch,
-    ).toEqual([{ playerId: "player_1", externalDecklistId: "g1" }]);
-    // Missing decklist: fetch in both modes.
-    expect(
-      planPlayerSync({
-        externalTournamentId: TOURNAMENT_ID,
-        entries,
-        cached: [cachedPlayer({ externalPlayerId: 1 })],
-        mode: "fill_missing",
-      }).decklistsToFetch,
-    ).toEqual([{ playerId: "player_1", externalDecklistId: "g1" }]);
+
+    it("skips a cached decklist whose LastUpdated matches, in both modes", () => {
+      const entries = entriesWith(
+        makeDecklist({ guid: "g1", records: null, lastUpdated: T1 }),
+      );
+      expect(toFetch(entries, readyCached(T1), "fill_missing")).toEqual([]);
+      expect(toFetch(entries, readyCached(T1), "full")).toEqual([]);
+    });
+
+    it("re-fetches when LastUpdated moved or the decklist id changed", () => {
+      const edited = entriesWith(
+        makeDecklist({ guid: "g1", records: null, lastUpdated: T2 }),
+      );
+      expect(toFetch(edited, readyCached(T1), "fill_missing")).toEqual(fetchG1);
+      expect(toFetch(edited, readyCached(T1), "full")).toEqual(fetchG1);
+
+      const replaced = entriesWith(
+        makeDecklist({ guid: "g2", records: null, lastUpdated: T1 }),
+      );
+      const fetchG2 = [{ playerId: "player_1", externalDecklistId: "g2" }];
+      expect(toFetch(replaced, readyCached(T1), "fill_missing")).toEqual(fetchG2);
+      expect(toFetch(replaced, readyCached(T1), "full")).toEqual(fetchG2);
+    });
+
+    it("without a stored LastUpdated, only full mode re-fetches", () => {
+      const entries = entriesWith(
+        makeDecklist({ guid: "g1", records: null, lastUpdated: T1 }),
+      );
+      expect(toFetch(entries, readyCached(undefined), "fill_missing")).toEqual([]);
+      expect(toFetch(entries, readyCached(undefined), "full")).toEqual(fetchG1);
+    });
   });
 
   it("retries a previously failed fetch using the stored decklist id", () => {
@@ -401,6 +471,25 @@ describe("shouldApplyDecklistUpdate", () => {
     expect(
       shouldApplyDecklistUpdate({ ...cached, decklistStatus: "fetch_failed" }, readyUpdate),
     ).toBe(true);
+  });
+
+  it("applies a ready decklist whose LastUpdated is new, and skips one already recorded", () => {
+    const cached = cachedPlayer({
+      externalPlayerId: 1,
+      decklistStatus: "ready",
+      externalDecklistId: "g1",
+      externalDecklistUpdatedAt: T1,
+      deckName: "Mono Red",
+      deckList: READY_LIST,
+    });
+    expect(
+      shouldApplyDecklistUpdate(cached, { ...readyUpdate, externalDecklistUpdatedAt: T1 }),
+    ).toBe(false);
+    expect(
+      shouldApplyDecklistUpdate(cached, { ...readyUpdate, externalDecklistUpdatedAt: T2 }),
+    ).toBe(true);
+    // A fetch that reported no timestamp does not count as a change.
+    expect(shouldApplyDecklistUpdate(cached, readyUpdate)).toBe(false);
   });
 
   it("selectFetchedDecklistUpdates keeps results for unknown players", () => {

@@ -14,6 +14,7 @@ import {
   composePlayerData,
   getChangedRegistrationStatuses,
   getPlayerData,
+  getPlayerDecklistByPlayerId,
   insertPlayerDataRows,
   upsertPlayerDecklist,
 } from "./lib/playerData";
@@ -63,6 +64,7 @@ export const createPlayers = internalMutation({
         externalPlayerId: v.number(),
         registrationStatus: v.optional(v.string()),
         externalDecklistId: v.optional(v.string()),
+        externalDecklistUpdatedAt: v.optional(v.string()),
         decklistStatus: v.optional(decklistStatusValidator),
         deckName: v.string(),
         deckList: v.string(),
@@ -119,6 +121,7 @@ export const updatePlayerDecklists = internalMutation({
         deckName: v.string(),
         deckList: v.string(),
         externalDecklistId: v.optional(v.string()),
+        externalDecklistUpdatedAt: v.optional(v.string()),
         decklistStatus: v.optional(decklistStatusValidator),
       }),
     ),
@@ -130,15 +133,26 @@ export const updatePlayerDecklists = internalMutation({
       if (!existingPlayer) {
         throw new Error("Player not found");
       }
+      const existingDecklist = await getPlayerDecklistByPlayerId(
+        ctx,
+        player.playerId,
+      );
       const externalDecklistId =
         player.externalDecklistId ?? existingPlayer.externalDecklistId;
       const decklistStatus =
         player.decklistStatus ?? existingPlayer.decklistStatus ?? "ready";
+      // Only a changed list text invalidates the resolved cards; a write that
+      // just records a new decklist id or timestamp keeps them.
+      const deckListChanged =
+        (existingDecklist?.deckList ?? existingPlayer.deckList) !==
+        player.deckList;
       await ctx.db.patch(player.playerId, {
         deckName: player.deckName,
         deckList: player.deckList,
-        deckCardsStatus: getInitialDeckCardsStatus(player.deckList),
-        deckCards: undefined,
+        ...(deckListChanged && {
+          deckCardsStatus: getInitialDeckCardsStatus(player.deckList),
+          deckCards: undefined,
+        }),
         ...(player.externalDecklistId !== undefined && { externalDecklistId: player.externalDecklistId }),
         ...(player.decklistStatus !== undefined && {
           decklistStatus: player.decklistStatus,
@@ -149,12 +163,13 @@ export const updatePlayerDecklists = internalMutation({
           externalTournamentId: existingPlayer.externalTournamentId,
           externalPlayerId: existingPlayer.externalPlayerId,
           externalDecklistId,
+          externalDecklistUpdatedAt: player.externalDecklistUpdatedAt,
           decklistStatus,
           deckName: player.deckName,
           deckList: player.deckList,
         });
       }
-      if (isResolvableDeckList(player.deckList)) {
+      if (deckListChanged && isResolvableDeckList(player.deckList)) {
         playerIdsToResolve.push(player.playerId);
       }
     }
@@ -298,6 +313,7 @@ export const getTournamentPlayersForSync = internalQuery({
       externalPlayerId: v.number(),
       name: v.string(),
       externalDecklistId: v.optional(v.string()),
+      externalDecklistUpdatedAt: v.optional(v.string()),
       decklistStatus: v.optional(decklistStatusValidator),
       deckName: v.string(),
       deckList: v.string(),
@@ -322,16 +338,14 @@ export const getTournamentPlayersForSync = internalQuery({
       decklists.map((decklist) => [decklist.playerId, decklist]),
     );
     return players.map((player) => {
-      const data = composePlayerData(
-        player,
-        undefined,
-        decklistsByPlayerId.get(player._id),
-      );
+      const decklist = decklistsByPlayerId.get(player._id);
+      const data = composePlayerData(player, undefined, decklist);
       return {
         playerId: player._id,
         externalPlayerId: player.externalPlayerId,
         name: player.name,
         externalDecklistId: data.externalDecklistId,
+        externalDecklistUpdatedAt: decklist?.externalDecklistUpdatedAt,
         decklistStatus: data.decklistStatus,
         deckName: data.deckName,
         deckList: data.deckList,

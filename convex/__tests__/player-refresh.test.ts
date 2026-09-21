@@ -142,6 +142,77 @@ it("the watchdog fails a run that never finished", async () => {
   ).toBe("scheduled");
 });
 
+it("updatePlayerDecklists keeps resolved cards unless the list text changed", async () => {
+  const { t } = await setup({ externalTournamentId: 999 });
+  const playerId = await t.run(async (ctx) => {
+    const playerId = await ctx.db.insert("players", {
+      name: "Ada",
+      externalTournamentId: 999,
+      externalPlayerId: 1,
+      deckCardsStatus: "ready",
+      updatedAt: 1,
+    });
+    await ctx.db.insert("playerDecklists", {
+      playerId,
+      externalTournamentId: 999,
+      externalPlayerId: 1,
+      externalDecklistId: "g1",
+      decklistStatus: "ready",
+      deckName: "Mono Red",
+      deckList: "4 Lightning Bolt",
+      updatedAt: 1,
+    });
+    return playerId;
+  });
+
+  // Same text, newly learned timestamp: recorded without invalidating cards.
+  await t.mutation(internal.player.updatePlayerDecklists, {
+    players: [
+      {
+        playerId,
+        deckName: "Mono Red",
+        deckList: "4 Lightning Bolt",
+        externalDecklistId: "g1",
+        externalDecklistUpdatedAt: "2026-05-31T19:44:27Z",
+        decklistStatus: "ready",
+      },
+    ],
+  });
+  let player = await t.run((ctx) => ctx.db.get(playerId));
+  let decklist = await t.run((ctx) =>
+    ctx.db
+      .query("playerDecklists")
+      .withIndex("by_player_id", (q) => q.eq("playerId", playerId))
+      .unique(),
+  );
+  expect(player?.deckCardsStatus).toBe("ready");
+  expect(decklist?.externalDecklistUpdatedAt).toBe("2026-05-31T19:44:27Z");
+
+  // Changed text: cards go back to pending for re-resolution.
+  await t.mutation(internal.player.updatePlayerDecklists, {
+    players: [
+      {
+        playerId,
+        deckName: "Burn",
+        deckList: "4 Fireblast",
+        externalDecklistId: "g1",
+        externalDecklistUpdatedAt: "2026-06-01T09:00:00Z",
+        decklistStatus: "ready",
+      },
+    ],
+  });
+  player = await t.run((ctx) => ctx.db.get(playerId));
+  decklist = await t.run((ctx) =>
+    ctx.db
+      .query("playerDecklists")
+      .withIndex("by_player_id", (q) => q.eq("playerId", playerId))
+      .unique(),
+  );
+  expect(player?.deckCardsStatus).toBe("pending");
+  expect(decklist?.deckList).toBe("4 Fireblast");
+  expect(decklist?.externalDecklistUpdatedAt).toBe("2026-06-01T09:00:00Z");
+});
+
 it("createPlayers skips players that already exist for the tournament", async () => {
   const { t } = await setup({ externalTournamentId: 999 });
   const player = {

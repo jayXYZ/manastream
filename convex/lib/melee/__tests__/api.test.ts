@@ -107,6 +107,7 @@ describe("fetchMeleeDecklist", () => {
         FormatName: "Modern",
         DecklistName: "Islands",
         Name: "Islands",
+        LastUpdated: "2026-05-31T19:44:27Z",
       }),
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -119,6 +120,7 @@ describe("fetchMeleeDecklist", () => {
     expect(result).toEqual({
       deckname: "Islands",
       decklist: "60 Island\nSIDEBOARD:\n4 Pyroblast",
+      lastUpdated: "2026-05-31T19:44:27Z",
     });
     expect(fetchMock.mock.calls[0][0]).toBe(
       "https://melee.gg/api/decklist/3f583aea-a7aa-48b7-82be-b45b014324a4",
