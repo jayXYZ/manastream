@@ -33,6 +33,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
+import { RefreshSyncButton } from "@/components/sync/refresh-sync-button";
 
 const CURRENT_BRACKET_VALUE = "current-bracket";
 const NO_STANDINGS_VALUE = "-1";
@@ -154,6 +155,9 @@ export function TournamentPreviewController() {
                 value={tournament.commentatorRightSubText}
               />
             </div>
+          </div>
+          <div className="mt-4 flex justify-end">
+            <RefreshSyncButton tournament={tournament} />
           </div>
         </CardContent>
       </Card>

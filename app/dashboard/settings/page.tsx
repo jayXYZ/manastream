@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { RefreshSyncButton } from "@/components/sync/refresh-sync-button";
 
 type SettingsFormInputs = {
   meleeClientId: string;
@@ -198,16 +199,19 @@ export default function SettingsPage() {
               </div>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="syncMode">Auto Sync</Label>
-                <Switch
-                  id="syncMode"
-                  checked={inputs.syncMode === "auto"}
-                  onCheckedChange={(checked) =>
-                    setInputs({
-                      ...inputs,
-                      syncMode: checked ? "auto" : "manual",
-                    })
-                  }
-                />
+                <div className="flex items-start gap-4">
+                  <Switch
+                    id="syncMode"
+                    checked={inputs.syncMode === "auto"}
+                    onCheckedChange={(checked) =>
+                      setInputs({
+                        ...inputs,
+                        syncMode: checked ? "auto" : "manual",
+                      })
+                    }
+                  />
+                  <RefreshSyncButton tournament={tournament} />
+                </div>
               </div>
             </div>
           </CardContent>

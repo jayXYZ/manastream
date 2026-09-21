@@ -19,4 +19,12 @@ export const LIFEAPP_TIMEOUT = 1000 * 60 * 2; // 2 min
 
 export const TOURNAMENT_TIMEOUT = 1000 * 60 * 60 * 24; // 24 hours
 
-export const POLLING_INTERVAL = 1000 * 30; // 30 seconds
+export const POLLING_INTERVAL = 1000 * 60 * 2; // 2 minutes
+
+// Minimum gap between a finished poll cycle and a manually requested one.
+export const MANUAL_POLL_COOLDOWN = 1000 * 15; // 15 seconds
+
+// A "Refresh players" run still marked running after this long is treated as
+// dead. Convex actions time out after 10 minutes; the extra minute ensures
+// the run can no longer be executing.
+export const PLAYER_REFRESH_TIMEOUT = 1000 * 60 * 11; // 11 minutes

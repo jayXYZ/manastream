@@ -12,6 +12,7 @@ import {
   templateValidator,
   integrationLogValidator,
   externalTournamentValidator,
+  pollingSessionValidator,
   roundStandingsValidator,
   pairingValidator,
   scryfallCardCacheValidator,
@@ -32,6 +33,11 @@ export default defineSchema({
     .index("by_external_tournament_id", ["externalTournamentId"])
     .index("by_mode_and_status", ["mode", "externalTournamentStatus"]),
 
+  // Per-tournament polling session bookkeeping (claim/cycle tokens)
+  pollingSessions: defineTable(pollingSessionValidator).index("by_tournament", [
+    "tournamentId",
+  ]),
+
   // External (Melee) tournaments table
   externalTournaments: defineTable(externalTournamentValidator).index(
     "by_external_tournament_id",
@@ -46,6 +52,7 @@ export default defineSchema({
   overlays: defineTable(overlayValidator)
     .index("by_tournament", ["tournamentId"])
     .index("by_public_uuid", ["publicUuid"])
+    .index("by_matchId", ["matchId"])
     .index("by_overlay_type", ["overlayType"]),
 
   // Templates table

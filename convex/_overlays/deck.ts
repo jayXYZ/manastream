@@ -38,6 +38,10 @@ export const updateDeckOverlay = mutation({
   handler: async (ctx, args) => {
     const { overlay } = await requireDeckOverlayAccess(ctx, args.overlayId);
 
+    if (args.matchId && !(await ctx.db.get(args.matchId))) {
+      throw new Error("Feature match no longer exists. Select another match.");
+    }
+
     await ctx.db.patch(overlay._id, {
       matchId: args.matchId,
     });

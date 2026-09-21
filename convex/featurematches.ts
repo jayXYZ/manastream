@@ -1,16 +1,16 @@
-import { internalMutation, query } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import {
-  featureMatchWithPlayersValidator,
-  roundSnapshotValidator,
-} from "./validators";
+import { featureMatchWithPlayersValidator } from "./validators";
 import { requireExternalTournament } from "./lib/tournaments";
+import { requireTournamentAccess } from "./lib/auth";
 import {
-  createFeatureMatches,
+  createFeatureMatchFromPairing,
+  featureMatchExternalMatchId,
+  getFeatureMatches,
   getFeatureMatchesWithPlayerData,
+  removeFeatureMatchForPairing,
 } from "./lib/featurematches";
 import { getPlayersForMatch } from "./lib/players";
-import { compareRoundToDatabase } from "./lib/featurematches";
 
 // unauthenticated query for use in deck overlays
 export const getFeatureMatchPlayersAndDecks = query({
@@ -81,30 +81,55 @@ export const getAllFeatureMatches = query({
   },
 });
 
-export const createNewFeatureMatches = internalMutation({
-  args: {
-    externalTournamentId: v.number(),
-    snapshot: roundSnapshotValidator,
+/**
+ * Melee match GUIDs of the current round's feature matches. Kept separate
+ * from the pairings query so toggling a feature match does not re-run the
+ * (much heavier) pairings ranking.
+ */
+export const getCurrentRoundFeaturedMatchIds = query({
+  args: {},
+  returns: v.array(v.string()),
+  handler: async (ctx) => {
+    const tournament = await requireExternalTournament(ctx);
+    if (!tournament) {
+      return [];
+    }
+    if (
+      tournament.currentRoundId == null &&
+      tournament.currentRoundNumber == null
+    ) {
+      return [];
+    }
+    const featureMatches = await getFeatureMatches(ctx, {
+      externalTournamentId: tournament.externalTournamentId,
+      externalRoundId: tournament.currentRoundId,
+      roundNumber: tournament.currentRoundNumber,
+    });
+    return featureMatches.map(featureMatchExternalMatchId);
   },
-  returns: v.array(
-    v.object({
-      playerId: v.id("players"),
-      externalDecklistId: v.optional(v.string()),
-    }),
-  ),
+});
+
+/**
+ * Mark or unmark a captured pairing as a feature match. This replaces
+ * reading Melee's feature-match flag on every poll cycle.
+ */
+export const setPairingFeatured = mutation({
+  args: {
+    pairingId: v.id("pairings"),
+    featured: v.boolean(),
+  },
+  returns: v.null(),
   handler: async (ctx, args) => {
-    const { newFeatureMatches, newPlayers } = await compareRoundToDatabase(
-      ctx,
-      args.externalTournamentId,
-      args.snapshot,
-    );
-    const playerAndDecklistIds = await createFeatureMatches(
-      ctx,
-      args.externalTournamentId,
-      args.snapshot,
-      newFeatureMatches,
-      newPlayers,
-    );
-    return playerAndDecklistIds;
+    const pairing = await ctx.db.get(args.pairingId);
+    if (!pairing) {
+      throw new Error("Pairing not found");
+    }
+    await requireTournamentAccess(ctx, pairing.tournamentId);
+    if (args.featured) {
+      await createFeatureMatchFromPairing(ctx, pairing);
+    } else {
+      await removeFeatureMatchForPairing(ctx, pairing);
+    }
+    return null;
   },
 });

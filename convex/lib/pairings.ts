@@ -1,6 +1,10 @@
 import { Id } from "../_generated/dataModel";
 import { MutationCtx, QueryCtx } from "../_generated/server";
-import { RoundSnapshot, SnapshotCompetitor } from "../models/melee";
+import {
+  RoundSnapshot,
+  SnapshotCompetitor,
+  SnapshotMatch,
+} from "../models/melee";
 import {
   createPendingPlayerEntry,
   createPlayer,
@@ -64,6 +68,53 @@ export async function getCurrentRoundPairingsWithPlayerData(
   );
 }
 
+/** Byes and malformed matches are never stored as pairings. */
+function isCapturablePairing(match: SnapshotMatch): boolean {
+  return match.competitors.length === 2;
+}
+
+/**
+ * The external match ids snapshotCurrentRoundPairings would store for the
+ * snapshot. Standings play no part in which matches those are, so a snapshot
+ * built without them gives the same answer.
+ */
+export function capturablePairingMatchIds(snapshot: RoundSnapshot): string[] {
+  return snapshot.matches
+    .filter(isCapturablePairing)
+    .map((match) => match.externalMatchId);
+}
+
+/**
+ * Whether any of the round's matches has no pairing row yet. Lets a quiet
+ * poll cycle notice pairings Melee posted or re-paired after the round was
+ * first captured, reading only the pairings index: nothing is fetched or
+ * written unless there is something to capture.
+ */
+export async function roundHasUncapturedPairings(
+  ctx: QueryCtx,
+  args: {
+    externalTournamentId: number;
+    externalRoundId: number;
+    externalMatchIds: string[];
+  },
+): Promise<boolean> {
+  for (const externalMatchId of args.externalMatchIds) {
+    const externalId = generatePairingExternalId({
+      externalTournamentId: args.externalTournamentId,
+      externalRoundId: args.externalRoundId,
+      externalMatchId,
+    });
+    const existingPairing = await ctx.db
+      .query("pairings")
+      .withIndex("by_external_id", (q) => q.eq("externalId", externalId))
+      .first();
+    if (!existingPairing) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export async function snapshotCurrentRoundPairings(
   ctx: MutationCtx,
   args: SnapshotCurrentRoundPairingsArgs,
@@ -71,8 +122,7 @@ export async function snapshotCurrentRoundPairings(
   const { snapshot } = args;
 
   for (const match of snapshot.matches) {
-    // Skip byes and malformed matches
-    if (match.competitors.length !== 2) {
+    if (!isCapturablePairing(match)) {
       continue;
     }
 
@@ -118,6 +168,7 @@ export async function snapshotCurrentRoundPairings(
       player2TotalMatchPoints: competitor2.matchPoints,
       tableNumber: match.tableNumber,
       status: match.hasResult ? "COMPLETE" : "IN_PROGRESS",
+      featuredInMelee: match.isFeatureMatch,
       createdAt: Date.now(),
     });
   }

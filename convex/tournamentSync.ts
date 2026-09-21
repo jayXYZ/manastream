@@ -2,21 +2,38 @@ import {
   internalAction,
   internalMutation,
   internalQuery,
+  mutation,
   query,
 } from "./_generated/server";
-import type { MutationCtx } from "./_generated/server";
+import type { ActionCtx, MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { logIntegrationEvent } from "./lib/logging";
-import { POLLING_INTERVAL } from "./lib/constants";
+import {
+  MANUAL_POLL_COOLDOWN,
+  PLAYER_REFRESH_TIMEOUT,
+  POLLING_INTERVAL,
+} from "./lib/constants";
 import {
   settingsValidator,
   externalTournamentValidator,
   tournamentValidator,
   roundSnapshotValidator,
+  manualPollResultValidator,
+  playerRefreshResultValidator,
+  playerRefreshRunValidator,
 } from "./validators";
 import { checkForNewRound } from "./lib/rounds";
+import {
+  capturablePairingMatchIds,
+  roundHasUncapturedPairings,
+} from "./lib/pairings";
+import {
+  PlayerRefreshRun,
+  PlayerRefreshSupersededError,
+  isPlayerRefreshRunCurrent as isRunCurrent,
+} from "./lib/playerRefresh";
 import {
   MeleeCredentials,
   fetchMeleeCurrentRoundMatches,
@@ -26,7 +43,6 @@ import {
   fetchMeleeRoundStandings,
   fetchMeleeTournament,
 } from "./lib/melee/api";
-import { buildDecklistFromMeleeRecords } from "./lib/melee/decklist";
 import {
   RoundSnapshot,
   buildRoundSnapshot,
@@ -38,10 +54,22 @@ import {
   standingsByPlayerId,
 } from "./models/melee";
 import {
-  MeleePlayerListEntry,
+  MeleeMatch,
   MeleeStanding,
   MeleeTournamentOverviewResponse,
 } from "./types/melee";
+import {
+  DecklistFetchRequest,
+  DecklistUpdate,
+  PlayerSyncMode,
+  PlayerSyncSummary,
+  decklistFetchesForCreatedPlayers,
+  formatPlayerSyncSummary,
+  planPlayerSync,
+  playerRefreshDecision,
+  selectFetchedDecklistUpdates,
+  summarizePlayerSync,
+} from "./lib/playerSync";
 import {
   createExternalTournamentHelper,
   updateExternalTournamentHelper,
@@ -49,11 +77,17 @@ import {
 import {
   canClaimPollingCycleExecution,
   canClaimPollingSession,
+  changedPollingStatusFields,
   isPollingCycleCurrent,
+  isRoundChange,
+  manualPollDecision,
   parseAllowCompletedTournamentPolling,
   pollingCycleFailureUpdates,
   shouldStopPollingForCompletedTournament,
 } from "./lib/pollingBehavior";
+import { getPollingSession } from "./lib/pollingSession";
+import { requireAuth } from "./lib/auth";
+import { getOwnTournament } from "./lib/tournaments";
 import {
   getMeleeCredentialsFromSettings,
   hasMeleeCredentials,
@@ -191,7 +225,11 @@ export const logEvent = internalMutation({
 });
 
 /**
- * Internal mutation to update tournament polling status with logging
+ * Internal mutation to update tournament polling status with logging.
+ *
+ * Only patches the tournament when a requested field actually differs, so a
+ * quiet poll cycle leaves the document untouched and does not re-run the
+ * dashboard and overlay subscriptions that read it.
  */
 export const updateTournamentPollingStatus = internalMutation({
   args: {
@@ -232,10 +270,14 @@ export const updateTournamentPollingStatus = internalMutation({
     } = args;
 
     const tournament = await ctx.db.get(tournamentId);
+    if (!tournament) {
+      return false;
+    }
+    const session = await getPollingSession(ctx, tournamentId);
     if (
-      tournament?.pollingSessionId !== expectedPollingSessionId ||
+      session?.pollingSessionId !== expectedPollingSessionId ||
       (expectedPollingCycleId !== undefined &&
-        tournament.pollingCycleId !== expectedPollingCycleId)
+        session.pollingCycleId !== expectedPollingCycleId)
     ) {
       return false;
     }
@@ -245,17 +287,13 @@ export const updateTournamentPollingStatus = internalMutation({
       updates.pollingStatus === "inactive" ||
       updates.pollingStatus === "error";
 
-    // Update tournament status
-    await ctx.db.patch(tournamentId, {
-      ...updates,
-      ...(shouldClearPollingSession
-        ? {
-            pollingSessionId: undefined,
-            pollingCycleId: undefined,
-            pollingCycleStartedAt: undefined,
-          }
-        : {}),
-    });
+    const changes = changedPollingStatusFields(tournament, updates);
+    if (Object.keys(changes).length > 0) {
+      await ctx.db.patch(tournamentId, changes);
+    }
+    if (shouldClearPollingSession) {
+      await ctx.db.delete(session._id);
+    }
 
     // Log if logging parameters provided
     if (logAction && logStatus && logMessage) {
@@ -284,12 +322,15 @@ export const claimPollingSession = internalMutation({
       .query("tournaments")
       .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .unique();
+    if (!tournament) {
+      return null;
+    }
+    const existingSession = await getPollingSession(ctx, tournament._id);
     if (
-      !tournament ||
       !canClaimPollingSession({
         mode: tournament.mode,
         pollingStatus: tournament.pollingStatus,
-        pollingSessionId: tournament.pollingSessionId,
+        pollingSessionId: existingSession?.pollingSessionId,
         currentExternalTournamentId: tournament.externalTournamentId,
         expectedExternalTournamentId: args.expectedExternalTournamentId,
       })
@@ -298,13 +339,24 @@ export const claimPollingSession = internalMutation({
     }
 
     const pollingCycleId = crypto.randomUUID();
-    await ctx.db.patch(tournament._id, {
-      pollingStatus: "active",
-      pollingErrorMessage: undefined,
+    // A leftover row from a session that is no longer active is replaced.
+    if (existingSession) {
+      await ctx.db.delete(existingSession._id);
+    }
+    await ctx.db.insert("pollingSessions", {
+      tournamentId: tournament._id,
       pollingSessionId: args.pollingSessionId,
       pollingCycleId,
       pollingCycleStartedAt: Date.now(),
     });
+
+    const changes = changedPollingStatusFields(tournament, {
+      pollingStatus: "active",
+      pollingErrorMessage: undefined,
+    });
+    if (Object.keys(changes).length > 0) {
+      await ctx.db.patch(tournament._id, changes);
+    }
     await schedulePollingCycleWatchdog(ctx, {
       userId: args.userId,
       pollingSessionId: args.pollingSessionId,
@@ -326,21 +378,25 @@ export const claimPollingCycleExecution = internalMutation({
       .query("tournaments")
       .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .unique();
+    if (!tournament) {
+      return false;
+    }
+    const session = await getPollingSession(ctx, tournament._id);
     if (
-      !tournament ||
+      !session ||
       !canClaimPollingCycleExecution({
         mode: tournament.mode,
         pollingStatus: tournament.pollingStatus,
-        pollingSessionId: tournament.pollingSessionId,
-        pollingCycleId: tournament.pollingCycleId,
-        pollingCycleStartedAt: tournament.pollingCycleStartedAt,
+        pollingSessionId: session.pollingSessionId,
+        pollingCycleId: session.pollingCycleId,
+        pollingCycleStartedAt: session.pollingCycleStartedAt,
         expectedPollingSessionId: args.expectedPollingSessionId,
         expectedPollingCycleId: args.expectedPollingCycleId,
       })
     ) {
       return false;
     }
-    await ctx.db.patch(tournament._id, {
+    await ctx.db.patch(session._id, {
       pollingCycleStartedAt: Date.now(),
     });
     return true;
@@ -363,10 +419,16 @@ export const finishPollingCycleAndScheduleNext = internalMutation({
     if (
       !tournament ||
       tournament.mode !== "auto" ||
-      tournament.pollingStatus !== "active" ||
+      tournament.pollingStatus !== "active"
+    ) {
+      return false;
+    }
+    const session = await getPollingSession(ctx, tournament._id);
+    if (
+      !session ||
       !isPollingCycleCurrent({
-        pollingSessionId: tournament.pollingSessionId,
-        pollingCycleId: tournament.pollingCycleId,
+        pollingSessionId: session.pollingSessionId,
+        pollingCycleId: session.pollingCycleId,
         expectedPollingSessionId: args.expectedPollingSessionId,
         expectedPollingCycleId: args.expectedPollingCycleId,
       })
@@ -375,9 +437,10 @@ export const finishPollingCycleAndScheduleNext = internalMutation({
     }
 
     const nextPollingCycleId = crypto.randomUUID();
-    await ctx.db.patch(tournament._id, {
+    await ctx.db.patch(session._id, {
       pollingCycleId: nextPollingCycleId,
       pollingCycleStartedAt: undefined,
+      lastCycleFinishedAt: Date.now(),
     });
     await ctx.scheduler.runAfter(
       args.delayMs,
@@ -398,6 +461,117 @@ export const finishPollingCycleAndScheduleNext = internalMutation({
   },
 });
 
+/**
+ * "Refresh now": run a poll cycle immediately instead of waiting for the
+ * scheduled one. Rotates the cycle id so the already-scheduled run (and its
+ * watchdog) fail their cycle check and exit, then schedules a fresh cycle at
+ * delay 0. Refuses while a cycle is executing or shortly after one finished.
+ */
+export const requestImmediatePoll = mutation({
+  args: {},
+  returns: manualPollResultValidator,
+  handler: async (ctx) => {
+    const userId = await requireAuth(ctx);
+    const tournament = await getOwnTournament(ctx);
+    const session = await getPollingSession(ctx, tournament._id);
+    const decision = manualPollDecision({
+      mode: tournament.mode,
+      pollingStatus: tournament.pollingStatus,
+      hasSession: session !== null,
+      pollingCycleStartedAt: session?.pollingCycleStartedAt,
+      lastCycleFinishedAt: session?.lastCycleFinishedAt,
+      now: Date.now(),
+      cooldownMs: MANUAL_POLL_COOLDOWN,
+    });
+    if (decision !== "scheduled" || !session) {
+      return decision;
+    }
+
+    const nextPollingCycleId = crypto.randomUUID();
+    await ctx.db.patch(session._id, {
+      pollingCycleId: nextPollingCycleId,
+      pollingCycleStartedAt: undefined,
+    });
+    await ctx.scheduler.runAfter(
+      0,
+      internal.tournamentSync.pollTournamentAndScheduleNext,
+      {
+        userId,
+        pollingSessionId: session.pollingSessionId,
+        pollingCycleId: nextPollingCycleId,
+        forceFullFetch: true,
+      },
+    );
+    await schedulePollingCycleWatchdog(ctx, {
+      userId,
+      pollingSessionId: session.pollingSessionId,
+      pollingCycleId: nextPollingCycleId,
+    });
+    await logIntegrationEvent(ctx, {
+      userId,
+      tournamentId: tournament._id,
+      action: "MANUAL_POLL_REQUESTED",
+      status: "info",
+      message: "Refresh requested. Polling Melee now.",
+    });
+    return decision;
+  },
+});
+
+/**
+ * Shared body for the watchdog timeout and explicit cycle failure: drops the
+ * tournament back to manual with an error and removes the session row so the
+ * orphaned loop can no longer claim cycles. Returns false when the cycle is
+ * no longer current.
+ */
+async function failCurrentPollingCycle(
+  ctx: MutationCtx,
+  args: {
+    userId: Id<"users">;
+    expectedPollingSessionId: string;
+    expectedPollingCycleId: string;
+    pollingErrorMessage: string;
+    logAction: string;
+    logMessage: string;
+    logMetadata?: unknown;
+  },
+): Promise<boolean> {
+  const tournament = await ctx.db
+    .query("tournaments")
+    .withIndex("by_user", (q) => q.eq("userId", args.userId))
+    .unique();
+  if (!tournament) {
+    return false;
+  }
+  const session = await getPollingSession(ctx, tournament._id);
+  if (
+    !session ||
+    !isPollingCycleCurrent({
+      pollingSessionId: session.pollingSessionId,
+      pollingCycleId: session.pollingCycleId,
+      expectedPollingSessionId: args.expectedPollingSessionId,
+      expectedPollingCycleId: args.expectedPollingCycleId,
+    })
+  ) {
+    return false;
+  }
+
+  await ctx.db.patch(
+    tournament._id,
+    pollingCycleFailureUpdates(args.pollingErrorMessage),
+  );
+  await ctx.db.delete(session._id);
+  await logIntegrationEvent(ctx, {
+    userId: args.userId,
+    tournamentId: tournament._id,
+    action: args.logAction,
+    status: "error",
+    message: args.logMessage,
+    metadata: args.logMetadata,
+  });
+  return true;
+}
+
 export const expirePollingCycle = internalMutation({
   args: {
     userId: v.id("users"),
@@ -406,36 +580,14 @@ export const expirePollingCycle = internalMutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args) => {
-    const tournament = await ctx.db
-      .query("tournaments")
-      .withIndex("by_user", (q) => q.eq("userId", args.userId))
-      .unique();
-    if (
-      !tournament ||
-      !isPollingCycleCurrent({
-        pollingSessionId: tournament.pollingSessionId,
-        pollingCycleId: tournament.pollingCycleId,
-        expectedPollingSessionId: args.expectedPollingSessionId,
-        expectedPollingCycleId: args.expectedPollingCycleId,
-      })
-    ) {
-      return false;
-    }
-
     const message =
       "Tournament polling timed out before the cycle completed. Restart auto sync to retry.";
-    await ctx.db.patch(
-      tournament._id,
-      pollingCycleFailureUpdates(message),
-    );
-    await logIntegrationEvent(ctx, {
-      userId: args.userId,
-      tournamentId: tournament._id,
-      action: "POLLING_CYCLE_TIMEOUT",
-      status: "error",
-      message,
+    return await failCurrentPollingCycle(ctx, {
+      ...args,
+      pollingErrorMessage: message,
+      logAction: "POLLING_CYCLE_TIMEOUT",
+      logMessage: message,
     });
-    return true;
   },
 });
 
@@ -451,35 +603,7 @@ export const failPollingCycle = internalMutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args) => {
-    const tournament = await ctx.db
-      .query("tournaments")
-      .withIndex("by_user", (q) => q.eq("userId", args.userId))
-      .unique();
-    if (
-      !tournament ||
-      !isPollingCycleCurrent({
-        pollingSessionId: tournament.pollingSessionId,
-        pollingCycleId: tournament.pollingCycleId,
-        expectedPollingSessionId: args.expectedPollingSessionId,
-        expectedPollingCycleId: args.expectedPollingCycleId,
-      })
-    ) {
-      return false;
-    }
-
-    await ctx.db.patch(
-      tournament._id,
-      pollingCycleFailureUpdates(args.pollingErrorMessage),
-    );
-    await logIntegrationEvent(ctx, {
-      userId: args.userId,
-      tournamentId: tournament._id,
-      action: args.logAction,
-      status: "error",
-      message: args.logMessage,
-      metadata: args.logMetadata,
-    });
-    return true;
+    return await failCurrentPollingCycle(ctx, args);
   },
 });
 
@@ -527,18 +651,57 @@ export const detectNewRound = internalMutation({
 });
 
 /**
- * Fetch matches + standings for the current round and compose them into a
- * RoundSnapshot. Returns undefined when Melee reports no current matches.
+ * Whether the current round has matches with no pairing row yet, so a quiet
+ * poll cycle can tell whether detectNewRound has anything to capture without
+ * fetching standings or writing.
+ */
+export const hasUncapturedPairings = internalQuery({
+  args: {
+    externalTournamentId: v.number(),
+    externalRoundId: v.number(),
+    externalMatchIds: v.array(v.string()),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    return await roundHasUncapturedPairings(ctx, args);
+  },
+});
+
+/**
+ * The pairings snapshotCurrentRoundPairings would store for these matches.
+ * Which matches those are does not depend on standings, so none are fetched.
+ */
+function capturableMatchIds(
+  overview: MeleeTournamentOverviewResponse,
+  matches: MeleeMatch[],
+): string[] {
+  const snapshot = buildRoundSnapshot({
+    overview,
+    matches,
+    standingsByPlayerId: new Map(),
+  });
+  return snapshot ? capturablePairingMatchIds(snapshot) : [];
+}
+
+/**
+ * Fetch standings for the already-fetched current-round matches and compose
+ * them into a RoundSnapshot. Returns undefined when there are no matches.
+ * Only called when the round changed or a full fetch was requested, so the
+ * standings requests are per round rather than per cycle.
  */
 async function fetchRoundSnapshot(
   externalTournamentId: number,
   overview: MeleeTournamentOverviewResponse,
+  matches: MeleeMatch[],
   credentials: MeleeCredentials,
 ): Promise<RoundSnapshot | undefined> {
-  const [matches, standings] = await Promise.all([
-    fetchMeleeCurrentRoundMatches(externalTournamentId, credentials),
-    fetchMeleeCurrentStandings(externalTournamentId, credentials),
-  ]);
+  if (matches.length === 0) {
+    return undefined;
+  }
+  const standings = await fetchMeleeCurrentStandings(
+    externalTournamentId,
+    credentials,
+  );
 
   let lastSwissSeedByPlayerId: Map<number, number> | undefined;
   const currentRoundId = matches[0]?.RoundId;
@@ -559,56 +722,129 @@ async function fetchRoundSnapshot(
   });
 }
 
-type NewPlayerArgs = {
-  externalTournamentId: number;
-  name: string;
-  externalPlayerId: number;
-  registrationStatus?: string;
-  externalDecklistId?: string;
-  decklistStatus: "ready" | "missing";
-  deckName: string;
-  deckList: string;
-};
-
-function playerEntryName(entry: MeleePlayerListEntry): string {
-  return entry.DisplayName || entry.PlayerName || entry.Username;
-}
-
 /**
- * Build a createPlayers row from a player-list entry, using the embedded
- * decklist (with card records) when the player has submitted one.
+ * Pull the Melee player list once and reconcile it against the cached
+ * players: registration statuses (drops), players not yet cached, and
+ * decklists. In "fill_missing" mode only decklists that are missing or that
+ * the payload shows have changed are written; in "full" mode every decklist
+ * not known to be current is re-downloaded and names are refreshed. The
+ * player list is the largest Melee payload, so the polling loop runs this at
+ * validation and on round change only.
+ *
+ * For a "Refresh players" run, every write re-checks in its own transaction
+ * that the run is still current, and the sync stops at the first stale one
+ * (PlayerRefreshSupersededError) so a tournament switched mid-run gets no
+ * further writes.
  */
-function buildNewPlayerArgs(
+async function syncPlayersFromMelee(
+  ctx: ActionCtx,
   externalTournamentId: number,
-  entry: MeleePlayerListEntry,
-): NewPlayerArgs {
-  const embedded = entry.Decklists[0];
-  if (embedded && Array.isArray(embedded.Records)) {
-    const decklist = buildDecklistFromMeleeRecords({
-      records: embedded.Records,
-      formatName: embedded.FormatName,
-      decklistName: embedded.DecklistName || embedded.Name || undefined,
-    });
-    return {
-      externalTournamentId,
-      name: playerEntryName(entry),
-      externalPlayerId: entry.ID,
-      registrationStatus: parseMeleeRegistrationStatus(entry),
-      externalDecklistId: embedded.Guid,
-      decklistStatus: "ready",
-      deckName: decklist.deckname,
-      deckList: decklist.decklist,
-    };
-  }
-  return {
+  credentials: MeleeCredentials,
+  mode: PlayerSyncMode,
+  run?: PlayerRefreshRun,
+): Promise<PlayerSyncSummary> {
+  const playerEntries = await fetchMeleePlayerList(
     externalTournamentId,
-    name: playerEntryName(entry),
-    externalPlayerId: entry.ID,
-    registrationStatus: parseMeleeRegistrationStatus(entry),
-    decklistStatus: "missing",
-    deckName: "MISSING_DECKLIST",
-    deckList: "MISSING_DECKLIST",
-  };
+    credentials,
+  );
+  const statusesApplied = await ctx.runMutation(
+    internal.player.updatePlayerRegistrationStatuses,
+    {
+      externalTournamentId,
+      players: playerEntries.map((entry) => ({
+        externalPlayerId: entry.ID,
+        registrationStatus: parseMeleeRegistrationStatus(entry),
+      })),
+      ...(run && { run }),
+    },
+  );
+  if (!statusesApplied) {
+    throw new PlayerRefreshSupersededError();
+  }
+
+  const cached = await ctx.runQuery(
+    internal.player.getTournamentPlayersForSync,
+    { externalTournamentId },
+  );
+  const plan = planPlayerSync({
+    externalTournamentId,
+    entries: playerEntries,
+    cached,
+    mode,
+  });
+
+  // The mutations report what they wrote. An overlapping sync may have
+  // inserted a player first, and an update is skipped at commit time when
+  // the row was hand-edited or a newer decklist landed in the meantime.
+  let created = 0;
+  // A new player whose decklist id came without its cards gets that
+  // decklist fetched now, using the row id createPlayers just assigned.
+  const createdDecklistsToFetch: DecklistFetchRequest[] = [];
+  if (plan.newPlayers.length > 0) {
+    const inserted = await ctx.runMutation(internal.player.createPlayers, {
+      players: plan.newPlayers,
+      ...(run && { run }),
+    });
+    if (inserted === null) {
+      throw new PlayerRefreshSupersededError();
+    }
+    created = inserted.length;
+    createdDecklistsToFetch.push(
+      ...decklistFetchesForCreatedPlayers(plan.newPlayers, inserted),
+    );
+  }
+  let namesUpdated = 0;
+  if (plan.nameUpdates.length > 0) {
+    const updated = await ctx.runMutation(internal.player.updatePlayerNames, {
+      players: plan.nameUpdates,
+      ...(run && { run }),
+    });
+    if (updated === null) {
+      throw new PlayerRefreshSupersededError();
+    }
+    namesUpdated = updated;
+  }
+
+  const decklistsToFetch = [
+    ...plan.decklistsToFetch,
+    ...createdDecklistsToFetch,
+  ];
+  // Decklist fetches are most of a refresh's Melee traffic: not worth making
+  // for a run cancelled while the player list was being reconciled.
+  if (run && decklistsToFetch.length > 0) {
+    const runCurrent: boolean = await ctx.runQuery(
+      internal.tournamentSync.isPlayerRefreshRunCurrent,
+      run,
+    );
+    if (!runCurrent) {
+      throw new PlayerRefreshSupersededError();
+    }
+  }
+  const fetchedUpdates = await fetchDecklistsInBatches(
+    decklistsToFetch,
+    credentials,
+  );
+  const decklistUpdates = [
+    ...plan.decklistUpdates,
+    ...selectFetchedDecklistUpdates(fetchedUpdates, cached),
+  ];
+  let appliedDecklistUpdates: DecklistUpdate[] = [];
+  if (decklistUpdates.length > 0) {
+    const applied = await ctx.runMutation(
+      internal.player.updatePlayerDecklists,
+      { players: decklistUpdates, ...(run && { run }) },
+    );
+    if (applied === null) {
+      throw new PlayerRefreshSupersededError();
+    }
+    appliedDecklistUpdates = applied;
+  }
+  return summarizePlayerSync({
+    playerCount: playerEntries.length,
+    created,
+    namesUpdated,
+    appliedDecklistUpdates,
+  });
 }
 
 /**
@@ -681,13 +917,10 @@ export const validateAndStartPolling = internalAction({
           allowCompletedTournamentPolling: ALLOW_COMPLETED_TOURNAMENT_POLLING,
         })
       ) {
-        await ctx.runMutation(
-          internal.tournamentSync.recordCompletedRounds,
-          {
-            externalTournamentId,
-            completedRounds: parseCompletedRounds(overview, undefined),
-          },
-        );
+        await ctx.runMutation(internal.tournamentSync.recordCompletedRounds, {
+          externalTournamentId,
+          completedRounds: parseCompletedRounds(overview, undefined),
+        });
         await ctx.runMutation(
           internal.tournamentSync.updateTournamentPollingStatus,
           {
@@ -711,94 +944,22 @@ export const validateAndStartPolling = internalAction({
       );
 
       // Seed registered players (with embedded decklists where available)
-      const playerEntries = await fetchMeleePlayerList(
+      await syncPlayersFromMelee(
+        ctx,
+        externalTournamentId,
+        credentials,
+        "fill_missing",
+      );
+
+      // Snapshot the current round (round info and pairings)
+      const matches = await fetchMeleeCurrentRoundMatches(
         externalTournamentId,
         credentials,
       );
-      await ctx.runMutation(internal.player.updatePlayerRegistrationStatuses, {
-        externalTournamentId,
-        players: playerEntries.map((entry) => ({
-          externalPlayerId: entry.ID,
-          registrationStatus: parseMeleeRegistrationStatus(entry),
-        })),
-      });
-
-      const cachedPlayerIds = await ctx.runQuery(
-        internal.player.getAllTournamentPlayerExternalIds,
-        { externalTournamentId },
-      );
-      const newEntries = playerEntries.filter(
-        (entry) => !cachedPlayerIds.some((id) => id === entry.ID),
-      );
-      if (newEntries.length > 0) {
-        await ctx.runMutation(internal.player.createPlayers, {
-          players: newEntries.map((entry) =>
-            buildNewPlayerArgs(externalTournamentId, entry),
-          ),
-        });
-      }
-
-      // Re-check decklists for existing players that were cached without one
-      const playersWithMissingDecklists = await ctx.runQuery(
-        internal.player.getPlayersWithMissingDecklists,
-        { externalTournamentId },
-      );
-      if (playersWithMissingDecklists.length > 0) {
-        const entriesByPlayerId = new Map(
-          playerEntries.map((entry) => [entry.ID, entry]),
-        );
-        const decklistUpdates: {
-          playerId: Id<"players">;
-          deckName: string;
-          deckList: string;
-          externalDecklistId?: string;
-          decklistStatus: "ready" | "fetch_failed";
-        }[] = [];
-        const playersToFetch: {
-          playerId: Id<"players">;
-          externalDecklistId: string;
-        }[] = [];
-
-        for (const player of playersWithMissingDecklists) {
-          const embedded = entriesByPlayerId.get(player.externalPlayerId)
-            ?.Decklists[0];
-          if (embedded && Array.isArray(embedded.Records)) {
-            const decklist = buildDecklistFromMeleeRecords({
-              records: embedded.Records,
-              formatName: embedded.FormatName,
-              decklistName: embedded.DecklistName || embedded.Name || undefined,
-            });
-            decklistUpdates.push({
-              playerId: player.playerId,
-              deckName: decklist.deckname,
-              deckList: decklist.decklist,
-              externalDecklistId: embedded.Guid,
-              decklistStatus: "ready",
-            });
-          } else if (player.externalDecklistId) {
-            playersToFetch.push({
-              playerId: player.playerId,
-              externalDecklistId: player.externalDecklistId,
-            });
-          }
-        }
-
-        const fetchedUpdates = await fetchDecklistsInBatches(
-          playersToFetch,
-          credentials,
-        );
-        const allUpdates = [...decklistUpdates, ...fetchedUpdates];
-        if (allUpdates.length > 0) {
-          await ctx.runMutation(internal.player.updatePlayerDecklists, {
-            players: allUpdates,
-          });
-        }
-      }
-
-      // Snapshot the current round (round info, pairings, feature matches)
       const snapshot = await fetchRoundSnapshot(
         externalTournamentId,
         overview,
+        matches,
         credentials,
       );
       if (snapshot) {
@@ -861,24 +1022,10 @@ export const validateAndStartPolling = internalAction({
 });
 
 async function fetchDecklistsInBatches(
-  players: { playerId: Id<"players">; externalDecklistId: string }[],
+  players: DecklistFetchRequest[],
   credentials: MeleeCredentials,
-): Promise<
-  {
-    playerId: Id<"players">;
-    deckName: string;
-    deckList: string;
-    externalDecklistId?: string;
-    decklistStatus: "ready" | "fetch_failed";
-  }[]
-> {
-  const results: {
-    playerId: Id<"players">;
-    deckName: string;
-    deckList: string;
-    externalDecklistId?: string;
-    decklistStatus: "ready" | "fetch_failed";
-  }[] = [];
+): Promise<DecklistUpdate[]> {
+  const results: DecklistUpdate[] = [];
 
   for (
     let index = 0;
@@ -898,6 +1045,7 @@ async function fetchDecklistsInBatches(
             deckName: decklist.deckname,
             deckList: decklist.decklist,
             externalDecklistId: player.externalDecklistId,
+            externalDecklistUpdatedAt: decklist.lastUpdated,
             decklistStatus: "ready" as const,
           };
         } catch (error) {
@@ -929,6 +1077,9 @@ export const pollTournamentAndScheduleNext = internalAction({
     userId: v.id("users"),
     pollingSessionId: v.string(),
     pollingCycleId: v.string(),
+    // Re-fetch standings and the player list even when the round is
+    // unchanged (manual "refresh now").
+    forceFullFetch: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const pollingCycleClaimed: boolean = await ctx.runMutation(
@@ -979,13 +1130,10 @@ export const pollTournamentAndScheduleNext = internalAction({
         console.log(
           `Tournament ${externalTournamentId} is complete. Stopping polling.`,
         );
-        await ctx.runMutation(
-          internal.tournamentSync.recordCompletedRounds,
-          {
-            externalTournamentId,
-            completedRounds: parseCompletedRounds(overview, undefined),
-          },
-        );
+        await ctx.runMutation(internal.tournamentSync.recordCompletedRounds, {
+          externalTournamentId,
+          completedRounds: parseCompletedRounds(overview, undefined),
+        });
         await ctx.runMutation(
           internal.tournamentSync.updateTournamentPollingStatus,
           {
@@ -1004,31 +1152,21 @@ export const pollTournamentAndScheduleNext = internalAction({
         return;
       }
 
-      const snapshot = await fetchRoundSnapshot(
+      // The current match list is the only per-cycle fetch besides the
+      // overview: it tells us the round id, which is all a quiet cycle needs.
+      const matches = await fetchMeleeCurrentRoundMatches(
         externalTournamentId,
-        overview,
         credentials,
       );
+      const currentMatch = matches[0];
 
-      if (!snapshot) {
+      if (!currentMatch) {
         // Between rounds or before pairings post: keep polling without
-        // touching stored round state
-        const pollingStatusUpdated: boolean = await ctx.runMutation(
-          internal.tournamentSync.updateTournamentPollingStatus,
-          {
-            tournamentId: tournament._id,
-            userId: args.userId,
-            expectedPollingSessionId: args.pollingSessionId,
-            expectedPollingCycleId: args.pollingCycleId,
-            pollingStatus: "active",
-            logAction: "NO_CURRENT_ROUND_FOUND",
-            logStatus: "warning",
-            logMessage: "No current round matches found in Melee data",
-          },
+        // touching stored round state. Not logged per cycle; the next
+        // FETCH_EVENT_SUCCESS entry marks when a round is found.
+        console.log(
+          `Tournament ${externalTournamentId}: no current round matches found`,
         );
-        if (!pollingStatusUpdated) {
-          return;
-        }
         await ctx.runMutation(
           internal.tournamentSync.finishPollingCycleAndScheduleNext,
           {
@@ -1041,7 +1179,61 @@ export const pollTournamentAndScheduleNext = internalAction({
         return;
       }
 
-      // Update tournament status and log successful fetch in one mutation
+      const roundChanged = isRoundChange({
+        storedRoundId: externalTournament.currentRoundId,
+        storedRoundNumber: externalTournament.currentRoundNumber,
+        polledRoundId: currentMatch.RoundId,
+        polledRoundNumber: currentMatch.RoundNumber,
+      });
+
+      if (!roundChanged && !args.forceFullFetch) {
+        // Melee can post more pairings inside a round (late tables, a
+        // re-pair), and only detectNewRound stores them. Checking the match
+        // ids against the pairings index costs no fetch and no write.
+        const pairingsPosted: boolean = await ctx.runQuery(
+          internal.tournamentSync.hasUncapturedPairings,
+          {
+            externalTournamentId,
+            externalRoundId: currentMatch.RoundId,
+            externalMatchIds: capturableMatchIds(overview, matches),
+          },
+        );
+        if (!pairingsPosted) {
+          // Quiet cycle: the round's pairings are already captured and
+          // feature matches are chosen in Manastream, so there is nothing
+          // to sync.
+          console.log(
+            `Tournament ${externalTournamentId}: round ${currentMatch.RoundNumber} unchanged, skipping full fetch`,
+          );
+          await ctx.runMutation(
+            internal.tournamentSync.finishPollingCycleAndScheduleNext,
+            {
+              userId: args.userId,
+              expectedPollingSessionId: args.pollingSessionId,
+              expectedPollingCycleId: args.pollingCycleId,
+              delayMs: POLLING_INTERVAL,
+            },
+          );
+          return;
+        }
+        console.log(
+          `Tournament ${externalTournamentId}: round ${currentMatch.RoundNumber} unchanged, new pairings posted`,
+        );
+      }
+
+      const snapshot = await fetchRoundSnapshot(
+        externalTournamentId,
+        overview,
+        matches,
+        credentials,
+      );
+      if (!snapshot) {
+        throw new Error("Failed to build round snapshot from current matches");
+      }
+
+      // Confirm the session is still current before writing round state.
+      // The status is already "active", so this only writes when logging a
+      // newly detected round.
       const pollingStatusUpdated: boolean = await ctx.runMutation(
         internal.tournamentSync.updateTournamentPollingStatus,
         {
@@ -1050,13 +1242,17 @@ export const pollTournamentAndScheduleNext = internalAction({
           expectedPollingSessionId: args.pollingSessionId,
           expectedPollingCycleId: args.pollingCycleId,
           pollingStatus: "active",
-          logAction: "FETCH_EVENT_SUCCESS",
-          logStatus: "success",
-          logMessage: `Successfully fetched event data. Status: ${overview.StatusDescription}, Round: ${snapshot.roundNumber}`,
-          logMetadata: {
-            status: overview.StatusDescription,
-            round: snapshot.roundNumber,
-          },
+          ...(roundChanged
+            ? {
+                logAction: "FETCH_EVENT_SUCCESS",
+                logStatus: "success" as const,
+                logMessage: `Successfully fetched event data. Status: ${overview.StatusDescription}, Round: ${snapshot.roundNumber}`,
+                logMetadata: {
+                  status: overview.StatusDescription,
+                  round: snapshot.roundNumber,
+                },
+              }
+            : {}),
         },
       );
       if (!pollingStatusUpdated) {
@@ -1070,53 +1266,13 @@ export const pollTournamentAndScheduleNext = internalAction({
         completedRounds: parseCompletedRounds(overview, snapshot.roundId),
       });
 
-      // Find new feature matches and players
-      const newPlayerAndDecklistIds: {
-        playerId: Id<"players">;
-        externalDecklistId?: string;
-      }[] = await ctx.runMutation(
-        internal.featurematches.createNewFeatureMatches,
-        {
-          externalTournamentId,
-          snapshot,
-        },
-      );
-
-      // Update registration statuses from the player list
-      const playerEntries = await fetchMeleePlayerList(
+      // Drops and late decklists: once per round instead of every cycle
+      await syncPlayersFromMelee(
+        ctx,
         externalTournamentId,
         credentials,
+        "fill_missing",
       );
-      await ctx.runMutation(internal.player.updatePlayerRegistrationStatuses, {
-        externalTournamentId,
-        players: playerEntries.map((entry) => ({
-          externalPlayerId: entry.ID,
-          registrationStatus: parseMeleeRegistrationStatus(entry),
-        })),
-      });
-
-      // Fetch decklists for players discovered via feature matches
-      const playersWithDecks = newPlayerAndDecklistIds.flatMap((player) =>
-        player.externalDecklistId
-          ? [
-              {
-                playerId: player.playerId,
-                externalDecklistId: player.externalDecklistId,
-              },
-            ]
-          : [],
-      );
-      if (playersWithDecks.length > 0) {
-        const newPlayerDecklists = await fetchDecklistsInBatches(
-          playersWithDecks,
-          credentials,
-        );
-        if (newPlayerDecklists.length > 0) {
-          await ctx.runMutation(internal.player.updatePlayerDecklists, {
-            players: newPlayerDecklists,
-          });
-        }
-      }
 
       // Atomically invalidate this cycle's watchdog and hand off to the next
       // scheduled execution.
@@ -1131,18 +1287,253 @@ export const pollTournamentAndScheduleNext = internalAction({
       );
     } catch (error) {
       console.error(`Error polling tournament for ${args.userId}:`, error);
-      await ctx.runMutation(
-        internal.tournamentSync.failPollingCycle,
-        {
-          userId: args.userId,
-          expectedPollingSessionId: args.pollingSessionId,
-          expectedPollingCycleId: args.pollingCycleId,
-          pollingErrorMessage: `Error polling tournament: ${error}`,
-          logAction: "POLL_ERROR",
-          logMessage: `Error during poll cycle: ${error}`,
-          logMetadata: { error: String(error) },
-        },
+      await ctx.runMutation(internal.tournamentSync.failPollingCycle, {
+        userId: args.userId,
+        expectedPollingSessionId: args.pollingSessionId,
+        expectedPollingCycleId: args.pollingCycleId,
+        pollingErrorMessage: `Error polling tournament: ${error}`,
+        logAction: "POLL_ERROR",
+        logMessage: `Error during poll cycle: ${error}`,
+        logMetadata: { error: String(error) },
+      });
+    }
+  },
+});
+
+/**
+ * "Refresh players": re-download the whole player list and every decklist
+ * from Melee. Independent of the polling loop, so it also works in manual
+ * mode. Refuses while a refresh is already running; a watchdog clears a run
+ * that never finished.
+ */
+export const requestPlayerRefresh = mutation({
+  args: {},
+  returns: playerRefreshResultValidator,
+  handler: async (ctx) => {
+    const userId = await requireAuth(ctx);
+    const tournament = await getOwnTournament(ctx);
+    const settings = await ctx.db
+      .query("settings")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .unique();
+    const decision = playerRefreshDecision({
+      externalTournamentId: tournament.externalTournamentId,
+      hasCredentials: settings !== null && hasMeleeCredentials(settings),
+      refresh: tournament.playerRefresh,
+    });
+    if (decision !== "scheduled") {
+      return decision;
+    }
+
+    const startedAt = Date.now();
+    await ctx.db.patch(tournament._id, {
+      playerRefresh: { status: "running", startedAt },
+    });
+    // The run is bound to the Melee tournament selected now; the action
+    // checks that binding before it touches anything.
+    await ctx.scheduler.runAfter(
+      0,
+      internal.tournamentSync.refreshPlayersFromMelee,
+      {
+        userId,
+        tournamentId: tournament._id,
+        externalTournamentId: tournament.externalTournamentId!,
+        startedAt,
+      },
+    );
+    await ctx.scheduler.runAfter(
+      PLAYER_REFRESH_TIMEOUT,
+      internal.tournamentSync.expirePlayerRefresh,
+      { userId, tournamentId: tournament._id, startedAt },
+    );
+    await logIntegrationEvent(ctx, {
+      userId,
+      tournamentId: tournament._id,
+      action: "PLAYER_REFRESH_REQUESTED",
+      status: "info",
+      message: "Player refresh requested. Downloading players and decklists from Melee.",
+    });
+    return decision;
+  },
+});
+
+/**
+ * Record the outcome of a player refresh. Ignored when the tournament's
+ * current run is not the one identified by startedAt (already finished, or
+ * superseded after a timeout).
+ */
+async function finishPlayerRefreshRun(
+  ctx: MutationCtx,
+  args: {
+    userId: Id<"users">;
+    tournamentId: Id<"tournaments">;
+    startedAt: number;
+    status: "success" | "error";
+    message: string;
+    logAction: string;
+    logMetadata?: unknown;
+  },
+): Promise<boolean> {
+  const tournament = await ctx.db.get(args.tournamentId);
+  if (
+    !tournament ||
+    tournament.playerRefresh?.status !== "running" ||
+    tournament.playerRefresh.startedAt !== args.startedAt
+  ) {
+    return false;
+  }
+  await ctx.db.patch(args.tournamentId, {
+    playerRefresh: {
+      status: args.status,
+      startedAt: args.startedAt,
+      finishedAt: Date.now(),
+      message: args.message,
+    },
+  });
+  await logIntegrationEvent(ctx, {
+    userId: args.userId,
+    tournamentId: args.tournamentId,
+    action: args.logAction,
+    status: args.status,
+    message: args.message,
+    metadata: args.logMetadata,
+  });
+  return true;
+}
+
+export const finishPlayerRefresh = internalMutation({
+  args: {
+    userId: v.id("users"),
+    tournamentId: v.id("tournaments"),
+    startedAt: v.number(),
+    status: v.union(v.literal("success"), v.literal("error")),
+    message: v.string(),
+    logMetadata: v.optional(v.any()),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    return await finishPlayerRefreshRun(ctx, {
+      ...args,
+      logAction:
+        args.status === "success"
+          ? "PLAYER_REFRESH_SUCCESS"
+          : "PLAYER_REFRESH_ERROR",
+    });
+  },
+});
+
+export const expirePlayerRefresh = internalMutation({
+  args: {
+    userId: v.id("users"),
+    tournamentId: v.id("tournaments"),
+    startedAt: v.number(),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    return await finishPlayerRefreshRun(ctx, {
+      ...args,
+      status: "error",
+      message: "Player refresh timed out before it completed. Try again.",
+      logAction: "PLAYER_REFRESH_TIMEOUT",
+    });
+  },
+});
+
+/**
+ * The Melee credentials for a player refresh run, provided the run is still
+ * the tournament's current one: the tournament belongs to the user, its
+ * player refresh is "running" with this run's startedAt (not expired by the
+ * watchdog or superseded), and it still points at the Melee tournament the
+ * run was requested for. Null means the run must not write anything.
+ */
+export const getPlayerRefreshRun = internalQuery({
+  args: {
+    userId: v.id("users"),
+    tournamentId: v.id("tournaments"),
+    externalTournamentId: v.number(),
+    startedAt: v.number(),
+  },
+  returns: v.union(v.null(), v.object({ settings: settingsValidator })),
+  handler: async (ctx, args) => {
+    if (!(await isRunCurrent(ctx, args))) {
+      return null;
+    }
+    const settings = await ctx.db
+      .query("settings")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .unique();
+    if (!settings || !hasMeleeCredentials(settings)) {
+      throw new Error("No Melee credentials found. Check your settings.");
+    }
+    return { settings };
+  },
+});
+
+/** Whether a player refresh run is still the tournament's current one. */
+export const isPlayerRefreshRunCurrent = internalQuery({
+  args: playerRefreshRunValidator.fields,
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    return await isRunCurrent(ctx, args);
+  },
+});
+
+export const refreshPlayersFromMelee = internalAction({
+  args: playerRefreshRunValidator.fields,
+  handler: async (ctx, args) => {
+    try {
+      const run = await ctx.runQuery(
+        internal.tournamentSync.getPlayerRefreshRun,
+        args,
       );
+      if (!run) {
+        throw new PlayerRefreshSupersededError();
+      }
+      const credentials: MeleeCredentials =
+        getMeleeCredentialsFromSettings(run.settings);
+      const summary = await syncPlayersFromMelee(
+        ctx,
+        args.externalTournamentId,
+        credentials,
+        "full",
+        args,
+      );
+      await ctx.runMutation(internal.tournamentSync.finishPlayerRefresh, {
+        userId: args.userId,
+        tournamentId: args.tournamentId,
+        startedAt: args.startedAt,
+        status: "success",
+        message: formatPlayerSyncSummary(summary),
+        logMetadata: summary,
+      });
+    } catch (error) {
+      if (error instanceof PlayerRefreshSupersededError) {
+        // Expired, superseded, or the Melee tournament changed since the
+        // request, before or during the sync. finishPlayerRefresh is a no-op
+        // unless this run is somehow still on record, in which case it is
+        // closed out as an error.
+        console.log(
+          `Player refresh for ${args.userId} stopped: ${error.message}`,
+        );
+        await ctx.runMutation(internal.tournamentSync.finishPlayerRefresh, {
+          userId: args.userId,
+          tournamentId: args.tournamentId,
+          startedAt: args.startedAt,
+          status: "error",
+          message:
+            "Player refresh skipped: the Melee tournament changed or the run was superseded.",
+        });
+        return;
+      }
+      console.error(`Error refreshing players for ${args.userId}:`, error);
+      await ctx.runMutation(internal.tournamentSync.finishPlayerRefresh, {
+        userId: args.userId,
+        tournamentId: args.tournamentId,
+        startedAt: args.startedAt,
+        status: "error",
+        message: `Player refresh failed: ${error}`,
+        logMetadata: { error: String(error) },
+      });
     }
   },
 });

@@ -15,6 +15,29 @@ export const settingsValidator = v.object({
   updatedAt: v.number(),
 });
 
+// State of the most recent "Refresh players" run (full re-download of the
+// player list and decklists from Melee). Written twice per run.
+export const playerRefreshValidator = v.object({
+  status: v.union(
+    v.literal("running"),
+    v.literal("success"),
+    v.literal("error"),
+  ),
+  startedAt: v.number(),
+  finishedAt: v.optional(v.number()),
+  message: v.optional(v.string()),
+});
+
+// Identifies one "Refresh players" run so its write mutations can confirm, at
+// commit time, that it is still the tournament's current run for the Melee
+// tournament it was requested for.
+export const playerRefreshRunValidator = v.object({
+  userId: v.id("users"),
+  tournamentId: v.id("tournaments"),
+  externalTournamentId: v.number(),
+  startedAt: v.number(),
+});
+
 export const tournamentValidator = v.object({
   _id: v.id("tournaments"),
   _creationTime: v.number(),
@@ -29,6 +52,10 @@ export const tournamentValidator = v.object({
     v.union(v.literal("active"), v.literal("inactive"), v.literal("error")),
   ),
   pollingErrorMessage: v.optional(v.string()),
+  // Legacy per-cycle bookkeeping. Now stored in the pollingSessions table so
+  // each poll cycle no longer writes to (and invalidates subscriptions on)
+  // the tournament document. Kept optional until the
+  // clearLegacyPollingFields migration has run.
   pollingSessionId: v.optional(v.string()),
   pollingCycleId: v.optional(v.string()),
   pollingCycleStartedAt: v.optional(v.number()),
@@ -46,9 +73,36 @@ export const tournamentValidator = v.object({
   commentatorLeftSubText: v.optional(v.string()),
   commentatorRight: v.optional(v.string()),
   commentatorRightSubText: v.optional(v.string()),
+  playerRefresh: v.optional(playerRefreshValidator),
   createdAt: v.number(),
   updatedAt: v.number(),
 });
+
+// High-churn polling bookkeeping, kept off the tournaments document so the
+// poll loop's claim/finish writes do not re-run every tournament subscription.
+export const pollingSessionValidator = v.object({
+  _id: v.id("pollingSessions"),
+  _creationTime: v.number(),
+  tournamentId: v.id("tournaments"),
+  pollingSessionId: v.string(),
+  pollingCycleId: v.string(),
+  pollingCycleStartedAt: v.optional(v.number()),
+  lastCycleFinishedAt: v.optional(v.number()),
+});
+
+export const manualPollResultValidator = v.union(
+  v.literal("scheduled"),
+  v.literal("not_polling"),
+  v.literal("in_progress"),
+  v.literal("cooldown"),
+);
+
+export const playerRefreshResultValidator = v.union(
+  v.literal("scheduled"),
+  v.literal("in_progress"),
+  v.literal("no_tournament"),
+  v.literal("no_credentials"),
+);
 
 export const externalTournamentValidator = v.object({
   _id: v.id("externalTournaments"),
@@ -82,6 +136,8 @@ export const featureMatchValidator = v.object({
   player1TournamentRecord: v.string(),
   player2TournamentRecord: v.string(),
   tableNumber: v.optional(v.number()),
+  // Melee match GUID; set on rows created from a pairing.
+  externalMatchId: v.optional(v.string()),
   createdAt: v.number(),
 });
 
@@ -104,6 +160,9 @@ export const pairingValidator = v.object({
   player2TotalMatchPoints: v.optional(v.number()),
   tableNumber: v.optional(v.number()),
   status: v.string(),
+  // Melee's own feature-match flag at the time the round was captured. A
+  // hint only; feature matches are selected in Manastream.
+  featuredInMelee: v.optional(v.boolean()),
   createdAt: v.number(),
 });
 
@@ -399,6 +458,9 @@ export const playerDecklistValidator = v.object({
   externalTournamentId: v.number(),
   externalPlayerId: v.number(),
   externalDecklistId: v.optional(v.string()), // Melee decklist GUID
+  // Melee's LastUpdated for the decklist (ISO 8601). Lets a sync skip
+  // decklists that have not changed since they were stored.
+  externalDecklistUpdatedAt: v.optional(v.string()),
   decklistStatus: v.optional(decklistStatusValidator),
   deckName: v.string(), // Archetype name
   deckList: v.string(), // Plaintext deck list

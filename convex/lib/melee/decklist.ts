@@ -4,6 +4,8 @@ import { classifyDecknameForFormat } from "../deckClassification/deckClassificat
 export interface MeleeDecklist {
   deckname: string;
   decklist: string;
+  /** Melee's LastUpdated (ISO 8601), when the response carried one. */
+  lastUpdated?: string;
 }
 
 const MAINDECK_CATEGORY = 0;

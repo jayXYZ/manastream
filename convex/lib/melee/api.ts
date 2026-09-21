@@ -202,9 +202,12 @@ export async function fetchMeleeDecklist(
   if (!Array.isArray(data.Records)) {
     throw new Error("Invalid Melee API response structure for decklist");
   }
-  return buildDecklistFromMeleeRecords({
-    records: data.Records,
-    formatName: eventFormat ?? data.FormatName,
-    decklistName: data.DecklistName || data.Name || undefined,
-  });
+  return {
+    ...buildDecklistFromMeleeRecords({
+      records: data.Records,
+      formatName: eventFormat ?? data.FormatName,
+      decklistName: data.DecklistName || data.Name || undefined,
+    }),
+    lastUpdated: data.LastUpdated ?? undefined,
+  };
 }
