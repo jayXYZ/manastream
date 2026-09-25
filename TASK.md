@@ -140,7 +140,7 @@ Verify every task with `npx tsc --noEmit -p convex/tsconfig.json` and
 - **Fix:** Move the body of `resolvePlayerDeckCards` into a helper that takes
   `ActionCtx`, and call it inside the existing per-player try/catch.
 
-### 12. Consolidate duplicated deck-list helpers
+### 12. [DONE] Consolidate duplicated deck-list helpers
 
 - **Where:** `getInitialDeckCardsStatus` and `isResolvableDeckList` in
   `convex/player.ts`, `convex/lib/players.ts`, `convex/deckCards.ts`;

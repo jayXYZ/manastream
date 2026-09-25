@@ -14,6 +14,7 @@ import {
   createUnresolvedCard,
   getCardCacheKey,
   isCacheableScryfallFailure,
+  isResolvableDeckList,
   isRetryableCachedFailure,
   mapScryfallCard,
   normalizeCardName,
@@ -482,16 +483,6 @@ function getDeckCardsStatus(
     return "failed" as const;
   }
   return "partial" as const;
-}
-
-function isResolvableDeckList(deckList: string) {
-  const trimmed = deckList.trim();
-  return (
-    trimmed.length > 0 &&
-    trimmed !== "PENDING" &&
-    trimmed !== "MISSING_DECKLIST" &&
-    trimmed !== "Unknown"
-  );
 }
 
 function getUniqueCardNames(decklist: {

@@ -5,8 +5,6 @@ import {
   query,
   mutation,
 } from "./_generated/server";
-import type { MutationCtx } from "./_generated/server";
-import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import {
   getOptionalOwnTournament,
@@ -29,6 +27,12 @@ import {
   CachedPlayerForSync,
   shouldApplyDecklistUpdate,
 } from "./lib/playerSync";
+import {
+  getInitialDeckCardsStatus,
+  isResolvableDeckList,
+  scheduleDeckCardsResolution,
+  scheduleDeckCardsResolutionBatch,
+} from "./lib/deckCards";
 
 const decklistUpdateValidator = v.object({
   playerId: v.id("players"),
@@ -523,48 +527,3 @@ export const updatePlayerInfo = mutation({
     return null;
   },
 });
-
-function getInitialDeckCardsStatus(deckList: string) {
-  if (isResolvableDeckList(deckList)) {
-    return "pending" as const;
-  }
-  if (deckList === "PENDING") {
-    return "pending" as const;
-  }
-  return "failed" as const;
-}
-
-function isResolvableDeckList(deckList: string) {
-  const trimmed = deckList.trim();
-  return (
-    trimmed.length > 0 &&
-    trimmed !== "PENDING" &&
-    trimmed !== "MISSING_DECKLIST" &&
-    trimmed !== "Unknown"
-  );
-}
-
-async function scheduleDeckCardsResolution(
-  ctx: Pick<MutationCtx, "scheduler">,
-  playerId: Id<"players">,
-  deckList: string,
-) {
-  if (!isResolvableDeckList(deckList)) {
-    return;
-  }
-  await ctx.scheduler.runAfter(0, internal.deckCards.resolvePlayerDeckCards, {
-    playerId,
-  });
-}
-
-async function scheduleDeckCardsResolutionBatch(
-  ctx: Pick<MutationCtx, "scheduler">,
-  playerIds: Id<"players">[],
-) {
-  if (playerIds.length === 0) {
-    return;
-  }
-  await ctx.scheduler.runAfter(0, internal.deckCards.resolvePlayersDeckCards, {
-    playerIds,
-  });
-}
