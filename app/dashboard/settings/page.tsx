@@ -200,16 +200,18 @@ export default function SettingsPage() {
               <div className="flex flex-col gap-2">
                 <Label htmlFor="syncMode">Auto Sync</Label>
                 <div className="flex items-start gap-4">
-                  <Switch
-                    id="syncMode"
-                    checked={inputs.syncMode === "auto"}
-                    onCheckedChange={(checked) =>
-                      setInputs({
-                        ...inputs,
-                        syncMode: checked ? "auto" : "manual",
-                      })
-                    }
-                  />
+                  <div className="flex h-8 items-center">
+                    <Switch
+                      id="syncMode"
+                      checked={inputs.syncMode === "auto"}
+                      onCheckedChange={(checked) =>
+                        setInputs({
+                          ...inputs,
+                          syncMode: checked ? "auto" : "manual",
+                        })
+                      }
+                    />
+                  </div>
                   <RefreshSyncButton tournament={tournament} />
                 </div>
               </div>
