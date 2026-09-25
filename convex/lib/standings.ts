@@ -112,7 +112,7 @@ async function scheduleRoundStandingsFetch(
 
   await ctx.scheduler.runAfter(
     0,
-    internal.overlays.fetchAndUpdateRoundStandings,
+    internal.overlays.standings.fetchAndUpdateRoundStandings,
     {
       tournamentId: tournament._id,
       standingsId,

@@ -135,17 +135,17 @@ async function setup() {
 it("lets the owner and a user sharing the Melee tournament attach a feature match", async () => {
   const { t, owner, viewer, featureMatch } = await setup();
 
-  await owner.as.mutation(api.overlays.setOverlayFeatureMatch, {
+  await owner.as.mutation(api.overlays.match.setOverlayFeatureMatch, {
     overlayId: owner.match,
     featureMatchId: featureMatch,
     playersSwapped: false,
   });
-  await viewer.as.mutation(api.overlays.setOverlayFeatureMatch, {
+  await viewer.as.mutation(api.overlays.match.setOverlayFeatureMatch, {
     overlayId: viewer.match,
     featureMatchId: featureMatch,
     playersSwapped: true,
   });
-  await viewer.as.mutation(api.overlays.updateDeckOverlay, {
+  await viewer.as.mutation(api.overlays.deck.updateDeckOverlay, {
     overlayId: viewer.deck,
     matchId: featureMatch,
   });
@@ -174,14 +174,14 @@ it("refuses a feature match from a Melee tournament the user has not linked", as
   const { t, other, featureMatch } = await setup();
 
   await expect(
-    other.as.mutation(api.overlays.setOverlayFeatureMatch, {
+    other.as.mutation(api.overlays.match.setOverlayFeatureMatch, {
       overlayId: other.match,
       featureMatchId: featureMatch,
       playersSwapped: false,
     }),
   ).rejects.toThrow("Feature match not found or access denied");
   await expect(
-    other.as.mutation(api.overlays.updateDeckOverlay, {
+    other.as.mutation(api.overlays.deck.updateDeckOverlay, {
       overlayId: other.deck,
       matchId: featureMatch,
     }),
@@ -199,17 +199,17 @@ it("only accepts standings rounds from the user's linked Melee tournament", asyn
   const { t, owner, other } = await setup();
 
   // Completed round and current round of the linked tournament are both fine.
-  await owner.as.mutation(api.overlays.updateStandingsOverlay, {
+  await owner.as.mutation(api.overlays.standings.updateStandingsOverlay, {
     overlayId: owner.standings,
     externalRoundId: 101,
   });
-  await owner.as.mutation(api.overlays.updateStandingsOverlay, {
+  await owner.as.mutation(api.overlays.standings.updateStandingsOverlay, {
     overlayId: owner.standings,
     externalRoundId: 102,
   });
   // A round from another Melee tournament is refused and creates no row.
   await expect(
-    other.as.mutation(api.overlays.updateStandingsOverlay, {
+    other.as.mutation(api.overlays.standings.updateStandingsOverlay, {
       overlayId: other.standings,
       externalRoundId: 101,
     }),

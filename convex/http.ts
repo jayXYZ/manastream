@@ -21,9 +21,12 @@ http.route({
     }
 
     try {
-      const overlay = await ctx.runQuery(api.overlays.getOverlayByUuid, {
-        publicUuid: uuid,
-      });
+      const overlay = await ctx.runQuery(
+        api.overlays.queries.getOverlayByUuid,
+        {
+          publicUuid: uuid,
+        },
+      );
 
       if (!overlay) {
         return new Response("Overlay not found", { status: 404 });

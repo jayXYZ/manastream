@@ -10,7 +10,7 @@ import { TournamentPreviewController } from "@/app/dashboard/controllers/compone
 import { Spinner } from "@/components/ui/spinner";
 
 export default function ControllersPage() {
-  const overlays = useQuery(api.overlays.getUserOverlays);
+  const overlays = useQuery(api.overlays.queries.getUserOverlays);
   const showCardOverlay = useDashboardStore((state) => state.showCardOverlay);
 
   function isMatchOverlay(overlay: Overlay): overlay is Overlay {

@@ -73,7 +73,7 @@ export const fetchAndUpdateRoundStandings = internalAction({
   handler: async (ctx, args) => {
     try {
       const credentials: MeleeCredentials = await ctx.runQuery(
-        internal.overlays.getRoundStandingsCredentials,
+        internal.overlays.standings.getRoundStandingsCredentials,
         { tournamentId: args.tournamentId },
       );
       const meleeStandings = await fetchMeleeRoundStandings(
@@ -85,7 +85,7 @@ export const fetchAndUpdateRoundStandings = internalAction({
           `No standings returned for round ${args.externalRoundId}`,
         );
       }
-      await ctx.runMutation(internal.overlays.updateRoundStandings, {
+      await ctx.runMutation(internal.overlays.standings.updateRoundStandings, {
         standingsId: args.standingsId,
         standingsData: {
           roundNumber: meleeStandings[0].RoundNumber,
@@ -93,10 +93,13 @@ export const fetchAndUpdateRoundStandings = internalAction({
         },
       });
     } catch (error) {
-      await ctx.runMutation(internal.overlays.markRoundStandingsFetchFailed, {
-        standingsId: args.standingsId,
-        error: String(error),
-      });
+      await ctx.runMutation(
+        internal.overlays.standings.markRoundStandingsFetchFailed,
+        {
+          standingsId: args.standingsId,
+          error: String(error),
+        },
+      );
       throw error;
     }
   },

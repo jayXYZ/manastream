@@ -33,7 +33,7 @@ export default function MatchSelect(props: {
     api.featurematches.getCurrentRoundFeatureMatches,
   );
   const setOverlayFeatureMatch = useMutation(
-    api.overlays.setOverlayFeatureMatch,
+    api.overlays.match.setOverlayFeatureMatch,
   );
 
   const handleMatchSelect = (match: FeatureMatchWithPlayers) => {

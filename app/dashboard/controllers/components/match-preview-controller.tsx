@@ -66,11 +66,11 @@ export function MatchPreviewController({
   const [isOpen, setIsOpen] = useState(false);
   const [dialogResetKey, setDialogResetKey] = useState(0);
   const [tooltipOpen, setTooltipOpen] = useState(false);
-  const matchOverlay = useQuery(api.overlays.getOverlayById, {
+  const matchOverlay = useQuery(api.overlays.queries.getOverlayById, {
     overlayId: matchOverlayId,
   });
   const updateMatchOverlayDisplayInfo = useMutation(
-    api.overlays.updateMatchOverlayDisplayInfo,
+    api.overlays.match.updateMatchOverlayDisplayInfo,
   );
   if (!matchOverlay || !updateMatchOverlayDisplayInfo) {
     return;

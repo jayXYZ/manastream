@@ -73,7 +73,7 @@ function isBraunDarkTemplate(
 
 export default function OverlaysPage() {
   const tournament = useQuery(api.tournaments.getUserTournament);
-  const overlays = useQuery(api.overlays.getUserOverlays);
+  const overlays = useQuery(api.overlays.queries.getUserOverlays);
   const [selectedOverlay, setSelectedOverlay] = useState<Overlay | null>(null);
   const [selectedPlayerNumber, setSelectedPlayerNumber] = useState<
     1 | 2 | null
@@ -87,19 +87,19 @@ export default function OverlaysPage() {
     typeof window === "undefined" ? "" : window.location.origin,
   );
   const setMatchOverlaySettings = useMutation(
-    api.overlays.setMatchOverlaySettings,
+    api.overlays.match.setMatchOverlaySettings,
   );
   const setCommentaryOverlaySettings = useMutation(
-    api.overlays.setCommentaryOverlaySettings,
+    api.overlays.commentary.setCommentaryOverlaySettings,
   );
   const setCardOverlaySettings = useMutation(
-    api.overlays.setCardOverlaySettings,
+    api.overlays.card.setCardOverlaySettings,
   );
   const setDeckOverlaySettings = useMutation(
-    api.overlays.setDeckOverlaySettings,
+    api.overlays.deck.setDeckOverlaySettings,
   );
   const setStandingsOverlaySettings = useMutation(
-    api.overlays.setStandingsOverlaySettings,
+    api.overlays.standings.setStandingsOverlaySettings,
   );
 
   const handleSaveTemplate = () => {

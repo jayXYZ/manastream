@@ -39,7 +39,7 @@ function LifeTrackerContent() {
   const tournament = useQuery(api.tournaments.getUserTournament);
   const tournamentMode = tournament?.mode;
   const overlayData = useQuery(
-    api.overlays.getOverlayById,
+    api.overlays.queries.getOverlayById,
     connectedOverlayId
       ? { overlayId: connectedOverlayId as Id<"overlays"> }
       : "skip",

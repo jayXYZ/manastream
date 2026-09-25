@@ -102,7 +102,7 @@ Verify every task with `npx tsc --noEmit -p convex/tsconfig.json` and
 
 ## Suggestions
 
-### 8. Stop exposing overlay functions at two paths
+### [DONE] 8. Stop exposing overlay functions at two paths
 
 - **Where:** `convex/_overlays/` and the barrel `convex/overlays.ts`
 - **Why:** Convex registers every module under `convex/`, so each overlay

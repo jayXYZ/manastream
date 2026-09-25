@@ -82,7 +82,7 @@ export default function OverlayPage({
   params: Promise<{ public_id: string }>;
 }) {
   const { public_id } = use(params);
-  const overlay = useQuery(api.overlays.getOverlayByUuid, {
+  const overlay = useQuery(api.overlays.queries.getOverlayByUuid, {
     publicUuid: public_id,
   });
 

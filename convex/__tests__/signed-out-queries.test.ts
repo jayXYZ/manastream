@@ -76,7 +76,9 @@ describe("signed-out caller", () => {
 
   it("gets empty results from the tournament-scoped queries", async () => {
     const { signedOut } = await setup();
-    expect(await signedOut.query(api.overlays.getUserOverlays, {})).toEqual([]);
+    expect(
+      await signedOut.query(api.overlays.queries.getUserOverlays, {}),
+    ).toEqual([]);
     expect(
       await signedOut.query(api.player.getAllTournamentPlayers, {}),
     ).toEqual([]);
@@ -123,9 +125,9 @@ describe("signed-in user with no tournament yet", () => {
 
   it("gets empty results from the tournament-scoped queries", async () => {
     const { unverified } = await setup();
-    expect(await unverified.query(api.overlays.getUserOverlays, {})).toEqual(
-      [],
-    );
+    expect(
+      await unverified.query(api.overlays.queries.getUserOverlays, {}),
+    ).toEqual([]);
     expect(
       await unverified.query(api.player.getAllTournamentPlayers, {}),
     ).toEqual([]);
@@ -157,7 +159,7 @@ describe("initialized user", () => {
       hasMeleeClientSecret: true,
     });
     expect(
-      (await verified.query(api.overlays.getUserOverlays, {})).map(
+      (await verified.query(api.overlays.queries.getUserOverlays, {})).map(
         (overlay) => overlay.publicUuid,
       ),
     ).toEqual(["verified-match"]);

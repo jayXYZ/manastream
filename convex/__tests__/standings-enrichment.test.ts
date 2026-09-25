@@ -92,7 +92,7 @@ it("joins standings rows to players, statuses and decklists by Melee player id",
     });
   });
 
-  const overlay = await t.query(api.overlays.getOverlayByUuid, {
+  const overlay = await t.query(api.overlays.queries.getOverlayByUuid, {
     publicUuid: "standings-uuid",
   });
   expect(overlay).toMatchObject({
