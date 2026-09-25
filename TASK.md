@@ -163,7 +163,7 @@ Verify every task with `npx tsc --noEmit -p convex/tsconfig.json` and
 - **Fix:** Add an `internalQuery` wrapper around `enrichOverlay` by UUID and
   call it with `internal.*`.
 
-### 15. Bound the whole-database deck-card backfill
+### [DONE] 15. Bound the whole-database deck-card backfill
 
 - **Where:** `convex/deckCards.ts` `loadAllPlayersWithData`
 - **Why:** With no tournament id, the backfill still collects the entire

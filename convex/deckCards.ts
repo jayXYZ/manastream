@@ -3,10 +3,14 @@ import {
   internalMutation,
   internalQuery,
 } from "./_generated/server";
-import type { ActionCtx, QueryCtx } from "./_generated/server";
+import type { ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { v } from "convex/values";
+import {
+  paginationOptsValidator,
+  paginationResultValidator,
+} from "convex/server";
 import {
   CARD_IMAGE_POLICY,
   buildResolvedDeckCards,
@@ -35,6 +39,12 @@ const SCRYFALL_MAX_ATTEMPTS = 3;
 // before scheduling itself to continue. Each deck takes up to ~15s of Scryfall
 // time on a cold cache, so ~25 fits comfortably inside the 600s action budget.
 const RESOLVE_PLAYERS_BATCH_SIZE = 25;
+// How many externalTournaments rows backfillAllDeckCards reads per page while
+// fanning out one backfillDeckCards per tournament.
+export const BACKFILL_TOURNAMENT_PAGE_SIZE = 100;
+// Spread the per-tournament backfills out so a whole-database run does not
+// start every tournament's Scryfall traffic at the same instant.
+export const BACKFILL_TOURNAMENT_STAGGER_MS = 5_000;
 
 export const getCachedCards = internalQuery({
   args: {
@@ -116,17 +126,16 @@ export const getPlayerDecklistForResolution = internalQuery({
 
 export const getPlayersMissingDeckCards = internalQuery({
   args: {
-    externalTournamentId: v.optional(v.number()),
+    externalTournamentId: v.number(),
   },
   returns: v.array(v.id("players")),
   handler: async (ctx, args) => {
-    const playersWithData =
-      args.externalTournamentId !== undefined
-        ? (await loadTournamentPlayerData(ctx, args.externalTournamentId))
-            .players
-        : await loadAllPlayersWithData(ctx);
+    const { players } = await loadTournamentPlayerData(
+      ctx,
+      args.externalTournamentId,
+    );
 
-    return playersWithData
+    return players
       .filter(
         (player) =>
           player.deckCardsStatus !== "ready" &&
@@ -137,31 +146,25 @@ export const getPlayersMissingDeckCards = internalQuery({
 });
 
 /**
- * Every player across every cached Melee tournament, for the manual
- * whole-database backfill. Loads each tournament's statuses and decklists
- * in bulk; rows that predate externalTournamentId fall back to per-player
- * lookups. Still an unbounded read of the players table by design.
+ * One page of cached Melee tournament ids, for the whole-database backfill
+ * to fan out over without ever reading the players table unbounded.
  */
-async function loadAllPlayersWithData(ctx: QueryCtx) {
-  const players = await ctx.db.query("players").collect();
-  const externalTournamentIds = new Set<number>();
-  for (const player of players) {
-    if (player.externalTournamentId !== undefined) {
-      externalTournamentIds.add(player.externalTournamentId);
-    }
-  }
-  const perTournament = await Promise.all(
-    [...externalTournamentIds].map((externalTournamentId) =>
-      loadTournamentPlayerData(ctx, externalTournamentId),
-    ),
-  );
-  const legacy = await Promise.all(
-    players
-      .filter((player) => player.externalTournamentId === undefined)
-      .map((player) => getPlayerData(ctx, player)),
-  );
-  return [...perTournament.flatMap((data) => data.players), ...legacy];
-}
+export const listExternalTournamentIds = internalQuery({
+  args: {
+    paginationOpts: paginationOptsValidator,
+  },
+  returns: paginationResultValidator(v.number()),
+  handler: async (ctx, args) => {
+    const result = await ctx.db
+      .query("externalTournaments")
+      .withIndex("by_external_tournament_id")
+      .paginate(args.paginationOpts);
+    return {
+      ...result,
+      page: result.page.map((tournament) => tournament.externalTournamentId),
+    };
+  },
+});
 
 export const patchPlayerDeckCards = internalMutation({
   args: {
@@ -348,9 +351,13 @@ async function resolvePlayersDeckCardsBatch(
   }
 }
 
+/**
+ * Resolves deck cards for every player of one Melee tournament whose cards
+ * are not yet ready. Reads are bounded by the tournament's player count.
+ */
 export const backfillDeckCards = internalAction({
   args: {
-    externalTournamentId: v.optional(v.number()),
+    externalTournamentId: v.number(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -367,6 +374,43 @@ export const backfillDeckCards = internalAction({
     }
     await resolvePlayersDeckCardsBatch(ctx, playerIds);
     return null;
+  },
+});
+
+/**
+ * Whole-database backfill: pages through externalTournaments and schedules
+ * one backfillDeckCards per tournament, so no single function ever reads the
+ * entire players table. Players that predate externalTournamentId being
+ * stored are not reachable this way; backfill them by tournament id.
+ */
+export const backfillAllDeckCards = internalAction({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) => {
+    let cursor: string | null = null;
+    let scheduled = 0;
+    while (true) {
+      const result: {
+        page: number[];
+        isDone: boolean;
+        continueCursor: string;
+      } = await ctx.runQuery(internal.deckCards.listExternalTournamentIds, {
+        paginationOpts: { numItems: BACKFILL_TOURNAMENT_PAGE_SIZE, cursor },
+      });
+      for (const externalTournamentId of result.page) {
+        await ctx.scheduler.runAfter(
+          scheduled * BACKFILL_TOURNAMENT_STAGGER_MS,
+          internal.deckCards.backfillDeckCards,
+          { externalTournamentId },
+        );
+        scheduled += 1;
+      }
+      if (result.isDone) {
+        break;
+      }
+      cursor = result.continueCursor;
+    }
+    return scheduled;
   },
 });
 
