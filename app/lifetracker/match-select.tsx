@@ -6,6 +6,7 @@ import { useState } from "react";
 import { FeatureMatchWithPlayers } from "@/convex/types";
 import { Id } from "@/convex/_generated/dataModel";
 import { ArrowLeft } from "lucide-react";
+import { AccountNotSetUp } from "@/components/account-not-set-up";
 
 export default function MatchSelect(props: {
   /** Called after a feature match has been applied to the overlay. */
@@ -81,10 +82,21 @@ export default function MatchSelect(props: {
     </Button>
   );
 
-  if (!tournament) {
+  if (tournament === undefined) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-2xl font-bold">Loading tournament...</div>
+      </div>
+    );
+  }
+
+  // Null means signed in but not initialized (unverified password sign-up),
+  // not "still loading"; show the setup state instead of spinning forever.
+  if (tournament === null) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <AccountNotSetUp />
+        {cancelButton}
       </div>
     );
   }

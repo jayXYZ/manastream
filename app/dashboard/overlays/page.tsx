@@ -14,6 +14,7 @@ import {
 import OverlaysTable from "./components/overlays-table";
 import OverlayPreview from "./components/overlay-preview";
 import { Spinner } from "@/components/ui/spinner";
+import { AccountNotSetUp } from "@/components/account-not-set-up";
 import {
   Select,
   SelectTrigger,
@@ -156,12 +157,18 @@ export default function OverlaysPage() {
       }`
     : null;
 
-  if (!tournament || !overlays) {
+  if (tournament === undefined || overlays === undefined) {
     return (
       <div className="flex items-center justify-center h-full">
         <Spinner />
       </div>
     );
+  }
+
+  // Null means signed in but not initialized (unverified password sign-up),
+  // not "still loading"; show the setup state instead of spinning forever.
+  if (tournament === null) {
+    return <AccountNotSetUp />;
   }
 
   return (
