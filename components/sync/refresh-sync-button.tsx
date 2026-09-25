@@ -82,18 +82,36 @@ export function RefreshSyncButton({
 
   if (variant === "icon") {
     const showingFeedback = feedback !== null;
+    const isDisabled = !isPolling || isRequesting;
     return (
       <Tooltip
         open={tooltipOpen || showingFeedback}
         onOpenChange={setTooltipOpen}
       >
         <TooltipTrigger asChild>
-          {/* The span keeps the tooltip reachable while the button is disabled. */}
-          <span className={cn("inline-flex", className)}>
+          {/*
+           * A natively disabled button cannot be hovered or focused, so the
+           * span is the tooltip trigger. While the button is disabled the span
+           * also becomes the tab stop (announced as a single disabled button)
+           * so keyboard users can still read why refresh is unavailable. When
+           * the button is enabled the span drops out of the tab order and the
+           * button's own focus reaches the trigger by bubbling.
+           */}
+          <span
+            className={cn(
+              "ring-offset-background focus-visible:ring-ring inline-flex rounded-xs focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden",
+              className,
+            )}
+            tabIndex={isDisabled ? 0 : undefined}
+            role={isDisabled ? "button" : undefined}
+            aria-disabled={isDisabled ? true : undefined}
+            aria-label={isDisabled ? "Refresh now" : undefined}
+          >
             <CardActionButton
               revealed={tooltipOpen || showingFeedback}
               onClick={handleClick}
-              disabled={!isPolling || isRequesting}
+              disabled={isDisabled}
+              aria-hidden={isDisabled ? true : undefined}
             >
               <RefreshCw className={cn(isRequesting && "animate-spin")} />
               <span className="sr-only">Refresh now</span>
