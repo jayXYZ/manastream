@@ -17,9 +17,9 @@ import { isPlayerRefreshRunCurrent } from "./lib/playerRefresh";
 import {
   composePlayerData,
   getChangedRegistrationStatuses,
-  getPlayerData,
   getPlayerDecklistByPlayerId,
   insertPlayerDataRows,
+  loadTournamentPlayerData,
   upsertPlayerDecklist,
 } from "./lib/playerData";
 import {
@@ -269,16 +269,11 @@ export const getAllTournamentPlayers = query({
     if (!tournament.externalTournamentId) {
       return [];
     }
-    const players = await ctx.db
-      .query("players")
-      .withIndex("by_external_tournament_id", (q) =>
-        q.eq("externalTournamentId", tournament.externalTournamentId!),
-      )
-      .collect();
-    const playersWithData = await Promise.all(
-      players.map((player) => getPlayerData(ctx, player)),
+    const { players } = await loadTournamentPlayerData(
+      ctx,
+      tournament.externalTournamentId,
     );
-    return playersWithData.map((player) => ({
+    return players.map((player) => ({
       externalPlayerId: player.externalPlayerId,
       name: player.name,
       registrationStatus: player.registrationStatus,

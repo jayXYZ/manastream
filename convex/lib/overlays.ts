@@ -2,7 +2,11 @@ import { Doc, Id } from "../_generated/dataModel";
 import { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Infer } from "convex/values";
 import type { getOverlayByIdValidator } from "../validators";
-import { getPlayerData } from "./playerData";
+import {
+  TournamentPlayerData,
+  createTournamentPlayerDataLoader,
+  getPlayerData,
+} from "./playerData";
 import { getCurrentRoundPairingsWithPlayerData } from "./pairings";
 import { getPlayersForMatch } from "./players";
 import { getTournamentTimerAndRoundInfo } from "./tournaments";
@@ -221,14 +225,23 @@ export async function enrichStandingsOverlay(
     ctx,
     overlay,
   );
+  // One bulk load of the tournament's players serves both the bracket and
+  // the standings rows below, instead of three lookups per row.
+  const loadPlayers = createTournamentPlayerDataLoader(ctx);
   const isEliminationPhase = ELIMINATION_ROUND_NAMES.has(
     externalTournament?.currentRoundName ?? "",
   );
   const showCurrentBracket = overlay.showCurrentBracket === true;
   const shouldShowBracket = showCurrentBracket && isEliminationPhase;
-  const bracketDataWithPlayers = shouldShowBracket
-    ? await getEliminationBracketDataWithPlayers(ctx, overlay, externalTournament)
-    : undefined;
+  const bracketDataWithPlayers =
+    shouldShowBracket && externalTournament
+      ? await getEliminationBracketDataWithPlayers(
+          ctx,
+          overlay,
+          externalTournament,
+          await loadPlayers(externalTournament.externalTournamentId),
+        )
+      : undefined;
 
   // If no roundStandingsId is set, return overlay without standings data
   if (!overlay.roundStandingsId) {
@@ -261,26 +274,13 @@ export async function enrichStandingsOverlay(
       ? `Round ${roundStandings.roundNumber}`
       : undefined);
 
-  // Enrich standings with player data
-  const standingsDataWithPlayers = await Promise.all(
-    roundStandings.standings.map(async (standing) => {
-      // Try to find matching player by externalPlayerId
-      const player = await ctx.db
-        .query("players")
-        .withIndex("by_external_tournament_id_and_external_player_id", (q) =>
-          q
-            .eq("externalTournamentId", roundStandings.externalTournamentId)
-            .eq("externalPlayerId", standing.externalPlayerId),
-        )
-        .first();
-
-      return {
-        ...standing,
-        seed: standing.rank > 0 ? standing.rank : undefined,
-        playerData: player ? await getPlayerData(ctx, player) : undefined,
-      };
-    }),
-  );
+  // Enrich standings with player data, matched by Melee player id
+  const players = await loadPlayers(roundStandings.externalTournamentId);
+  const standingsDataWithPlayers = roundStandings.standings.map((standing) => ({
+    ...standing,
+    seed: standing.rank > 0 ? standing.rank : undefined,
+    playerData: players.byExternalPlayerId.get(standing.externalPlayerId),
+  }));
 
   return {
     ...overlay,
@@ -312,9 +312,10 @@ async function getExternalTournamentForStandingsOverlay(
 async function getEliminationBracketDataWithPlayers(
   ctx: QueryCtx,
   overlay: Doc<"overlays"> & { overlayType: "standings" },
-  externalTournament: Doc<"externalTournaments"> | null,
+  externalTournament: Doc<"externalTournaments">,
+  playerData: TournamentPlayerData,
 ) {
-  if (!externalTournament?.currentRoundId) {
+  if (!externalTournament.currentRoundId) {
     return undefined;
   }
 
@@ -325,6 +326,7 @@ async function getEliminationBracketDataWithPlayers(
       externalRoundId: externalTournament.currentRoundId,
       roundNumber: externalTournament.currentRoundNumber,
     },
+    playerData,
   );
   if (pairings.length === 0) {
     return undefined;

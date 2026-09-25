@@ -3,6 +3,7 @@ import {
   internalMutation,
   internalQuery,
 } from "./_generated/server";
+import type { QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import {
@@ -24,7 +25,7 @@ import {
   resolvedDeckCardsValidator,
   scryfallCardCacheValidator,
 } from "./validators";
-import { getPlayerData } from "./lib/playerData";
+import { getPlayerData, loadTournamentPlayerData } from "./lib/playerData";
 
 const SCRYFALL_REQUEST_DELAY_MS = 250;
 const SCRYFALL_MAX_ATTEMPTS = 3;
@@ -117,19 +118,11 @@ export const getPlayersMissingDeckCards = internalQuery({
   },
   returns: v.array(v.id("players")),
   handler: async (ctx, args) => {
-    const players =
+    const playersWithData =
       args.externalTournamentId !== undefined
-        ? await ctx.db
-            .query("players")
-            .withIndex("by_external_tournament_id", (q) =>
-              q.eq("externalTournamentId", args.externalTournamentId),
-            )
-            .collect()
-        : await ctx.db.query("players").collect();
-
-    const playersWithData = await Promise.all(
-      players.map((player) => getPlayerData(ctx, player)),
-    );
+        ? (await loadTournamentPlayerData(ctx, args.externalTournamentId))
+            .players
+        : await loadAllPlayersWithData(ctx);
 
     return playersWithData
       .filter(
@@ -140,6 +133,33 @@ export const getPlayersMissingDeckCards = internalQuery({
       .map((player) => player._id);
   },
 });
+
+/**
+ * Every player across every cached Melee tournament, for the manual
+ * whole-database backfill. Loads each tournament's statuses and decklists
+ * in bulk; rows that predate externalTournamentId fall back to per-player
+ * lookups. Still an unbounded read of the players table by design.
+ */
+async function loadAllPlayersWithData(ctx: QueryCtx) {
+  const players = await ctx.db.query("players").collect();
+  const externalTournamentIds = new Set<number>();
+  for (const player of players) {
+    if (player.externalTournamentId !== undefined) {
+      externalTournamentIds.add(player.externalTournamentId);
+    }
+  }
+  const perTournament = await Promise.all(
+    [...externalTournamentIds].map((externalTournamentId) =>
+      loadTournamentPlayerData(ctx, externalTournamentId),
+    ),
+  );
+  const legacy = await Promise.all(
+    players
+      .filter((player) => player.externalTournamentId === undefined)
+      .map((player) => getPlayerData(ctx, player)),
+  );
+  return [...perTournament.flatMap((data) => data.players), ...legacy];
+}
 
 export const patchPlayerDeckCards = internalMutation({
   args: {
@@ -388,7 +408,9 @@ function metadataToCacheEntry(
     normalizedName: normalizeCardName(name),
     name,
     policy: CARD_IMAGE_POLICY,
-    status: metadata.unresolved ? ("unresolved" as const) : ("resolved" as const),
+    status: metadata.unresolved
+      ? ("unresolved" as const)
+      : ("resolved" as const),
     imageUrl: metadata.imageUrl,
     typeLine: metadata.typeLine,
     legality: metadata.legality,
