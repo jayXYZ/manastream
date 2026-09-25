@@ -172,7 +172,7 @@ Verify every task with `npx tsc --noEmit -p convex/tsconfig.json` and
 - **Fix:** Require `externalTournamentId`, or iterate `externalTournaments` and
   schedule one `backfillDeckCards` per tournament.
 
-### 16. Unify the two match display-info mutations
+### [DONE] 16. Unify the two match display-info mutations
 
 - **Where:** `convex/_overlays/match.ts` `updateMatchOverlay` and
   `updateMatchOverlayDisplayInfo`

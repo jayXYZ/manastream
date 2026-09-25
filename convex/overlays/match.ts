@@ -3,7 +3,6 @@ import { v } from "convex/values";
 import { filterUndefined } from "../lib/utils";
 import {
   braunDarkPaletteValidator,
-  lc26BackgroundColorValidator,
   matchTemplatesValidator,
   updateMatchOverlayArgsValidator,
 } from "../validators";
@@ -56,48 +55,34 @@ export const createMatchOverlay = mutation({
   },
 });
 
+/**
+ * Update a match overlay's life totals, game counts, and manual display
+ * overrides. Omitted fields are left untouched. For the display overrides,
+ * pass `null` to clear the override: the stored field is removed so the
+ * overlay falls back to the linked player's data.
+ */
 export const updateMatchOverlay = mutation({
   args: updateMatchOverlayArgsValidator,
   returns: v.null(),
   handler: async (ctx, args) => {
     await requireMatchOverlayAccess(ctx, args.overlayId);
 
-    // Extract only the update fields (excluding overlayId) and filter out undefined values
     const { overlayId, ...updateFields } = args;
-    const updates = filterUndefined(updateFields);
+    // Drop omitted fields so they are not touched, and map `null` to
+    // `undefined` so `patch` removes the field (the schema stores these as
+    // optional strings, never null).
+    const updates = Object.fromEntries(
+      Object.entries(updateFields)
+        .filter(([, value]) => value !== undefined)
+        .map(([key, value]) => [key, value === null ? undefined : value]),
+    ) as {
+      [K in keyof typeof updateFields]?: Exclude<
+        (typeof updateFields)[K],
+        null
+      >;
+    };
 
     await ctx.db.patch(overlayId, updates);
-    return null;
-  },
-});
-
-export const updateMatchOverlayDisplayInfo = mutation({
-  args: {
-    overlayId: v.id("overlays"),
-    player1DisplayName: v.optional(v.string()),
-    player2DisplayName: v.optional(v.string()),
-    player1DisplayDeck: v.optional(v.string()),
-    player2DisplayDeck: v.optional(v.string()),
-    player1TournamentRecord: v.optional(v.string()),
-    player2TournamentRecord: v.optional(v.string()),
-    player1Lc26BackgroundColor: v.optional(lc26BackgroundColorValidator),
-    player2Lc26BackgroundColor: v.optional(lc26BackgroundColorValidator),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    await requireMatchOverlayAccess(ctx, args.overlayId);
-
-    // don't filter undefined values here, just update all fields
-    await ctx.db.patch(args.overlayId, {
-      player1DisplayName: args.player1DisplayName,
-      player2DisplayName: args.player2DisplayName,
-      player1DisplayDeck: args.player1DisplayDeck,
-      player2DisplayDeck: args.player2DisplayDeck,
-      player1TournamentRecord: args.player1TournamentRecord,
-      player2TournamentRecord: args.player2TournamentRecord,
-      player1Lc26BackgroundColor: args.player1Lc26BackgroundColor,
-      player2Lc26BackgroundColor: args.player2Lc26BackgroundColor,
-    });
     return null;
   },
 });
