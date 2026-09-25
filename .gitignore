@@ -42,7 +42,8 @@ next-env.d.ts
 
 # local AI agent tooling
 /.agents/
-/.claude/
+/.claude/worktrees/
+/.claude/settings.local.json
 /.worktrees/
 /convex/_generated/ai/
 /AGENTS.md
