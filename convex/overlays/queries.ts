@@ -1,4 +1,4 @@
-import { query } from "../_generated/server";
+import { internalQuery, query } from "../_generated/server";
 import { v } from "convex/values";
 import { requireOverlayAccess } from "../lib/auth";
 import { getOptionalOwnTournament } from "../lib/tournaments";
@@ -7,7 +7,10 @@ import {
   getOverlayByUuidValidator,
   overlayValidator,
 } from "../validators";
-import { enrichOverlay } from "../lib/overlays";
+import {
+  enrichOverlay,
+  getEnrichedOverlayByPublicUuid,
+} from "../lib/overlays";
 
 export const getUserOverlays = query({
   args: {},
@@ -46,15 +49,20 @@ export const getOverlayByUuid = query({
   },
   returns: getOverlayByUuidValidator,
   handler: async (ctx, args) => {
-    const overlay = await ctx.db
-      .query("overlays")
-      .withIndex("by_public_uuid", (q) => q.eq("publicUuid", args.publicUuid))
-      .unique();
+    return await getEnrichedOverlayByPublicUuid(ctx, args.publicUuid);
+  },
+});
 
-    if (!overlay) {
-      return null;
-    }
-
-    return await enrichOverlay(ctx, overlay);
+/**
+ * Internal twin of `getOverlayByUuid` for the `/api/overlay/:uuid` HTTP route
+ * in `convex/http.ts`, so the route is not coupled to the public API surface.
+ */
+export const getOverlayByUuidInternal = internalQuery({
+  args: {
+    publicUuid: v.string(),
+  },
+  returns: getOverlayByUuidValidator,
+  handler: async (ctx, args) => {
+    return await getEnrichedOverlayByPublicUuid(ctx, args.publicUuid);
   },
 });

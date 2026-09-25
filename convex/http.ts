@@ -1,15 +1,17 @@
 import { httpRouter } from "convex/server";
 import { auth } from "./auth";
 import { httpAction } from "./_generated/server";
-import { api } from "./_generated/api";
+import { internal } from "./_generated/api";
 
 const http = httpRouter();
 
 auth.addHttpRoutes(http);
 
-// Public endpoint for accessing overlays by UUID (no auth required)
+// Public endpoint for accessing overlays by UUID (no auth required).
+// Convex's httpRouter matches an exact `path` or a `pathPrefix`; it has no
+// `:param` syntax, so the UUID is read from the end of the pathname below.
 http.route({
-  path: "/api/overlay/:uuid",
+  pathPrefix: "/api/overlay/",
   method: "GET",
   handler: httpAction(async (ctx, request) => {
     const url = new URL(request.url);
@@ -22,7 +24,7 @@ http.route({
 
     try {
       const overlay = await ctx.runQuery(
-        api.overlays.queries.getOverlayByUuid,
+        internal.overlays.queries.getOverlayByUuidInternal,
         {
           publicUuid: uuid,
         },

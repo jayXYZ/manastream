@@ -465,6 +465,28 @@ export async function enrichOverlay(
 }
 
 /**
+ * Look up an overlay by its public UUID and enrich it. Shared by the public
+ * `getOverlayByUuid` query (used by the overlay page) and the internal query
+ * behind the `/api/overlay/:uuid` HTTP route, so the route does not depend on
+ * the public API surface.
+ */
+export async function getEnrichedOverlayByPublicUuid(
+  ctx: QueryCtx,
+  publicUuid: string,
+): Promise<EnrichedOverlay | null> {
+  const overlay = await ctx.db
+    .query("overlays")
+    .withIndex("by_public_uuid", (q) => q.eq("publicUuid", publicUuid))
+    .unique();
+
+  if (!overlay) {
+    return null;
+  }
+
+  return await enrichOverlay(ctx, overlay);
+}
+
+/**
  * Helper function to initialize default overlays and settings for a new user.
  * Creates 3 match overlays, 1 card overlay, 1 commentary overlay, 1 deck overlay, and default settings.
  */

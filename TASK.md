@@ -155,7 +155,7 @@ Verify every task with `npx tsc --noEmit -p convex/tsconfig.json` and
   but the argument is unnecessary.
 - **Fix:** Drop the argument and read the id from `getOwnTournament`.
 
-### 14. Point the HTTP overlay route at an internal query
+### [DONE] 14. Point the HTTP overlay route at an internal query
 
 - **Where:** `convex/http.ts:24`
 - **Why:** The route calls `api.overlays.getOverlayByUuid`, so it depends on the
