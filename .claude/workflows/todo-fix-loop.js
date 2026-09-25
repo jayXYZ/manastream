@@ -1,8 +1,9 @@
 export const meta = {
   name: 'todo-fix-loop',
   description: 'Loop over a todo file: verify the first open task, fix it, review the fix, mark it done, commit',
-  whenToUse: 'Work through open tasks in todo.md (or another task file) one at a time with a fix agent, a review agent, and a commit. Pass {file, maxTasks} as args.',
+  whenToUse: 'Work through open tasks in todo.md (or another task file) one at a time with a fix agent, a review agent, and a commit. Pass {file, maxTasks} as args. Requires a clean working tree: it refuses to start when unrelated changes are present, so a task commit can never absorb them.',
   phases: [
+    { title: 'Preflight', detail: 'Refuse to start from a dirty working tree' },
     { title: 'Fix', detail: 'Fable agent picks the first open task, verifies it, implements the fix', model: 'fable' },
     { title: 'Review', detail: 'Fable agent reviews the diff and fixes anything wrong', model: 'fable' },
     { title: 'Finalize', detail: 'Mark the task complete and commit' },
@@ -15,8 +16,19 @@ export const meta = {
 const FILE = (args && args.file) || 'todo.md'
 // Iterations are strictly serial: each one mutates the working tree and
 // commits, so nothing here fans out. maxTasks caps how many tasks one run
-// will process; omit it to keep going until no open task remains.
-const MAX_TASKS = (args && Number(args.maxTasks)) || Infinity
+// will process; omit it to keep going until no open task remains. Zero is a
+// valid cap (process nothing), so the absent case is checked explicitly
+// rather than through a truthiness fallback, and anything that is not a
+// non-negative integer is rejected instead of silently meaning "unlimited".
+function parseMaxTasks(value) {
+  if (value === undefined || value === null || value === '') return Infinity
+  const parsed = typeof value === 'number' ? value : Number(String(value).trim())
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new Error(`maxTasks must be a non-negative integer, got ${JSON.stringify(value)}`)
+  }
+  return parsed
+}
+const MAX_TASKS = parseMaxTasks(args && args.maxTasks)
 const ATTRIBUTION = 'Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>'
 
 const OPEN_TASK_RULES = `
@@ -73,10 +85,20 @@ const REVIEW_SCHEMA = {
     approved: { type: 'boolean', description: 'true when the change is correct and complete after your fixes' },
     issuesFound: { type: 'array', items: { type: 'string' } },
     fixesApplied: { type: 'array', items: { type: 'string' } },
+    filesChanged: { type: 'array', items: { type: 'string' }, description: 'Every file you created or modified while reviewing; empty when you changed nothing' },
     checksRun: { type: 'string' },
     summary: { type: 'string' },
   },
-  required: ['approved', 'issuesFound', 'fixesApplied', 'summary'],
+  required: ['approved', 'issuesFound', 'fixesApplied', 'filesChanged', 'summary'],
+}
+
+const PREFLIGHT_SCHEMA = {
+  type: 'object',
+  properties: {
+    clean: { type: 'boolean', description: 'true when git status reports no modified, staged, or untracked files' },
+    dirtyPaths: { type: 'array', items: { type: 'string' }, description: 'Every path git status listed, empty when clean' },
+  },
+  required: ['clean', 'dirtyPaths'],
 }
 
 const FINALIZE_SCHEMA = {
@@ -92,6 +114,28 @@ const FINALIZE_SCHEMA = {
 
 const results = []
 let iteration = 0
+
+// ---------------------------------------------------------------------------
+// 0. Preflight: the finalize stage commits the task's changes, and it cannot
+// tell a pre-existing edit from one the fix or review agent made. Rather than
+// trust it to sort that out, require a clean tree before the first task.
+// ---------------------------------------------------------------------------
+const preflight = await agent(
+  `In the repository at the current working directory, run
+\`git status --porcelain --untracked-files=all\` and report the result.
+Do not change anything. clean=true only when the output is completely empty;
+otherwise list every path it printed in dirtyPaths.`,
+  { label: 'preflight', phase: 'Preflight', effort: 'low', schema: PREFLIGHT_SCHEMA },
+)
+
+if (!preflight) {
+  log('Preflight agent returned nothing; refusing to start.')
+  return { file: FILE, processed: 0, results, error: 'preflight-failed' }
+}
+if (!preflight.clean) {
+  log(`Working tree is not clean (${preflight.dirtyPaths.length} path(s)); commit or move that work first so a task commit cannot absorb it:\n  ${preflight.dirtyPaths.join('\n  ')}`)
+  return { file: FILE, processed: 0, results, error: 'dirty-working-tree', dirtyPaths: preflight.dirtyPaths }
+}
 
 while (iteration < MAX_TASKS) {
   iteration++
@@ -199,8 +243,12 @@ and do NOT commit. Set approved=true only when you would merge this.`,
   }
 
   // -------------------------------------------------------------------------
-  // 3. Finalize: mark the task done in the todo file and commit everything.
+  // 3. Finalize: mark the task done in the todo file and commit the task's
+  // own files. The tree was clean at preflight and every earlier commit in
+  // this run was made here, so the files the fix and review agents reported
+  // are the complete set; anything else is left unstaged and reported.
   // -------------------------------------------------------------------------
+  const taskPaths = [...new Set([...fix.filesChanged, ...review.filesChanged])].filter((path) => path !== FILE)
   const done = await agent(
     `In the repository at the current working directory:
 
@@ -208,9 +256,13 @@ and do NOT commit. Set approved=true only when you would merge this.`,
    Mark it complete: for a checkbox item change "- [ ]" to "- [x]"; for a
    headed task prefix the heading text with "[DONE] " (keep the number and
    title). Change nothing else in the file.
-2. Run \`git status\` to see every changed file, then \`git add\` each of
-   them plus ${FILE}. Do not add untracked build output or secrets
-   (.env files, node_modules, .next, tsconfig.tsbuildinfo).
+2. Stage ONLY these paths, one \`git add -- <path>\` each (skip any that
+   does not exist):
+   ${FILE}
+   ${taskPaths.join('\n   ')}
+   Never run \`git add -A\`, \`git add .\` or \`git add -u\`. Then run
+   \`git status --porcelain\`: any other modified or untracked path is not
+   part of this task. Leave it unstaged and list it in notes.
 3. Commit with a subject line that describes the fix, not the task number,
    a body that summarises the change, and this trailer as the last line:
    ${ATTRIBUTION}
