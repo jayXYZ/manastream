@@ -160,7 +160,13 @@ export default function PairingsPage() {
             <Table>
               <TableHeader className="[&_tr]:border-0">
                 <TableRow className="bg-muted/40 hover:bg-muted/40">
-                  <TableHead className="w-14">Feature</TableHead>
+                  <TableHead className="w-14">
+                    <Star
+                      aria-hidden="true"
+                      className="mx-auto size-4 text-muted-foreground"
+                    />
+                    <span className="sr-only">Feature match</span>
+                  </TableHead>
                   <TableHead className="w-16">Rank</TableHead>
                   <TableHead className="w-16">Table</TableHead>
                   <TableHead>Player 1</TableHead>
@@ -300,11 +306,17 @@ function PlayerCell({
 }) {
   return (
     <div className="min-w-0">
-      <div className="truncate font-medium">{name ?? "Unknown player"}</div>
-      <div className="truncate text-sm text-muted-foreground">
-        {deck ?? "Unknown deck"}
-        <span className="ml-2 font-mono">{record}</span>
-        <span className="ml-2 font-mono">{points ?? "?"} pts</span>
+      <div className="flex items-baseline gap-2">
+        <span className="min-w-0 truncate font-medium">
+          {name ?? "Unknown player"}
+        </span>
+        <span className="shrink-0 font-mono text-xs text-muted-foreground">
+          {points ?? "?"} pts
+        </span>
+      </div>
+      <div className="flex items-baseline gap-2 text-sm text-muted-foreground">
+        <span className="min-w-0 truncate">{deck ?? "Unknown deck"}</span>
+        <span className="shrink-0 font-mono">{record}</span>
       </div>
     </div>
   );
