@@ -51,7 +51,7 @@ Verify every task with `npx tsc --noEmit -p convex/tsconfig.json` and
   `getUserTournament`.
 - **Done when:** No `v.any()` appears in a `returns:` position under `convex/`.
 
-### 4. Delete `createTournament` and `getTournament`
+### [DONE] 4. Delete `createTournament` and `getTournament`
 
 - **Where:** `convex/tournaments.ts:16` and `:44`
 - **Why:** `createTournament` is an `internalMutation` that calls `requireAuth`;

@@ -1,9 +1,4 @@
-import {
-  internalMutation,
-  internalQuery,
-  mutation,
-  query,
-} from "./_generated/server";
+import { internalQuery, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { filterUndefined } from "./lib/utils";
@@ -14,43 +9,11 @@ import { hasExternalTournamentChanged } from "./lib/pollingBehavior";
 import { clearPollingSession } from "./lib/pollingSession";
 import { getTournamentInfoValidator, tournamentValidator } from "./validators";
 
-export const createTournament = internalMutation({
-  args: {
-    externalTournamentId: v.optional(v.number()),
-  },
-  returns: v.id("tournaments"),
-  handler: async (ctx, args) => {
-    const userId = await requireAuth(ctx);
-    const tournamentId = await ctx.db.insert("tournaments", {
-      userId: userId,
-      mode: "manual",
-      externalTournamentId: args.externalTournamentId,
-      manualTimerRunning: false,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    });
-    return tournamentId;
-  },
-});
-
 export const getUserTournament = query({
   args: {},
   returns: v.union(tournamentValidator, v.null()),
   handler: async (ctx) => {
     return await getOwnTournament(ctx);
-  },
-});
-
-// TODO: this doesn't seem to be used anywhere
-export const getTournament = query({
-  args: { tournamentId: v.id("tournaments") },
-  returns: v.union(tournamentValidator, v.null()),
-  handler: async (ctx, args) => {
-    const { tournament } = await requireTournamentAccess(
-      ctx,
-      args.tournamentId,
-    );
-    return tournament;
   },
 });
 
