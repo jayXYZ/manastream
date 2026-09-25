@@ -18,6 +18,7 @@ import { fetchMeleeRoundStandings } from "../lib/melee/api";
 import { toStandingRows } from "../models/melee";
 import { internal } from "../_generated/api";
 import {
+  requireRoundForTournament,
   requireStandingsOverlayAccess,
   requireTournamentAccess,
 } from "../lib/auth";
@@ -108,7 +109,10 @@ export const updateStandingsOverlay = mutation({
     showCurrentBracket: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    await requireStandingsOverlayAccess(ctx, args.overlayId);
+    const { tournament } = await requireStandingsOverlayAccess(
+      ctx,
+      args.overlayId,
+    );
     if (args.showCurrentBracket) {
       await ctx.db.patch(args.overlayId, {
         showCurrentBracket: true,
@@ -123,6 +127,7 @@ export const updateStandingsOverlay = mutation({
       return;
     }
 
+    await requireRoundForTournament(ctx, tournament, args.externalRoundId);
     const standings = await getRoundStandingsHelper(ctx, args.externalRoundId);
     await ctx.db.patch(args.overlayId, {
       roundStandingsId: standings,

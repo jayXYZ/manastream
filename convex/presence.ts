@@ -6,6 +6,7 @@ import {
   query,
 } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { requireOverlayAccess } from "./lib/auth";
 
 export const setConnectedLifeTracker = mutation({
   args: {
@@ -13,14 +14,8 @@ export const setConnectedLifeTracker = mutation({
     sessionId: v.string(),
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("User not authenticated");
-    }
-
-    if (args.overlayId === "none") {
-      return;
-    }
+    // Only the overlay's owner may register a life tracker against it.
+    const { userId } = await requireOverlayAccess(ctx, args.overlayId);
 
     const existing = await ctx.db
       .query("connectedLifeTrackers")
@@ -79,10 +74,7 @@ export const getConnectedLifeTrackers = query({
   args: { overlayId: v.id("overlays") },
   returns: v.number(),
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("User not authenticated");
-    }
+    await requireOverlayAccess(ctx, args.overlayId);
     const connectedLifeTrackers = await ctx.db
       .query("connectedLifeTrackers")
       .withIndex("by_overlay", (q) => q.eq("overlayId", args.overlayId))

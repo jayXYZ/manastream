@@ -20,28 +20,27 @@ export function usePresence(overlayId: string | null) {
 
     const sessionId = sessionIdRef.current;
 
-    setConnectedLifeTracker({
-      overlayId: overlayId as Id<"overlays">,
-      sessionId,
-    });
-
-    // set up heartbeat to maintain presence
-    const heartbeat = setInterval(() => {
+    // The mutation refuses overlays the user does not own or that no longer
+    // exist (a stale persisted selection is cleared by useOverlayValidation).
+    const connect = () =>
       setConnectedLifeTracker({
         overlayId: overlayId as Id<"overlays">,
         sessionId,
+      }).catch((error) => {
+        console.warn("Could not register life tracker presence:", error);
       });
-    }, 60 * 1000); // 1 minute
+
+    connect();
+
+    // set up heartbeat to maintain presence
+    const heartbeat = setInterval(connect, 60 * 1000); // 1 minute
 
     // handle visibility change
     const handleVisibilityChange = () => {
       if (document.hidden) {
         disconnectLifeTracker({ sessionId });
       } else {
-        setConnectedLifeTracker({
-          overlayId: overlayId as Id<"overlays">,
-          sessionId,
-        });
+        connect();
       }
     };
 

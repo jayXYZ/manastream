@@ -1,6 +1,9 @@
 import { mutation, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
-import { requireDeckOverlayAccess } from "../lib/auth";
+import {
+  requireDeckOverlayAccess,
+  requireFeatureMatchForTournament,
+} from "../lib/auth";
 import { createDeckOverlayHelper } from "../lib/overlays";
 import { filterUndefined } from "../lib/utils";
 import {
@@ -36,10 +39,13 @@ export const updateDeckOverlay = mutation({
     matchId: v.optional(v.id("featureMatches")),
   },
   handler: async (ctx, args) => {
-    const { overlay } = await requireDeckOverlayAccess(ctx, args.overlayId);
+    const { overlay, tournament } = await requireDeckOverlayAccess(
+      ctx,
+      args.overlayId,
+    );
 
-    if (args.matchId && !(await ctx.db.get(args.matchId))) {
-      throw new Error("Feature match no longer exists. Select another match.");
+    if (args.matchId) {
+      await requireFeatureMatchForTournament(ctx, args.matchId, tournament);
     }
 
     await ctx.db.patch(overlay._id, {

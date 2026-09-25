@@ -134,3 +134,61 @@ export async function requireStandingsOverlayAccess(
   requireStandingsOverlay(overlay);
   return { userId, overlay, tournament };
 }
+
+/**
+ * A feature match the tournament may display: one captured for this
+ * tournament, or one shared through the same linked Melee tournament.
+ * Feature match rows are keyed by Melee ids and shared across every user
+ * who links that Melee tournament, so the external id is the scope.
+ */
+export async function requireFeatureMatchForTournament(
+  ctx: QueryCtx | MutationCtx,
+  featureMatchId: Id<"featureMatches">,
+  tournament: Doc<"tournaments">,
+): Promise<Doc<"featureMatches">> {
+  const featureMatch = await ctx.db.get(featureMatchId);
+  if (!featureMatch) {
+    // A stale selection: the match was unfeatured after the list was loaded.
+    throw new Error("Feature match no longer exists. Select another match.");
+  }
+  const sameTournament = featureMatch.tournamentId === tournament._id;
+  const sameExternalTournament =
+    featureMatch.externalTournamentId !== undefined &&
+    featureMatch.externalTournamentId === tournament.externalTournamentId;
+  if (!sameTournament && !sameExternalTournament) {
+    throw new Error("Feature match not found or access denied");
+  }
+  return featureMatch;
+}
+
+/**
+ * Confirms a Melee round id belongs to the tournament's linked Melee
+ * tournament (its current round or one of its completed rounds), so a
+ * standings overlay cannot be pointed at, or trigger a fetch for, a round
+ * from a tournament the user has not linked.
+ */
+export async function requireRoundForTournament(
+  ctx: QueryCtx | MutationCtx,
+  tournament: Doc<"tournaments">,
+  externalRoundId: number,
+): Promise<void> {
+  const externalTournamentId = tournament.externalTournamentId;
+  if (externalTournamentId === undefined) {
+    throw new Error("No Melee tournament linked");
+  }
+  const externalTournament = await ctx.db
+    .query("externalTournaments")
+    .withIndex("by_external_tournament_id", (q) =>
+      q.eq("externalTournamentId", externalTournamentId),
+    )
+    .unique();
+  const isKnownRound =
+    externalTournament !== null &&
+    (externalTournament.currentRoundId === externalRoundId ||
+      (externalTournament.completedRounds ?? []).some(
+        (round) => round.roundId === externalRoundId,
+      ));
+  if (!isKnownRound) {
+    throw new Error("Round not found in the linked Melee tournament");
+  }
+}

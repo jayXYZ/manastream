@@ -10,6 +10,7 @@ import {
 import {
   requireTournamentAccess,
   requireMatchOverlayAccess,
+  requireFeatureMatchForTournament,
 } from "../lib/auth";
 import { DEFAULT_MATCH } from "../lib/constants";
 import { createMatchOverlayHelper } from "../lib/overlays";
@@ -191,12 +192,12 @@ export const setOverlayFeatureMatch = mutation({
     playersSwapped: v.boolean(),
   },
   handler: async (ctx, args) => {
-    await requireMatchOverlayAccess(ctx, args.overlayId);
-
-    const featureMatch = await ctx.db.get(args.featureMatchId);
-    if (!featureMatch) {
-      throw new Error("Feature match not found");
-    }
+    const { tournament } = await requireMatchOverlayAccess(ctx, args.overlayId);
+    const featureMatch = await requireFeatureMatchForTournament(
+      ctx,
+      args.featureMatchId,
+      tournament,
+    );
 
     const player1 = args.playersSwapped
       ? featureMatch.player2
