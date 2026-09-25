@@ -78,7 +78,7 @@ Verify every task with `npx tsc --noEmit -p convex/tsconfig.json` and
 - **Done when:** Loading the dashboard as a fresh unverified password user
   shows an empty state instead of an error.
 
-### 6. Use `crons.cron` instead of `crons.daily`
+### [DONE] 6. Use `crons.cron` instead of `crons.daily`
 
 - **Where:** `convex/crons.ts:7`
 - **Why:** The project guidelines allow only `crons.interval` and `crons.cron`.
