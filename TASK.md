@@ -124,7 +124,7 @@ Verify every task with `npx tsc --noEmit -p convex/tsconfig.json` and
 - **Fix:** Build the sets from `matchTemplatesValidator.members` and friends,
   or drop `setOverlayTemplate` in favor of the per-type settings mutations.
 
-### 10. Do not throw from the public overlay query on a dangling feature match
+### 10. [DONE] Do not throw from the public overlay query on a dangling feature match
 
 - **Where:** `convex/lib/overlays.ts` `enrichDeckOverlay`
 - **Why:** A missing feature match or player row makes `getOverlayByUuid` throw,

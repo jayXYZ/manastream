@@ -182,7 +182,10 @@ export async function enrichMatchOverlay(
 
 /**
  * Helper function to enrich a deck overlay with feature match data.
- * Always returns matchData field (null if matchId is not set).
+ * Always returns a matchData field: null when matchId is not set, or when the
+ * referenced feature match or either of its players no longer exists. This
+ * feeds the public OBS browser source, so a dangling reference must render an
+ * empty overlay rather than throw and break the source.
  */
 export async function enrichDeckOverlay(
   ctx: QueryCtx,
@@ -197,7 +200,10 @@ export async function enrichDeckOverlay(
   }
   const featureMatch = await ctx.db.get(overlay.matchId);
   if (!featureMatch) {
-    throw new Error("Feature match not found for deck overlay");
+    return {
+      ...overlay,
+      matchData: null,
+    };
   }
   const [player1, player2] = await Promise.all([
     ctx.db.get(featureMatch.player1),
@@ -205,7 +211,10 @@ export async function enrichDeckOverlay(
   ]);
 
   if (!player1 || !player2) {
-    throw new Error("Player not found for feature match in deck overlay");
+    return {
+      ...overlay,
+      matchData: null,
+    };
   }
   return {
     ...overlay,
