@@ -108,6 +108,7 @@ export const updateStandingsOverlay = mutation({
     externalRoundId: v.optional(v.number()),
     showCurrentBracket: v.optional(v.boolean()),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const { tournament } = await requireStandingsOverlayAccess(
       ctx,
@@ -117,14 +118,14 @@ export const updateStandingsOverlay = mutation({
       await ctx.db.patch(args.overlayId, {
         showCurrentBracket: true,
       });
-      return;
+      return null;
     }
 
     if (args.externalRoundId === undefined) {
       await ctx.db.patch(args.overlayId, {
         showCurrentBracket: false,
       });
-      return;
+      return null;
     }
 
     await requireRoundForTournament(ctx, tournament, args.externalRoundId);
@@ -134,6 +135,7 @@ export const updateStandingsOverlay = mutation({
       externalRoundId: args.externalRoundId,
       showCurrentBracket: false,
     });
+    return null;
   },
 });
 
@@ -143,6 +145,7 @@ export const setStandingsOverlaySettings = mutation({
     name: v.optional(v.string()),
     braunDarkPalette: v.optional(braunDarkPaletteValidator),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     await requireStandingsOverlayAccess(ctx, args.overlayId);
 
@@ -150,6 +153,7 @@ export const setStandingsOverlaySettings = mutation({
     const updates = filterUndefined(updateFields);
 
     await ctx.db.patch(overlayId, updates);
+    return null;
   },
 });
 

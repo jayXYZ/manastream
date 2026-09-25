@@ -38,6 +38,7 @@ export const updateDeckOverlay = mutation({
     overlayId: v.id("overlays"),
     matchId: v.optional(v.id("featureMatches")),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const { overlay, tournament } = await requireDeckOverlayAccess(
       ctx,
@@ -51,6 +52,7 @@ export const updateDeckOverlay = mutation({
     await ctx.db.patch(overlay._id, {
       matchId: args.matchId,
     });
+    return null;
   },
 });
 
@@ -61,11 +63,13 @@ export const setDeckOverlaySettings = mutation({
     template: v.optional(deckTemplatesValidator),
     braunDarkPalette: v.optional(braunDarkPaletteValidator),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     await requireDeckOverlayAccess(ctx, args.overlayId);
     const { overlayId, ...updateFields } = args;
     const updates = filterUndefined(updateFields);
 
     await ctx.db.patch(overlayId, updates);
+    return null;
   },
 });

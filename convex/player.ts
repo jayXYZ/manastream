@@ -476,6 +476,7 @@ export const updatePlayerInfo = mutation({
     deckName: v.string(),
     deckList: v.string(),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     // Get the authenticated user's tournament to verify authorization
     const tournament = await getOwnTournament(ctx);
@@ -515,6 +516,7 @@ export const updatePlayerInfo = mutation({
       deckList: args.deckList,
     });
     await scheduleDeckCardsResolution(ctx, player._id, args.deckList);
+    return null;
   },
 });
 

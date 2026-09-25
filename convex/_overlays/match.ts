@@ -58,6 +58,7 @@ export const createMatchOverlay = mutation({
 
 export const updateMatchOverlay = mutation({
   args: updateMatchOverlayArgsValidator,
+  returns: v.null(),
   handler: async (ctx, args) => {
     await requireMatchOverlayAccess(ctx, args.overlayId);
 
@@ -66,6 +67,7 @@ export const updateMatchOverlay = mutation({
     const updates = filterUndefined(updateFields);
 
     await ctx.db.patch(overlayId, updates);
+    return null;
   },
 });
 
@@ -81,6 +83,7 @@ export const updateMatchOverlayDisplayInfo = mutation({
     player1Lc26BackgroundColor: v.optional(lc26BackgroundColorValidator),
     player2Lc26BackgroundColor: v.optional(lc26BackgroundColorValidator),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     await requireMatchOverlayAccess(ctx, args.overlayId);
 
@@ -95,6 +98,7 @@ export const updateMatchOverlayDisplayInfo = mutation({
       player1Lc26BackgroundColor: args.player1Lc26BackgroundColor,
       player2Lc26BackgroundColor: args.player2Lc26BackgroundColor,
     });
+    return null;
   },
 });
 
@@ -104,6 +108,7 @@ export const updatePlayerLife = mutation({
     playerIndex: v.union(v.literal("1"), v.literal("2")),
     newLifeTotal: v.number(),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     await requireMatchOverlayAccess(ctx, args.overlayId);
 
@@ -112,6 +117,7 @@ export const updatePlayerLife = mutation({
     await ctx.db.patch(args.overlayId, {
       [updateField]: args.newLifeTotal,
     });
+    return null;
   },
 });
 
@@ -120,6 +126,7 @@ export const incrementGamesWon = mutation({
     overlayId: v.id("overlays"),
     playerIndex: v.union(v.literal("1"), v.literal("2")),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const { overlay } = await requireMatchOverlayAccess(ctx, args.overlayId);
 
@@ -131,6 +138,7 @@ export const incrementGamesWon = mutation({
       player1Life: 20,
       player2Life: 20,
     });
+    return null;
   },
 });
 
@@ -138,6 +146,7 @@ export const resetMatch = mutation({
   args: {
     overlayId: v.id("overlays"),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     await requireMatchOverlayAccess(ctx, args.overlayId);
 
@@ -147,6 +156,7 @@ export const resetMatch = mutation({
       player1GamesWon: 0,
       player2GamesWon: 0,
     });
+    return null;
   },
 });
 
@@ -154,6 +164,7 @@ export const swapPlayers = mutation({
   args: {
     overlayId: v.id("overlays"),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const { overlay } = await requireMatchOverlayAccess(ctx, args.overlayId);
 
@@ -169,6 +180,7 @@ export const swapPlayers = mutation({
       player1Lc26BackgroundColor: overlay.player2Lc26BackgroundColor,
       player2Lc26BackgroundColor: overlay.player1Lc26BackgroundColor,
     });
+    return null;
   },
 });
 
@@ -176,12 +188,14 @@ export const resetMatchOverlay = mutation({
   args: {
     overlayId: v.id("overlays"),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const { overlay } = await requireMatchOverlayAccess(ctx, args.overlayId);
 
     await ctx.db.patch(overlay._id, {
       ...DEFAULT_MATCH,
     });
+    return null;
   },
 });
 
@@ -191,6 +205,7 @@ export const setOverlayFeatureMatch = mutation({
     featureMatchId: v.id("featureMatches"),
     playersSwapped: v.boolean(),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const { tournament } = await requireMatchOverlayAccess(ctx, args.overlayId);
     const featureMatch = await requireFeatureMatchForTournament(
@@ -222,6 +237,7 @@ export const setOverlayFeatureMatch = mutation({
       player1TournamentRecord,
       player2TournamentRecord,
     });
+    return null;
   },
 });
 
@@ -232,11 +248,13 @@ export const setMatchOverlaySettings = mutation({
     template: v.optional(matchTemplatesValidator),
     braunDarkPalette: v.optional(braunDarkPaletteValidator),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     await requireMatchOverlayAccess(ctx, args.overlayId);
     const { overlayId, ...updateFields } = args;
     const updates = filterUndefined(updateFields);
 
     await ctx.db.patch(overlayId, updates);
+    return null;
   },
 });

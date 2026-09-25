@@ -26,7 +26,7 @@ Verify every task with `npx tsc --noEmit -p convex/tsconfig.json` and
 - **Done when:** A tracker row older than the timeout disappears without a
   client disconnect, and no presence function reads the whole table.
 
-### 2. Add `returns` validators to every public mutation
+### [DONE] 2. Add `returns` validators to every public mutation
 
 - **Where:** All mutations in `convex/_overlays/*.ts`; `setTournamentTimer`,
   `updateTournamentInfo`, `updateTournamentMode`, `updateTournamentSettings` in

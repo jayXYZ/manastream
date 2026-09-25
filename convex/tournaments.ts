@@ -86,6 +86,7 @@ export const setTournamentTimer = mutation({
       v.union(v.literal("up"), v.literal("down")),
     ),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     await requireTournamentAccess(ctx, args.tournamentId);
 
@@ -112,6 +113,7 @@ export const setTournamentTimer = mutation({
         updateFields.manualTimerCountDirection;
     }
     await ctx.db.patch(tournamentId, updates);
+    return null;
   },
 });
 
@@ -126,6 +128,7 @@ export const updateTournamentInfo = mutation({
     commentatorRight: v.optional(v.string()),
     commentatorRightSubText: v.optional(v.string()),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     await requireTournamentAccess(ctx, args.tournamentId);
 
@@ -139,6 +142,7 @@ export const updateTournamentInfo = mutation({
     });
 
     await ctx.db.patch(args.tournamentId, updates);
+    return null;
   },
 });
 
@@ -163,6 +167,7 @@ export const updateTournamentMode = mutation({
     tournamentId: v.id("tournaments"),
     mode: v.union(v.literal("manual"), v.literal("auto")),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const { userId } = await requireTournamentAccess(ctx, args.tournamentId);
 
@@ -172,7 +177,7 @@ export const updateTournamentMode = mutation({
         pollingStatus: "inactive",
       });
       await clearPollingSession(ctx, args.tournamentId);
-      return;
+      return null;
     }
 
     // If switching to auto mode, check if polling is already active
@@ -188,7 +193,7 @@ export const updateTournamentMode = mutation({
         await ctx.db.patch(args.tournamentId, {
           mode: args.mode,
         });
-        return;
+        return null;
       }
     }
 
@@ -204,6 +209,7 @@ export const updateTournamentMode = mutation({
         { userId: userId },
       );
     }
+    return null;
   },
 });
 
@@ -212,6 +218,7 @@ export const updateTournamentSettings = mutation({
     externalTournamentId: v.optional(v.number()),
     mode: v.optional(v.union(v.literal("manual"), v.literal("auto"))),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
     const tournament = await getOwnTournament(ctx);
@@ -249,7 +256,7 @@ export const updateTournamentSettings = mutation({
       if (tournament.pollingStatus === "active" && !externalTournamentChanged) {
         // If already active, just update the settings without scheduling a new polling session
         await ctx.db.patch(tournament._id, updates);
-        return;
+        return null;
       }
 
       await ctx.db.patch(tournament._id, updatesWithSyncReset);
@@ -270,5 +277,6 @@ export const updateTournamentSettings = mutation({
         await clearPollingSession(ctx, tournament._id);
       }
     }
+    return null;
   },
 });

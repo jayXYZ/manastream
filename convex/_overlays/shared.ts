@@ -28,6 +28,7 @@ export const setOverlayTemplate = mutation({
     overlayId: v.id("overlays"),
     template: overlayTemplatesValidator,
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const { overlay } = await requireOverlayAccess(ctx, args.overlayId);
 
@@ -55,6 +56,7 @@ export const setOverlayTemplate = mutation({
     await ctx.db.patch(args.overlayId, {
       template: args.template,
     });
+    return null;
   },
 });
 
@@ -62,9 +64,11 @@ export const deleteOverlay = mutation({
   args: {
     overlayId: v.id("overlays"),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     await requireOverlayAccess(ctx, args.overlayId);
 
     await ctx.db.delete(args.overlayId);
+    return null;
   },
 });

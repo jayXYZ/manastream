@@ -64,12 +64,14 @@ export const updateCommentaryOverlay = mutation({
     commentatorRight: v.optional(v.string()),
     commentatorRightSubText: v.optional(v.string()),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     await requireCommentaryOverlayAccess(ctx, args.overlayId);
     const { overlayId, ...updateFields } = args;
     const updates = filterUndefined(updateFields);
 
     await ctx.db.patch(overlayId, updates);
+    return null;
   },
 });
 
@@ -80,6 +82,7 @@ export const setCommentaryOverlaySettings = mutation({
     template: v.optional(commentaryTemplatesValidator),
     braunDarkPalette: v.optional(braunDarkPaletteValidator),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     await requireCommentaryOverlayAccess(ctx, args.overlayId);
 
@@ -87,5 +90,6 @@ export const setCommentaryOverlaySettings = mutation({
     const updates = filterUndefined(updateFields);
 
     await ctx.db.patch(overlayId, updates);
+    return null;
   },
 });

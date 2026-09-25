@@ -14,6 +14,7 @@ export const setConnectedLifeTracker = mutation({
     overlayId: v.id("overlays"),
     sessionId: v.string(),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     // Only the overlay's owner may register a life tracker against it.
     const { userId } = await requireOverlayAccess(ctx, args.overlayId);
@@ -29,13 +30,13 @@ export const setConnectedLifeTracker = mutation({
       await ctx.db.patch(existing._id, {
         lastSeen: Date.now(),
       });
-      return;
+      return null;
     } else if (existing) {
       await ctx.db.patch(existing._id, {
         overlayId: args.overlayId,
         lastSeen: Date.now(),
       });
-      return;
+      return null;
     }
 
     // Only insert if no existing entry was found
@@ -46,6 +47,7 @@ export const setConnectedLifeTracker = mutation({
       lastSeen: Date.now(),
       createdAt: Date.now(),
     });
+    return null;
   },
 });
 
@@ -53,6 +55,7 @@ export const disconnectLifeTracker = mutation({
   args: {
     sessionId: v.string(),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
@@ -68,6 +71,7 @@ export const disconnectLifeTracker = mutation({
     if (existing) {
       await ctx.db.delete(existing._id);
     }
+    return null;
   },
 });
 

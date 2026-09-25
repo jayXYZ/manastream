@@ -46,6 +46,7 @@ export const updateSettings = mutation({
     // Omitted when the user hasn't entered a new secret, so the stored one is kept.
     meleeClientSecret: v.optional(v.string()),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const settings = await getUserSettings(ctx);
     await ctx.db.patch(settings._id, {
@@ -55,6 +56,7 @@ export const updateSettings = mutation({
         : {}),
       updatedAt: Date.now(),
     });
+    return null;
   },
 });
 

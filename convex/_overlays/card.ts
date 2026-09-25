@@ -54,12 +54,14 @@ export const updateCardOverlay = mutation({
     overlayId: v.id("overlays"),
     cardUrl: v.string(),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const { overlay } = await requireCardOverlayAccess(ctx, args.overlayId);
 
     await ctx.db.patch(overlay._id, {
       cardUrl: args.cardUrl,
     });
+    return null;
   },
 });
 
@@ -70,11 +72,13 @@ export const setCardOverlaySettings = mutation({
     template: v.optional(cardTemplatesValidator),
     braunDarkPalette: v.optional(braunDarkPaletteValidator),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     await requireCardOverlayAccess(ctx, args.overlayId);
     const { overlayId, ...updateFields } = args;
     const updates = filterUndefined(updateFields);
 
     await ctx.db.patch(overlayId, updates);
+    return null;
   },
 });
