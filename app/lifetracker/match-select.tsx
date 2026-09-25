@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { FeatureMatchWithPlayers } from "@/convex/types";
 import { Id } from "@/convex/_generated/dataModel";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ArrowUpDown, Check } from "lucide-react";
 
 export default function MatchSelect(props: {
   /** Called after a feature match has been applied to the overlay. */
@@ -67,13 +67,15 @@ export default function MatchSelect(props: {
 
   // Always available on the confirmation screen so a wrong tap can be undone
   // without leaving the picker, at round start or mid-round.
+  const backToList = () => {
+    setShowPlayerSelect(false);
+    setSelectedMatch(null);
+  };
+
   const backToListButton = (
     <Button
       variant="outline"
-      onClick={() => {
-        setShowPlayerSelect(false);
-        setSelectedMatch(null);
-      }}
+      onClick={backToList}
       className="w-full h-16 text-lg font-bold"
     >
       <ArrowLeft className="size-5 mr-2" />
@@ -133,22 +135,32 @@ export default function MatchSelect(props: {
             ? selectedMatch.player1Data.name
             : selectedMatch.player2Data.name}
         </div>
-        <div className="flex flex-col gap-4">
-          <div className="flex gap-4">
-            <Button
-              onClick={() => setPlayersSwitched(!playersSwitched)}
-              className="w-full h-20 text-xl font-bold px-6 whitespace-normal break-words"
-            >
-              Switch Players
-            </Button>
-            <Button
-              onClick={handlePlayerSelect}
-              className="h-20 text-xl font-bold px-8 whitespace-normal"
-            >
-              Confirm
-            </Button>
-          </div>
-          {backToListButton}
+        {/* Back and Confirm share one flex unit each and Switch Players takes
+            two, so the row always fits the container and the text wraps
+            instead of overflowing on narrow screens. */}
+        <div className="flex gap-4">
+          <Button
+            variant="outline"
+            onClick={backToList}
+            className="flex-1 min-w-0 shrink h-20 text-xl font-bold px-4 whitespace-normal break-words"
+          >
+            <ArrowLeft className="size-6" />
+            Back
+          </Button>
+          <Button
+            onClick={() => setPlayersSwitched(!playersSwitched)}
+            className="flex-[2] min-w-0 shrink h-20 text-xl font-bold px-4 whitespace-normal break-words"
+          >
+            <ArrowUpDown className="size-6" />
+            Switch Players
+          </Button>
+          <Button
+            onClick={handlePlayerSelect}
+            className="flex-1 min-w-0 shrink h-20 text-xl font-bold px-4 whitespace-normal break-words bg-green-600 text-white hover:bg-green-700 active:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700 dark:active:bg-green-700"
+          >
+            <Check className="size-6" />
+            Confirm
+          </Button>
         </div>
         <div className="text-2xl font-bold text-center">
           {playersSwitched
