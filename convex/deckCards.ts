@@ -45,6 +45,9 @@ export const BACKFILL_TOURNAMENT_PAGE_SIZE = 100;
 // Spread the per-tournament backfills out so a whole-database run does not
 // start every tournament's Scryfall traffic at the same instant.
 export const BACKFILL_TOURNAMENT_STAGGER_MS = 5_000;
+// How many legacy player rows (no externalTournamentId) one
+// backfillLegacyDeckCards invocation reads before scheduling the next page.
+export const BACKFILL_LEGACY_PLAYER_PAGE_SIZE = 100;
 
 export const getCachedCards = internalQuery({
   args: {
@@ -163,6 +166,39 @@ export const listExternalTournamentIds = internalQuery({
       ...result,
       page: result.page.map((tournament) => tournament.externalTournamentId),
     };
+  },
+});
+
+/**
+ * One page of players that predate externalTournamentId being stored and
+ * still need deck cards. The by_external_tournament_id index sorts rows
+ * missing the field first, so eq(undefined) reads only legacy rows rather
+ * than the whole players table. Their decklists live on the player row
+ * itself, which getPlayerData falls back to.
+ */
+export const listLegacyPlayersMissingDeckCards = internalQuery({
+  args: {
+    paginationOpts: paginationOptsValidator,
+  },
+  returns: paginationResultValidator(v.id("players")),
+  handler: async (ctx, args) => {
+    const result = await ctx.db
+      .query("players")
+      .withIndex("by_external_tournament_id", (q) =>
+        q.eq("externalTournamentId", undefined),
+      )
+      .paginate(args.paginationOpts);
+    const playerIds: Id<"players">[] = [];
+    for (const player of result.page) {
+      if (player.deckCardsStatus === "ready") {
+        continue;
+      }
+      const playerData = await getPlayerData(ctx, player);
+      if (isResolvableDeckList(playerData.deckList)) {
+        playerIds.push(player._id);
+      }
+    }
+    return { ...result, page: playerIds };
   },
 });
 
@@ -378,37 +414,101 @@ export const backfillDeckCards = internalAction({
 });
 
 /**
+ * Resolves deck cards for players that predate externalTournamentId being
+ * stored, which the per-tournament fan-out cannot reach. Processes one page
+ * of legacy rows per invocation and schedules itself for the next page, so a
+ * single action never reads the whole table or outlives its time budget.
+ * Returns the number of players this invocation queued for resolution.
+ */
+export const backfillLegacyDeckCards = internalAction({
+  args: {
+    // Set by the action itself when it schedules the next page.
+    cursor: v.optional(v.string()),
+  },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    const result: {
+      page: Id<"players">[];
+      isDone: boolean;
+      continueCursor: string;
+    } = await ctx.runQuery(
+      internal.deckCards.listLegacyPlayersMissingDeckCards,
+      {
+        paginationOpts: {
+          numItems: BACKFILL_LEGACY_PLAYER_PAGE_SIZE,
+          cursor: args.cursor ?? null,
+        },
+      },
+    );
+    for (const playerId of result.page) {
+      await ctx.runMutation(internal.deckCards.patchPlayerDeckCards, {
+        playerId,
+        deckCardsStatus: "pending",
+      });
+    }
+    if (!result.isDone) {
+      await ctx.scheduler.runAfter(
+        BACKFILL_TOURNAMENT_STAGGER_MS,
+        internal.deckCards.backfillLegacyDeckCards,
+        { cursor: result.continueCursor },
+      );
+    }
+    await resolvePlayersDeckCardsBatch(ctx, result.page);
+    return result.page.length;
+  },
+});
+
+/**
  * Whole-database backfill: pages through externalTournaments and schedules
  * one backfillDeckCards per tournament, so no single function ever reads the
- * entire players table. Players that predate externalTournamentId being
- * stored are not reachable this way; backfill them by tournament id.
+ * entire players table. Each invocation handles one page and schedules
+ * itself with the next cursor, so a large tournament table cannot run one
+ * action past its time limit. The first invocation also kicks off
+ * backfillLegacyDeckCards for players that predate externalTournamentId.
+ * Returns the number of tournaments this invocation scheduled.
  */
 export const backfillAllDeckCards = internalAction({
-  args: {},
+  args: {
+    // Both are set by the action itself when it schedules the next page:
+    // where to resume, and how many tournaments earlier pages already
+    // scheduled so the stagger keeps growing across pages.
+    cursor: v.optional(v.string()),
+    scheduledSoFar: v.optional(v.number()),
+  },
   returns: v.number(),
-  handler: async (ctx) => {
-    let cursor: string | null = null;
+  handler: async (ctx, args) => {
+    const scheduledSoFar = args.scheduledSoFar ?? 0;
+    if (args.cursor === undefined) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.deckCards.backfillLegacyDeckCards,
+        {},
+      );
+    }
+    const result: {
+      page: number[];
+      isDone: boolean;
+      continueCursor: string;
+    } = await ctx.runQuery(internal.deckCards.listExternalTournamentIds, {
+      paginationOpts: {
+        numItems: BACKFILL_TOURNAMENT_PAGE_SIZE,
+        cursor: args.cursor ?? null,
+      },
+    });
     let scheduled = 0;
-    while (true) {
-      const result: {
-        page: number[];
-        isDone: boolean;
-        continueCursor: string;
-      } = await ctx.runQuery(internal.deckCards.listExternalTournamentIds, {
-        paginationOpts: { numItems: BACKFILL_TOURNAMENT_PAGE_SIZE, cursor },
+    for (const externalTournamentId of result.page) {
+      await ctx.scheduler.runAfter(
+        (scheduledSoFar + scheduled) * BACKFILL_TOURNAMENT_STAGGER_MS,
+        internal.deckCards.backfillDeckCards,
+        { externalTournamentId },
+      );
+      scheduled += 1;
+    }
+    if (!result.isDone) {
+      await ctx.scheduler.runAfter(0, internal.deckCards.backfillAllDeckCards, {
+        cursor: result.continueCursor,
+        scheduledSoFar: scheduledSoFar + scheduled,
       });
-      for (const externalTournamentId of result.page) {
-        await ctx.scheduler.runAfter(
-          scheduled * BACKFILL_TOURNAMENT_STAGGER_MS,
-          internal.deckCards.backfillDeckCards,
-          { externalTournamentId },
-        );
-        scheduled += 1;
-      }
-      if (result.isDone) {
-        break;
-      }
-      cursor = result.continueCursor;
     }
     return scheduled;
   },
