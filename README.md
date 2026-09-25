@@ -118,7 +118,10 @@ User-specific Spicerack credentials are entered in the app under
   primitives used throughout the app.
 - `convex/` contains schema definitions, auth setup, public and internal
   Convex functions, Spicerack polling, overlay data access, migrations, crons,
-  and backend tests.
+  and backend tests. [`convex/README.md`](convex/README.md) documents the
+  shared-cache tenancy model: which tables are per-account, which are shared
+  by every account that links the same Melee tournament, and what follows
+  from that.
 - `lib/` contains frontend and shared helpers for time, overlay templates,
   palette data, pairings, meta breakdowns, and related tests.
 - `scripts/` contains command-line tooling for decklist PDF generation.

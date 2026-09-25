@@ -85,7 +85,7 @@ Verify every task with `npx tsc --noEmit -p convex/tsconfig.json` and
 - **Fix:** `crons.cron("cleanupOldIntegrationLogs", "0 0 * * *", internal.settings.cleanupOldIntegrationLogs, {})`.
 - **Done when:** `npx convex dev --once` pushes and the dashboard shows the job.
 
-### 7. Document the shared-cache tenancy model
+### [DONE] 7. Document the shared-cache tenancy model
 
 - **Where:** `convex/README.md` or `docs/`
 - **Why:** `players`, `playerDecklists`, `playerStatuses`, `featureMatches`,
