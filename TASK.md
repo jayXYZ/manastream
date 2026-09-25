@@ -124,7 +124,7 @@ Verify every task with `npx tsc --noEmit -p convex/tsconfig.json` and
 - **Fix:** Build the sets from `matchTemplatesValidator.members` and friends,
   or drop `setOverlayTemplate` in favor of the per-type settings mutations.
 
-### 10. [DONE] Do not throw from the public overlay query on a dangling feature match
+### [DONE] 10. Do not throw from the public overlay query on a dangling feature match
 
 - **Where:** `convex/lib/overlays.ts` `enrichDeckOverlay`
 - **Why:** A missing feature match or player row makes `getOverlayByUuid` throw,
@@ -140,14 +140,14 @@ Verify every task with `npx tsc --noEmit -p convex/tsconfig.json` and
 - **Fix:** Move the body of `resolvePlayerDeckCards` into a helper that takes
   `ActionCtx`, and call it inside the existing per-player try/catch.
 
-### 12. [DONE] Consolidate duplicated deck-list helpers
+### [DONE] 12. Consolidate duplicated deck-list helpers
 
 - **Where:** `getInitialDeckCardsStatus` and `isResolvableDeckList` in
   `convex/player.ts`, `convex/lib/players.ts`, `convex/deckCards.ts`;
   `scheduleDeckCardsResolution` in `convex/player.ts` and `convex/lib/players.ts`
 - **Fix:** Keep one copy in `convex/lib/deckCards.ts` and import it.
 
-### 13. [DONE] Scope `getCompletedRounds` to the caller's tournament
+### [DONE] 13. Scope `getCompletedRounds` to the caller's tournament
 
 - **Where:** `convex/tournamentSync.ts` `getCompletedRounds`
 - **Why:** It takes `externalTournamentId` from the client with no auth, so
