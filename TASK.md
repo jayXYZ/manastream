@@ -116,7 +116,7 @@ Verify every task with `npx tsc --noEmit -p convex/tsconfig.json` and
   `convex/lib/standings.ts`).
 - **Done when:** `convex/_generated/api.d.ts` lists each overlay function once.
 
-### 9. Derive template allowlists from the validators
+### [DONE] 9. Derive template allowlists from the validators
 
 - **Where:** `convex/_overlays/shared.ts:6`
 - **Why:** `MATCH_TEMPLATES` omits `LC26`, so `setOverlayTemplate` rejects a

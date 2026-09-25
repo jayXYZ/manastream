@@ -1,27 +1,28 @@
 import { mutation } from "../_generated/server";
-import { v } from "convex/values";
+import { v, type VLiteral, type VUnion } from "convex/values";
 import { requireOverlayAccess } from "../lib/auth";
-import { overlayTemplatesValidator } from "../validators";
+import {
+  cardTemplatesValidator,
+  commentaryTemplatesValidator,
+  deckTemplatesValidator,
+  matchTemplatesValidator,
+  overlayTemplatesValidator,
+} from "../validators";
 
-const MATCH_TEMPLATES = new Set([
-  "Duress Crew",
-  "Lobstercon",
-  "Default",
-  "Custom",
-  "Braun Dark",
-]);
+// The per-type allowlists are derived from the same validators that the
+// per-type settings mutations (setMatchOverlaySettings etc.) accept, so the
+// two code paths can never disagree about which templates an overlay type
+// supports.
+function templateSet(
+  validator: VUnion<string, VLiteral<string>[]>,
+): ReadonlySet<string> {
+  return new Set(validator.members.map((member) => member.value));
+}
 
-const COMMENTARY_TEMPLATES = new Set([
-  "Duress Crew",
-  "Lobstercon",
-  "Default",
-  "Custom",
-  "Braun Dark",
-  "Braun Dark Duo",
-]);
-
-const CARD_TEMPLATES = new Set(["Default", "Braun Dark"]);
-const DECK_TEMPLATES = new Set(["Duress Crew", "Braun Dark"]);
+const MATCH_TEMPLATES = templateSet(matchTemplatesValidator);
+const COMMENTARY_TEMPLATES = templateSet(commentaryTemplatesValidator);
+const CARD_TEMPLATES = templateSet(cardTemplatesValidator);
+const DECK_TEMPLATES = templateSet(deckTemplatesValidator);
 
 export const setOverlayTemplate = mutation({
   args: {
