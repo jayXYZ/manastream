@@ -40,7 +40,7 @@ Verify every task with `npx tsc --noEmit -p convex/tsconfig.json` and
 - **Done when:** `grep -rn "= mutation({" convex | wc -l` equals the number of
   mutations with a `returns:` line.
 
-### 3. Replace `v.any()` return validators in `tournaments.ts`
+### [DONE] 3. Replace `v.any()` return validators in `tournaments.ts`
 
 - **Where:** `convex/tournaments.ts` `getUserTournament`, `getTournamentInfo`
 - **Why:** `v.union(v.any(), v.null())` gives the client no type and skips

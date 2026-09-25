@@ -12,6 +12,7 @@ import { getOwnTournament } from "./lib/tournaments";
 import { getUserSettings, hasMeleeCredentials } from "./lib/settings";
 import { hasExternalTournamentChanged } from "./lib/pollingBehavior";
 import { clearPollingSession } from "./lib/pollingSession";
+import { getTournamentInfoValidator, tournamentValidator } from "./validators";
 
 export const createTournament = internalMutation({
   args: {
@@ -34,7 +35,7 @@ export const createTournament = internalMutation({
 
 export const getUserTournament = query({
   args: {},
-  returns: v.union(v.any(), v.null()),
+  returns: v.union(tournamentValidator, v.null()),
   handler: async (ctx) => {
     return await getOwnTournament(ctx);
   },
@@ -43,9 +44,13 @@ export const getUserTournament = query({
 // TODO: this doesn't seem to be used anywhere
 export const getTournament = query({
   args: { tournamentId: v.id("tournaments") },
-  returns: v.union(v.any(), v.null()),
+  returns: v.union(tournamentValidator, v.null()),
   handler: async (ctx, args) => {
-    return await requireTournamentAccess(ctx, args.tournamentId);
+    const { tournament } = await requireTournamentAccess(
+      ctx,
+      args.tournamentId,
+    );
+    return tournament;
   },
 });
 
@@ -53,7 +58,7 @@ export const getTournament = query({
 // This is a duplicate function to the /lib/tournaments.ts function getTournamentTimerAndRoundInfo
 export const getTournamentInfo = query({
   args: { tournamentId: v.id("tournaments") },
-  returns: v.union(v.any(), v.null()),
+  returns: v.union(getTournamentInfoValidator, v.null()),
   handler: async (ctx, args) => {
     const tournament = await ctx.db.get(args.tournamentId);
     if (!tournament) {
