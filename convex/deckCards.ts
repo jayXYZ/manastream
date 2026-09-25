@@ -3,8 +3,9 @@ import {
   internalMutation,
   internalQuery,
 } from "./_generated/server";
-import type { QueryCtx } from "./_generated/server";
+import type { ActionCtx, QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 import {
   CARD_IMAGE_POLICY,
@@ -196,136 +197,161 @@ export const resolvePlayerDeckCards = internalAction({
   args: {
     playerId: v.id("players"),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
-    const player = await ctx.runQuery(
-      internal.deckCards.getPlayerDecklistForResolution,
-      { playerId: args.playerId },
-    );
-    if (!player) {
-      return;
-    }
-
-    const parsedDecklist = parseDecklist(player.deckList);
-    const cardNames = getUniqueCardNames(parsedDecklist);
-    if (cardNames.length === 0) {
-      await ctx.runMutation(internal.deckCards.patchPlayerDeckCards, {
-        playerId: args.playerId,
-        deckCardsStatus: "ready",
-        deckCards: buildResolvedDeckCards(parsedDecklist, new Map()),
-      });
-      return;
-    }
-
-    const cachedCards = await ctx.runQuery(internal.deckCards.getCachedCards, {
-      cacheKeys: cardNames.map(getCardCacheKey),
-    });
-    const cachedByKey = new Map(
-      cachedCards.map((card) => [card.cacheKey, card]),
-    );
-    const cachedByName = new Map<string, ResolvedCardMetadata>();
-    for (const name of cardNames) {
-      const cachedCard = cachedByKey.get(getCardCacheKey(name));
-      if (!cachedCard) {
-        continue;
-      }
-      if (
-        cachedCard.status === "unresolved" &&
-        isRetryableCachedFailure(cachedCard.lastError)
-      ) {
-        continue;
-      }
-      cachedByName.set(
-        name,
-        cacheEntryToMetadata(name, {
-          imageUrl: cachedCard.imageUrl,
-          typeLine: cachedCard.typeLine,
-          legality: cachedCard.legality,
-          scryfallId: cachedCard.scryfallId,
-          status: cachedCard.status,
-        }),
-      );
-    }
-
-    const missingNames = cardNames.filter((name) => !cachedByName.has(name));
-    const fetchedCacheEntries = [];
-    const transientFailureNames = [];
-    for (const [index, name] of missingNames.entries()) {
-      if (index > 0) {
-        await sleep(SCRYFALL_REQUEST_DELAY_MS);
-      }
-      const fetched = await fetchScryfallCard(name);
-      cachedByName.set(name, fetched.metadata);
-      if (fetched.cacheable) {
-        fetchedCacheEntries.push(
-          metadataToCacheEntry(name, fetched.metadata, fetched.lastError),
-        );
-      } else {
-        transientFailureNames.push(name);
-      }
-    }
-
-    if (fetchedCacheEntries.length > 0) {
-      await ctx.runMutation(internal.deckCards.upsertCachedCards, {
-        cards: fetchedCacheEntries,
-      });
-    }
-
-    const deckCards = buildResolvedDeckCards(parsedDecklist, cachedByName);
-    await ctx.runMutation(internal.deckCards.patchPlayerDeckCards, {
-      playerId: args.playerId,
-      deckCardsStatus: getDeckCardsStatus(
-        deckCards.unresolvedNames.length,
-        cardNames.length,
-        transientFailureNames.length,
-      ),
-      deckCards,
-    });
+    await resolvePlayerDeckCardsForPlayer(ctx, args.playerId);
+    return null;
   },
 });
+
+/**
+ * Resolves one player's decklist against the Scryfall cache and API and
+ * patches the player's deckCards / deckCardsStatus. Shared by the
+ * single-player action and the batched resolver so the batch loops over
+ * players in-process instead of paying for a scheduled action per player.
+ */
+async function resolvePlayerDeckCardsForPlayer(
+  ctx: ActionCtx,
+  playerId: Id<"players">,
+): Promise<void> {
+  const player = await ctx.runQuery(
+    internal.deckCards.getPlayerDecklistForResolution,
+    { playerId },
+  );
+  if (!player) {
+    return;
+  }
+
+  const parsedDecklist = parseDecklist(player.deckList);
+  const cardNames = getUniqueCardNames(parsedDecklist);
+  if (cardNames.length === 0) {
+    await ctx.runMutation(internal.deckCards.patchPlayerDeckCards, {
+      playerId,
+      deckCardsStatus: "ready",
+      deckCards: buildResolvedDeckCards(parsedDecklist, new Map()),
+    });
+    return;
+  }
+
+  const cachedCards = await ctx.runQuery(internal.deckCards.getCachedCards, {
+    cacheKeys: cardNames.map(getCardCacheKey),
+  });
+  const cachedByKey = new Map(cachedCards.map((card) => [card.cacheKey, card]));
+  const cachedByName = new Map<string, ResolvedCardMetadata>();
+  for (const name of cardNames) {
+    const cachedCard = cachedByKey.get(getCardCacheKey(name));
+    if (!cachedCard) {
+      continue;
+    }
+    if (
+      cachedCard.status === "unresolved" &&
+      isRetryableCachedFailure(cachedCard.lastError)
+    ) {
+      continue;
+    }
+    cachedByName.set(
+      name,
+      cacheEntryToMetadata(name, {
+        imageUrl: cachedCard.imageUrl,
+        typeLine: cachedCard.typeLine,
+        legality: cachedCard.legality,
+        scryfallId: cachedCard.scryfallId,
+        status: cachedCard.status,
+      }),
+    );
+  }
+
+  const missingNames = cardNames.filter((name) => !cachedByName.has(name));
+  const fetchedCacheEntries = [];
+  const transientFailureNames = [];
+  for (const [index, name] of missingNames.entries()) {
+    if (index > 0) {
+      await sleep(SCRYFALL_REQUEST_DELAY_MS);
+    }
+    const fetched = await fetchScryfallCard(name);
+    cachedByName.set(name, fetched.metadata);
+    if (fetched.cacheable) {
+      fetchedCacheEntries.push(
+        metadataToCacheEntry(name, fetched.metadata, fetched.lastError),
+      );
+    } else {
+      transientFailureNames.push(name);
+    }
+  }
+
+  if (fetchedCacheEntries.length > 0) {
+    await ctx.runMutation(internal.deckCards.upsertCachedCards, {
+      cards: fetchedCacheEntries,
+    });
+  }
+
+  const deckCards = buildResolvedDeckCards(parsedDecklist, cachedByName);
+  await ctx.runMutation(internal.deckCards.patchPlayerDeckCards, {
+    playerId,
+    deckCardsStatus: getDeckCardsStatus(
+      deckCards.unresolvedNames.length,
+      cardNames.length,
+      transientFailureNames.length,
+    ),
+    deckCards,
+  });
+}
 
 export const resolvePlayersDeckCards = internalAction({
   args: {
     playerIds: v.array(v.id("players")),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
-    const chunk = args.playerIds.slice(0, RESOLVE_PLAYERS_BATCH_SIZE);
-    const remaining = args.playerIds.slice(RESOLVE_PLAYERS_BATCH_SIZE);
-
-    // If a single player resolution throws we don't want the rest of the
-    // batch (or the queued continuations) to be lost, so catch and log
-    // per-player errors. The player will be picked up again the next time
-    // backfillDeckCards or updatePlayerDecklists runs.
-    for (const playerId of chunk) {
-      try {
-        await ctx.runAction(internal.deckCards.resolvePlayerDeckCards, {
-          playerId,
-        });
-      } catch (error) {
-        console.error(
-          `Failed to resolve deck cards for player ${playerId}:`,
-          error,
-        );
-      }
-    }
-
-    // Schedule the remainder as a separate scheduled function so each chunk
-    // gets a fresh action time budget. Without this, large tournaments
-    // (~300 players) blow past the 600s action timeout and leave the
-    // unprocessed players stuck in deckCardsStatus: "pending".
-    if (remaining.length > 0) {
-      await ctx.scheduler.runAfter(
-        0,
-        internal.deckCards.resolvePlayersDeckCards,
-        { playerIds: remaining },
-      );
-    }
+    await resolvePlayersDeckCardsBatch(ctx, args.playerIds);
+    return null;
   },
 });
+
+/**
+ * Resolves the first RESOLVE_PLAYERS_BATCH_SIZE players in-process and
+ * schedules the remainder as a fresh resolvePlayersDeckCards invocation.
+ */
+async function resolvePlayersDeckCardsBatch(
+  ctx: ActionCtx,
+  playerIds: Id<"players">[],
+): Promise<void> {
+  const chunk = playerIds.slice(0, RESOLVE_PLAYERS_BATCH_SIZE);
+  const remaining = playerIds.slice(RESOLVE_PLAYERS_BATCH_SIZE);
+
+  // If a single player resolution throws we don't want the rest of the
+  // batch (or the queued continuations) to be lost, so catch and log
+  // per-player errors. The player will be picked up again the next time
+  // backfillDeckCards or updatePlayerDecklists runs.
+  for (const playerId of chunk) {
+    try {
+      await resolvePlayerDeckCardsForPlayer(ctx, playerId);
+    } catch (error) {
+      console.error(
+        `Failed to resolve deck cards for player ${playerId}:`,
+        error,
+      );
+    }
+  }
+
+  // Schedule the remainder as a separate scheduled function so each chunk
+  // gets a fresh action time budget. Without this, large tournaments
+  // (~300 players) blow past the 600s action timeout and leave the
+  // unprocessed players stuck in deckCardsStatus: "pending".
+  if (remaining.length > 0) {
+    await ctx.scheduler.runAfter(
+      0,
+      internal.deckCards.resolvePlayersDeckCards,
+      { playerIds: remaining },
+    );
+  }
+}
 
 export const backfillDeckCards = internalAction({
   args: {
     externalTournamentId: v.optional(v.number()),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const playerIds = await ctx.runQuery(
       internal.deckCards.getPlayersMissingDeckCards,
@@ -338,9 +364,8 @@ export const backfillDeckCards = internalAction({
         deckCardsStatus: "pending",
       });
     }
-    await ctx.runAction(internal.deckCards.resolvePlayersDeckCards, {
-      playerIds,
-    });
+    await resolvePlayersDeckCardsBatch(ctx, playerIds);
+    return null;
   },
 });
 

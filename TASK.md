@@ -131,7 +131,7 @@ Verify every task with `npx tsc --noEmit -p convex/tsconfig.json` and
   which breaks the OBS browser source until the user re-selects a match.
 - **Fix:** Return `matchData: null` when the referenced rows are gone.
 
-### 11. Call a helper instead of `ctx.runAction` per player
+### [DONE] 11. Call a helper instead of `ctx.runAction` per player
 
 - **Where:** `convex/deckCards.ts` `resolvePlayersDeckCards`, `backfillDeckCards`
 - **Why:** Action-to-action calls in the same runtime add a scheduled
