@@ -10,4 +10,13 @@ crons.daily(
   internal.settings.cleanupOldIntegrationLogs,
 );
 
+// Remove life-tracker presence rows whose heartbeat stopped (closed tabs
+// whose unload handler never fired). Runs at the timeout interval.
+crons.interval(
+  "cleanUpLifeTrackers",
+  { minutes: 5 },
+  internal.presence.cleanUpLifeTrackers,
+  {},
+);
+
 export default crons;

@@ -11,7 +11,7 @@ Verify every task with `npx tsc --noEmit -p convex/tsconfig.json` and
 
 ## Important
 
-### 1. Clean up abandoned life-tracker presence rows
+### [DONE] 1. Clean up abandoned life-tracker presence rows
 
 - **Where:** `convex/presence.ts` (`cleanUpLifeTrackers`,
   `getAllConnectedLifeTrackers`, `getConnectedLifeTrackers`), `convex/crons.ts`
