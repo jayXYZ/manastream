@@ -1,3 +1,4 @@
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireAuth } from "./auth";
 import { QueryCtx, MutationCtx } from "../_generated/server";
 import { Doc, Id } from "../_generated/dataModel";
@@ -7,6 +8,24 @@ type SettingsCredentialFields = Pick<
   Doc<"settings">,
   "meleeClientId" | "meleeClientSecret" | "meleeUsername" | "meleePassword"
 >;
+
+/**
+ * The caller's settings row, or null when there is no signed-in user or
+ * the user has not been initialized yet. For queries; mutations use
+ * `getUserSettings` and throw.
+ */
+export async function getOptionalUserSettings(
+  ctx: QueryCtx | MutationCtx,
+): Promise<Doc<"settings"> | null> {
+  const userId = await getAuthUserId(ctx);
+  if (!userId) {
+    return null;
+  }
+  return await ctx.db
+    .query("settings")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .unique();
+}
 
 export async function getUserSettings(
   ctx: QueryCtx | MutationCtx,

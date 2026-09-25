@@ -1,7 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { featureMatchWithPlayersValidator } from "./validators";
-import { requireExternalTournament } from "./lib/tournaments";
+import { getOwnExternalTournament } from "./lib/tournaments";
 import { requireTournamentAccess } from "./lib/auth";
 import {
   createFeatureMatchFromPairing,
@@ -44,7 +44,7 @@ export const getCurrentRoundFeatureMatches = query({
   args: {},
   returns: v.array(featureMatchWithPlayersValidator),
   handler: async (ctx) => {
-    const tournament = await requireExternalTournament(ctx);
+    const tournament = await getOwnExternalTournament(ctx);
     if (!tournament) {
       return [];
     }
@@ -69,7 +69,7 @@ export const getAllFeatureMatches = query({
   args: {},
   returns: v.array(featureMatchWithPlayersValidator),
   handler: async (ctx) => {
-    const tournament = await requireExternalTournament(ctx);
+    const tournament = await getOwnExternalTournament(ctx);
     if (!tournament) {
       return [];
     }
@@ -90,7 +90,7 @@ export const getCurrentRoundFeaturedMatchIds = query({
   args: {},
   returns: v.array(v.string()),
   handler: async (ctx) => {
-    const tournament = await requireExternalTournament(ctx);
+    const tournament = await getOwnExternalTournament(ctx);
     if (!tournament) {
       return [];
     }

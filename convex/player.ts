@@ -8,7 +8,10 @@ import {
 import type { MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
-import { getOwnTournament } from "./lib/tournaments";
+import {
+  getOptionalOwnTournament,
+  getOwnTournament,
+} from "./lib/tournaments";
 import {
   decklistStatusValidator,
   playerRefreshRunValidator,
@@ -265,8 +268,9 @@ export const getAllTournamentPlayers = query({
     }),
   ),
   handler: async (ctx) => {
-    const tournament = await getOwnTournament(ctx);
-    if (!tournament.externalTournamentId) {
+    const tournament = await getOptionalOwnTournament(ctx);
+    if (!tournament?.externalTournamentId) {
+      // Signed out, not initialized, or no Melee tournament linked.
       return [];
     }
     const { players } = await loadTournamentPlayerData(

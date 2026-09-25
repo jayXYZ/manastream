@@ -62,7 +62,7 @@ Verify every task with `npx tsc --noEmit -p convex/tsconfig.json` and
 - **Done when:** `grep -rn "createTournament\|api.tournaments.getTournament\b"`
   returns nothing outside `_generated`.
 
-### 5. Stop throwing from queries when the user is signed out or uninitialized
+### [DONE] 5. Stop throwing from queries when the user is signed out or uninitialized
 
 - **Where:** `convex/auth.ts` `getUserAvatar`, `getUserEmail`;
   `getOwnTournament` callers such as `getUserOverlays`, `getAllTournamentPlayers`,

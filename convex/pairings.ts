@@ -5,8 +5,7 @@ import {
   currentRoundPairingsResultValidator,
   roundSnapshotValidator,
 } from "./validators";
-import { requireAuth } from "./lib/auth";
-import { getUserTournament } from "./lib/tournaments";
+import { getOptionalOwnTournament } from "./lib/tournaments";
 import {
   getCurrentRoundPairingsWithPlayerData,
   snapshotCurrentRoundPairings,
@@ -33,8 +32,8 @@ export const getCurrentRoundPairings = query({
   args: {},
   returns: currentRoundPairingsResultValidator,
   handler: async (ctx): Promise<CurrentRoundPairingsResult> => {
-    const userId = await requireAuth(ctx);
-    const tournament = await getUserTournament(ctx, userId);
+    // Signed out or not initialized yet: an empty result, not an error.
+    const tournament = await getOptionalOwnTournament(ctx);
     if (!tournament) {
       return emptyResult("no_tournament");
     }

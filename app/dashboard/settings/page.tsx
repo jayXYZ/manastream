@@ -25,7 +25,7 @@ type SettingsFormInputs = {
 };
 
 function getSettingsFormInputs(
-  settings: { meleeClientId: string } | undefined,
+  settings: { meleeClientId: string } | null | undefined,
   tournament:
     | { externalTournamentId?: number; mode: "manual" | "auto" }
     | null
@@ -116,10 +116,30 @@ export default function SettingsPage() {
     }
   };
 
-  if (!settings || !tournament) {
+  if (settings === undefined || tournament === undefined) {
     return (
       <div className="flex items-center justify-center h-full">
         <Spinner />
+      </div>
+    );
+  }
+
+  // A password sign-up has no settings or tournament until the email is
+  // verified; the queries return null rather than throwing for that state.
+  if (settings === null || tournament === null) {
+    return (
+      <div className="p-4">
+        <div className="rounded-lg border border-dashed border-border p-8">
+          <div className="max-w-xl">
+            <h2 className="text-lg font-semibold">
+              Your account is not set up yet
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Verify your email to finish creating your tournament, then come
+              back here to connect Melee.
+            </p>
+          </div>
+        </div>
       </div>
     );
   }

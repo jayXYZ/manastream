@@ -3,7 +3,10 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { filterUndefined } from "./lib/utils";
 import { requireAuth, requireTournamentAccess } from "./lib/auth";
-import { getOwnTournament } from "./lib/tournaments";
+import {
+  getOptionalOwnTournament,
+  getOwnTournament,
+} from "./lib/tournaments";
 import { getUserSettings, hasMeleeCredentials } from "./lib/settings";
 import { hasExternalTournamentChanged } from "./lib/pollingBehavior";
 import { clearPollingSession } from "./lib/pollingSession";
@@ -13,7 +16,8 @@ export const getUserTournament = query({
   args: {},
   returns: v.union(tournamentValidator, v.null()),
   handler: async (ctx) => {
-    return await getOwnTournament(ctx);
+    // Null while signed out or before a password sign-up is verified.
+    return await getOptionalOwnTournament(ctx);
   },
 });
 

@@ -1,7 +1,7 @@
 import { query } from "../_generated/server";
 import { v } from "convex/values";
 import { requireOverlayAccess } from "../lib/auth";
-import { getOwnTournament } from "../lib/tournaments";
+import { getOptionalOwnTournament } from "../lib/tournaments";
 import {
   getOverlayByIdValidator,
   getOverlayByUuidValidator,
@@ -13,7 +13,11 @@ export const getUserOverlays = query({
   args: {},
   returns: v.array(overlayValidator),
   handler: async (ctx) => {
-    const tournament = await getOwnTournament(ctx);
+    const tournament = await getOptionalOwnTournament(ctx);
+    if (!tournament) {
+      // Signed out or not initialized yet: nothing to list, not an error.
+      return [];
+    }
     // Fetch overlays for that tournament
     const overlays = await ctx.db
       .query("overlays")
