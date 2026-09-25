@@ -135,25 +135,28 @@ export default function MatchSelect(props: {
             ? selectedMatch.player1Data.name
             : selectedMatch.player2Data.name}
         </div>
+        {/* Back and Confirm share one flex unit each and Switch Players takes
+            two, so the row always fits the container and the text wraps
+            instead of overflowing on narrow screens. */}
         <div className="flex gap-4">
           <Button
             variant="outline"
             onClick={backToList}
-            className="h-20 text-xl font-bold px-8 whitespace-normal"
+            className="flex-1 min-w-0 shrink h-20 text-xl font-bold px-4 whitespace-normal break-words"
           >
             <ArrowLeft className="size-6" />
             Back
           </Button>
           <Button
             onClick={() => setPlayersSwitched(!playersSwitched)}
-            className="w-full h-20 text-xl font-bold px-6 whitespace-normal break-words"
+            className="flex-[2] min-w-0 shrink h-20 text-xl font-bold px-4 whitespace-normal break-words"
           >
             <ArrowUpDown className="size-6" />
             Switch Players
           </Button>
           <Button
             onClick={handlePlayerSelect}
-            className="h-20 text-xl font-bold px-8 whitespace-normal bg-green-600 text-white hover:bg-green-700 active:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700 dark:active:bg-green-700"
+            className="flex-1 min-w-0 shrink h-20 text-xl font-bold px-4 whitespace-normal break-words bg-green-600 text-white hover:bg-green-700 active:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700 dark:active:bg-green-700"
           >
             <Check className="size-6" />
             Confirm
