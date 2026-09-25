@@ -87,7 +87,10 @@ import {
 } from "./lib/pollingBehavior";
 import { getPollingSession } from "./lib/pollingSession";
 import { requireAuth } from "./lib/auth";
-import { getOwnTournament } from "./lib/tournaments";
+import {
+  getOwnExternalTournament,
+  getOwnTournament,
+} from "./lib/tournaments";
 import {
   getMeleeCredentialsFromSettings,
   hasMeleeCredentials,
@@ -1538,28 +1541,23 @@ export const refreshPlayersFromMelee = internalAction({
   },
 });
 
+/**
+ * Completed rounds of the Melee tournament linked to the caller's tournament.
+ * Scoped to the caller: the Melee id comes from their own tournament row, not
+ * from the client. Returns an empty array when the caller is signed out, has
+ * no tournament, has not linked one, or the `externalTournaments` row does not
+ * exist yet (e.g. the id was set in manual mode before enabling auto mode).
+ */
 export const getCompletedRounds = query({
-  args: {
-    externalTournamentId: v.optional(v.number()),
-  },
+  args: {},
   returns: v.array(
     v.object({
       roundId: v.number(),
       roundName: v.string(),
     }),
   ),
-  handler: async (ctx, args) => {
-    if (!args.externalTournamentId || args.externalTournamentId === -1) {
-      return [];
-    }
-    const externalTournament = await ctx.db
-      .query("externalTournaments")
-      .withIndex("by_external_tournament_id", (q) =>
-        q.eq("externalTournamentId", args.externalTournamentId!),
-      )
-      .unique();
-    // Return empty array if the externalTournaments record doesn't exist yet
-    // (e.g., when a user sets the tournament ID in manual mode before enabling auto mode)
+  handler: async (ctx) => {
+    const externalTournament = await getOwnExternalTournament(ctx);
     if (!externalTournament) {
       return [];
     }

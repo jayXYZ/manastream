@@ -190,9 +190,7 @@ function TournamentOverlayPreviewDialog({
     (overlay) => overlay.overlayType === "standings",
   ) as StandingsOverlay;
   const allFeatureMatches = useQuery(api.featurematches.getAllFeatureMatches);
-  const completedRounds = useQuery(api.tournamentSync.getCompletedRounds, {
-    externalTournamentId: tournament.externalTournamentId ?? -1,
-  });
+  const completedRounds = useQuery(api.tournamentSync.getCompletedRounds);
   const currentPairings = useQuery(api.pairings.getCurrentRoundPairings);
   const hasCurrentBracketOption =
     currentPairings?.status === "ready" &&

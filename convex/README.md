@@ -90,9 +90,6 @@ id from there, never from the client:
 
 Known exceptions, all read-only:
 
-- `getCompletedRounds` in `convex/tournamentSync.ts` still takes
-  `externalTournamentId` from the client with no auth (tracked as a cleanup
-  in `TASK.md`).
 - `getFeatureMatchPlayersAndDecks` and `getOverlayByUuid` are deliberately
   unauthenticated because OBS browser sources load them.
 

@@ -251,3 +251,18 @@ it("only records and counts life trackers for overlays the user owns", async () 
     }),
   ).rejects.toThrow("Tournament not found or access denied");
 });
+
+it("only returns completed rounds of the caller's own linked Melee tournament", async () => {
+  const { t, owner, other } = await setup();
+
+  // owner links 999, which has one completed round.
+  expect(
+    await owner.as.query(api.tournamentSync.getCompletedRounds, {}),
+  ).toEqual([{ roundId: 101, roundName: "Round 1" }]);
+  // other links 555, which has none; there is no argument to reach 999's rounds.
+  expect(
+    await other.as.query(api.tournamentSync.getCompletedRounds, {}),
+  ).toEqual([]);
+  // Signed out: empty, not an error.
+  expect(await t.query(api.tournamentSync.getCompletedRounds, {})).toEqual([]);
+});

@@ -147,7 +147,7 @@ Verify every task with `npx tsc --noEmit -p convex/tsconfig.json` and
   `scheduleDeckCardsResolution` in `convex/player.ts` and `convex/lib/players.ts`
 - **Fix:** Keep one copy in `convex/lib/deckCards.ts` and import it.
 
-### 13. Scope `getCompletedRounds` to the caller's tournament
+### 13. [DONE] Scope `getCompletedRounds` to the caller's tournament
 
 - **Where:** `convex/tournamentSync.ts` `getCompletedRounds`
 - **Why:** It takes `externalTournamentId` from the client with no auth, so
