@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { RefreshSyncButton } from "@/components/sync/refresh-sync-button";
+import { AccountNotSetUp } from "@/components/account-not-set-up";
 
 type SettingsFormInputs = {
   meleeClientId: string;
@@ -25,7 +26,7 @@ type SettingsFormInputs = {
 };
 
 function getSettingsFormInputs(
-  settings: { meleeClientId: string } | undefined,
+  settings: { meleeClientId: string } | null | undefined,
   tournament:
     | { externalTournamentId?: number; mode: "manual" | "auto" }
     | null
@@ -116,11 +117,19 @@ export default function SettingsPage() {
     }
   };
 
-  if (!settings || !tournament) {
+  if (settings === undefined || tournament === undefined) {
     return (
       <div className="flex items-center justify-center h-full">
         <Spinner />
       </div>
+    );
+  }
+
+  // A password sign-up has no settings or tournament until the email is
+  // verified; the queries return null rather than throwing for that state.
+  if (settings === null || tournament === null) {
+    return (
+      <AccountNotSetUp description="Verify your email to finish creating your tournament, then come back here to connect Melee." />
     );
   }
 

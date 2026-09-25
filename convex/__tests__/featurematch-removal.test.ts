@@ -86,11 +86,11 @@ async function setup() {
     {},
   );
   const matchId = match!._id;
-  await owner.mutation(api.overlays.updateDeckOverlay, {
+  await owner.mutation(api.overlays.deck.updateDeckOverlay, {
     overlayId: ids.ownerOverlay,
     matchId,
   });
-  await viewer.mutation(api.overlays.updateDeckOverlay, {
+  await viewer.mutation(api.overlays.deck.updateDeckOverlay, {
     overlayId: ids.viewerOverlay,
     matchId,
   });
@@ -105,7 +105,7 @@ it("unfeaturing clears references across accounts and leaves public overlays rea
   });
   expect(await t.run((ctx) => ctx.db.get(matchId))).toBeNull();
   for (const publicUuid of ["owner-deck", "viewer-deck"]) {
-    const overlay = await t.query(api.overlays.getOverlayByUuid, {
+    const overlay = await t.query(api.overlays.queries.getOverlayByUuid, {
       publicUuid,
     });
     expect(overlay).toMatchObject({ overlayType: "deck", matchData: null });
@@ -125,7 +125,7 @@ it("rejects a stale selection of a deleted feature match", async () => {
     featured: false,
   });
   await expect(
-    viewer.mutation(api.overlays.updateDeckOverlay, {
+    viewer.mutation(api.overlays.deck.updateDeckOverlay, {
       overlayId: ids.viewerOverlay,
       matchId,
     }),

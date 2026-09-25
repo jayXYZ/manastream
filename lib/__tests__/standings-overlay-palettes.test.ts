@@ -6,7 +6,7 @@ const standingsOverlaySource = readFileSync(
   "utf8",
 );
 const standingsMutationSource = readFileSync(
-  "convex/_overlays/standings.ts",
+  "convex/overlays/standings.ts",
   "utf8",
 );
 const validatorsSource = readFileSync("convex/validators.ts", "utf8");

@@ -1,23 +1,31 @@
 import { v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { requireAuth } from "./lib/auth";
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { integrationLogValidator } from "./validators";
 import {
   getMeleeCredentialsFromSettings,
+  getOptionalUserSettings,
   getUserSettings,
 } from "./lib/settings";
 import { deleteOldIntegrationLogsBatch } from "./lib/logging";
 
 export const getSettings = query({
   args: {},
-  returns: v.object({
-    meleeClientId: v.string(),
-    // The secret itself is never sent to the client; only whether one is set.
-    hasMeleeClientSecret: v.boolean(),
-  }),
+  // Null while signed out or before a password sign-up is verified.
+  returns: v.union(
+    v.object({
+      meleeClientId: v.string(),
+      // The secret itself is never sent to the client; only whether one is set.
+      hasMeleeClientSecret: v.boolean(),
+    }),
+    v.null(),
+  ),
   handler: async (ctx) => {
-    const settings = await getUserSettings(ctx);
+    const settings = await getOptionalUserSettings(ctx);
+    if (!settings) {
+      return null;
+    }
     const credentials = getMeleeCredentialsFromSettings(settings);
     return {
       meleeClientId: credentials.clientId,
@@ -30,7 +38,11 @@ export const getIntegrationLogs = query({
   args: {},
   returns: v.array(integrationLogValidator),
   handler: async (ctx) => {
-    const user = await requireAuth(ctx);
+    // Signed out (or mid sign-out): no logs to show, not an error.
+    const user = await getAuthUserId(ctx);
+    if (!user) {
+      return [];
+    }
     const logs = await ctx.db
       .query("integrationLogs")
       .withIndex("by_user", (q) => q.eq("userId", user))
@@ -46,6 +58,7 @@ export const updateSettings = mutation({
     // Omitted when the user hasn't entered a new secret, so the stored one is kept.
     meleeClientSecret: v.optional(v.string()),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const settings = await getUserSettings(ctx);
     await ctx.db.patch(settings._id, {
@@ -55,6 +68,7 @@ export const updateSettings = mutation({
         : {}),
       updatedAt: Date.now(),
     });
+    return null;
   },
 });
 

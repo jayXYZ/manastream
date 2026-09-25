@@ -67,7 +67,7 @@ export function TournamentPreviewController() {
   const [isOpen, setIsOpen] = useState(false);
   const [tooltipOpen, setTooltipOpen] = useState(false);
   const tournament = useQuery(api.tournaments.getUserTournament);
-  const userOverlays = useQuery(api.overlays.getUserOverlays);
+  const userOverlays = useQuery(api.overlays.queries.getUserOverlays);
 
   const deckOverlay = userOverlays?.find(
     (overlay) => overlay.overlayType === "deck",
@@ -190,9 +190,7 @@ function TournamentOverlayPreviewDialog({
     (overlay) => overlay.overlayType === "standings",
   ) as StandingsOverlay;
   const allFeatureMatches = useQuery(api.featurematches.getAllFeatureMatches);
-  const completedRounds = useQuery(api.tournamentSync.getCompletedRounds, {
-    externalTournamentId: tournament.externalTournamentId ?? -1,
-  });
+  const completedRounds = useQuery(api.tournamentSync.getCompletedRounds);
   const currentPairings = useQuery(api.pairings.getCurrentRoundPairings);
   const hasCurrentBracketOption =
     currentPairings?.status === "ready" &&
@@ -213,10 +211,10 @@ function TournamentOverlayPreviewDialog({
       : (standingsOverlay?.externalRoundId?.toString() ?? NO_STANDINGS_VALUE),
   });
 
-  const updateDeckOverlay = useMutation(api.overlays.updateDeckOverlay);
+  const updateDeckOverlay = useMutation(api.overlays.deck.updateDeckOverlay);
   const updateTournament = useMutation(api.tournaments.updateTournamentInfo);
   const updateStandingsOverlay = useMutation(
-    api.overlays.updateStandingsOverlay,
+    api.overlays.standings.updateStandingsOverlay,
   );
   const handleUpdate = () => {
     if (deckOverlay) {

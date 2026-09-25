@@ -42,10 +42,10 @@ export default function CommentarySettings({
     overlayName !== overlay.name || selectedTemplate !== overlay.template;
 
   const setCommentaryOverlaySettings = useMutation(
-    api.overlays.setCommentaryOverlaySettings,
+    api.overlays.commentary.setCommentaryOverlaySettings,
   );
 
-  const deleteOverlayMutation = useMutation(api.overlays.deleteOverlay);
+  const deleteOverlayMutation = useMutation(api.overlays.shared.deleteOverlay);
 
   const handleSave = () => {
     // Validate overlay name

@@ -158,13 +158,13 @@ export const getUserAvatar = query({
   args: {},
   returns: v.union(v.string(), v.null()),
   handler: async (ctx: QueryCtx) => {
+    // Signed out (or mid sign-out / token refresh): no user, not an error.
     const userId = await getAuthUserId(ctx);
     if (!userId) {
-      // This should never happen?
-      throw new Error("User not authenticated");
+      return null;
     }
     const user = await ctx.db.get(userId);
-    return user?.image;
+    return user?.image ?? null;
   },
 });
 
@@ -172,12 +172,12 @@ export const getUserEmail = query({
   args: {},
   returns: v.union(v.string(), v.null()),
   handler: async (ctx: QueryCtx) => {
+    // Signed out (or mid sign-out / token refresh): no user, not an error.
     const userId = await getAuthUserId(ctx);
     if (!userId) {
-      // This should never happen?
-      throw new Error("User not authenticated");
+      return null;
     }
     const user = await ctx.db.get(userId);
-    return user?.email;
+    return user?.email ?? null;
   },
 });

@@ -41,16 +41,16 @@ export default function Health(props: {
     // App should be displaying Admin Settings if no connected overlay is set
   }
 
-  const data = useQuery(api.overlays.getOverlayById, {
+  const data = useQuery(api.overlays.queries.getOverlayById, {
     overlayId: connectedOverlayId as Id<"overlays">,
   });
 
   const tournamentInfo = useQuery(api.tournaments.getUserTournament);
 
   // Specialized mutations for specific operations
-  const updatePlayerLife = useMutation(api.overlays.updatePlayerLife);
-  const incrementGamesWon = useMutation(api.overlays.incrementGamesWon);
-  const swapPlayers = useMutation(api.overlays.swapPlayers);
+  const updatePlayerLife = useMutation(api.overlays.match.updatePlayerLife);
+  const incrementGamesWon = useMutation(api.overlays.match.incrementGamesWon);
+  const swapPlayers = useMutation(api.overlays.match.swapPlayers);
 
   // Initialize local state when server data loads
   useEffect(() => {

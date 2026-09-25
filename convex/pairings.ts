@@ -5,14 +5,13 @@ import {
   currentRoundPairingsResultValidator,
   roundSnapshotValidator,
 } from "./validators";
-import { requireAuth } from "./lib/auth";
-import { getUserTournament } from "./lib/tournaments";
+import { getOptionalOwnTournament } from "./lib/tournaments";
 import {
   getCurrentRoundPairingsWithPlayerData,
   snapshotCurrentRoundPairings,
 } from "./lib/pairings";
 import { rankPairingsByUniqueness } from "./lib/pairingRankings";
-import { getPlayerData } from "./lib/playerData";
+import { loadTournamentPlayerData } from "./lib/playerData";
 
 type CurrentRoundPairingsResult = Infer<
   typeof currentRoundPairingsResultValidator
@@ -33,8 +32,8 @@ export const getCurrentRoundPairings = query({
   args: {},
   returns: currentRoundPairingsResultValidator,
   handler: async (ctx): Promise<CurrentRoundPairingsResult> => {
-    const userId = await requireAuth(ctx);
-    const tournament = await getUserTournament(ctx, userId);
+    // Signed out or not initialized yet: an empty result, not an error.
+    const tournament = await getOptionalOwnTournament(ctx);
     if (!tournament) {
       return emptyResult("no_tournament");
     }
@@ -61,26 +60,25 @@ export const getCurrentRoundPairings = query({
       tournament.currentRoundDisplayName ??
       `Round ${roundNumber}`;
 
-    const [pairings, tournamentPlayers] = await Promise.all([
-      getCurrentRoundPairingsWithPlayerData(ctx, tournament._id, {
+    // One bulk load serves both the pairings and the archetype counts the
+    // ranking needs, instead of two lookups per player in the tournament.
+    const playerData = await loadTournamentPlayerData(
+      ctx,
+      tournament.externalTournamentId,
+    );
+    const pairings = await getCurrentRoundPairingsWithPlayerData(
+      ctx,
+      tournament._id,
+      {
         externalRoundId: externalTournament?.currentRoundId,
         roundNumber,
-      }),
-      ctx.db
-        .query("players")
-        .withIndex("by_external_tournament_id", (q) =>
-          q.eq("externalTournamentId", tournament.externalTournamentId!),
-        )
-        .collect(),
-    ]);
-
-    const tournamentPlayersWithData = await Promise.all(
-      tournamentPlayers.map((player) => getPlayerData(ctx, player)),
+      },
+      playerData,
     );
 
     const rankedPairings = rankPairingsByUniqueness(
       pairings,
-      tournamentPlayersWithData.map((player) => ({
+      playerData.players.map((player) => ({
         name: player.name,
         deckName: player.deckName,
       })),

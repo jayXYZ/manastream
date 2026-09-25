@@ -1,51 +1,23 @@
-import {
-  internalMutation,
-  internalQuery,
-  mutation,
-  query,
-} from "./_generated/server";
+import { internalQuery, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { filterUndefined } from "./lib/utils";
 import { requireAuth, requireTournamentAccess } from "./lib/auth";
-import { getOwnTournament } from "./lib/tournaments";
+import {
+  getOptionalOwnTournament,
+  getOwnTournament,
+} from "./lib/tournaments";
 import { getUserSettings, hasMeleeCredentials } from "./lib/settings";
 import { hasExternalTournamentChanged } from "./lib/pollingBehavior";
 import { clearPollingSession } from "./lib/pollingSession";
-
-export const createTournament = internalMutation({
-  args: {
-    externalTournamentId: v.optional(v.number()),
-  },
-  returns: v.id("tournaments"),
-  handler: async (ctx, args) => {
-    const userId = await requireAuth(ctx);
-    const tournamentId = await ctx.db.insert("tournaments", {
-      userId: userId,
-      mode: "manual",
-      externalTournamentId: args.externalTournamentId,
-      manualTimerRunning: false,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    });
-    return tournamentId;
-  },
-});
+import { getTournamentInfoValidator, tournamentValidator } from "./validators";
 
 export const getUserTournament = query({
   args: {},
-  returns: v.union(v.any(), v.null()),
+  returns: v.union(tournamentValidator, v.null()),
   handler: async (ctx) => {
-    return await getOwnTournament(ctx);
-  },
-});
-
-// TODO: this doesn't seem to be used anywhere
-export const getTournament = query({
-  args: { tournamentId: v.id("tournaments") },
-  returns: v.union(v.any(), v.null()),
-  handler: async (ctx, args) => {
-    return await requireTournamentAccess(ctx, args.tournamentId);
+    // Null while signed out or before a password sign-up is verified.
+    return await getOptionalOwnTournament(ctx);
   },
 });
 
@@ -53,7 +25,7 @@ export const getTournament = query({
 // This is a duplicate function to the /lib/tournaments.ts function getTournamentTimerAndRoundInfo
 export const getTournamentInfo = query({
   args: { tournamentId: v.id("tournaments") },
-  returns: v.union(v.any(), v.null()),
+  returns: v.union(getTournamentInfoValidator, v.null()),
   handler: async (ctx, args) => {
     const tournament = await ctx.db.get(args.tournamentId);
     if (!tournament) {
@@ -86,6 +58,7 @@ export const setTournamentTimer = mutation({
       v.union(v.literal("up"), v.literal("down")),
     ),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     await requireTournamentAccess(ctx, args.tournamentId);
 
@@ -112,6 +85,7 @@ export const setTournamentTimer = mutation({
         updateFields.manualTimerCountDirection;
     }
     await ctx.db.patch(tournamentId, updates);
+    return null;
   },
 });
 
@@ -126,6 +100,7 @@ export const updateTournamentInfo = mutation({
     commentatorRight: v.optional(v.string()),
     commentatorRightSubText: v.optional(v.string()),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     await requireTournamentAccess(ctx, args.tournamentId);
 
@@ -139,6 +114,7 @@ export const updateTournamentInfo = mutation({
     });
 
     await ctx.db.patch(args.tournamentId, updates);
+    return null;
   },
 });
 
@@ -163,6 +139,7 @@ export const updateTournamentMode = mutation({
     tournamentId: v.id("tournaments"),
     mode: v.union(v.literal("manual"), v.literal("auto")),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const { userId } = await requireTournamentAccess(ctx, args.tournamentId);
 
@@ -172,7 +149,7 @@ export const updateTournamentMode = mutation({
         pollingStatus: "inactive",
       });
       await clearPollingSession(ctx, args.tournamentId);
-      return;
+      return null;
     }
 
     // If switching to auto mode, check if polling is already active
@@ -188,7 +165,7 @@ export const updateTournamentMode = mutation({
         await ctx.db.patch(args.tournamentId, {
           mode: args.mode,
         });
-        return;
+        return null;
       }
     }
 
@@ -204,6 +181,7 @@ export const updateTournamentMode = mutation({
         { userId: userId },
       );
     }
+    return null;
   },
 });
 
@@ -212,6 +190,7 @@ export const updateTournamentSettings = mutation({
     externalTournamentId: v.optional(v.number()),
     mode: v.optional(v.union(v.literal("manual"), v.literal("auto"))),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const userId = await requireAuth(ctx);
     const tournament = await getOwnTournament(ctx);
@@ -249,7 +228,7 @@ export const updateTournamentSettings = mutation({
       if (tournament.pollingStatus === "active" && !externalTournamentChanged) {
         // If already active, just update the settings without scheduling a new polling session
         await ctx.db.patch(tournament._id, updates);
-        return;
+        return null;
       }
 
       await ctx.db.patch(tournament._id, updatesWithSyncReset);
@@ -270,5 +249,6 @@ export const updateTournamentSettings = mutation({
         await clearPollingSession(ctx, tournament._id);
       }
     }
+    return null;
   },
 });

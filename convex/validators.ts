@@ -603,8 +603,11 @@ export const getTournamentInfoValidator = v.object({
   commentatorRightSubText: v.optional(v.string()),
 });
 
-// Validator for updateMatchOverlay arguments
-// These fields are picked from matchOverlayValidator and made optional for updates
+// Validator for updateMatchOverlay arguments.
+// Life totals and game counts cannot be cleared; omit them to leave them alone.
+// The display overrides can be cleared: omit a field (or pass `undefined`) to
+// leave it untouched, pass `null` to remove the override so the overlay falls
+// back to the linked player's data.
 export const updateMatchOverlayArgsValidator = v.object({
   overlayId: v.id("overlays"),
   // Life totals
@@ -613,15 +616,19 @@ export const updateMatchOverlayArgsValidator = v.object({
   // Games won
   player1GamesWon: v.optional(v.number()),
   player2GamesWon: v.optional(v.number()),
-  // Display overrides
-  player1DisplayName: v.optional(v.string()),
-  player2DisplayName: v.optional(v.string()),
-  player1DisplayDeck: v.optional(v.string()),
-  player2DisplayDeck: v.optional(v.string()),
-  player1TournamentRecord: v.optional(v.string()),
-  player2TournamentRecord: v.optional(v.string()),
-  player1Lc26BackgroundColor: v.optional(lc26BackgroundColorValidator),
-  player2Lc26BackgroundColor: v.optional(lc26BackgroundColorValidator),
+  // Display overrides (null clears)
+  player1DisplayName: v.optional(v.union(v.string(), v.null())),
+  player2DisplayName: v.optional(v.union(v.string(), v.null())),
+  player1DisplayDeck: v.optional(v.union(v.string(), v.null())),
+  player2DisplayDeck: v.optional(v.union(v.string(), v.null())),
+  player1TournamentRecord: v.optional(v.union(v.string(), v.null())),
+  player2TournamentRecord: v.optional(v.union(v.string(), v.null())),
+  player1Lc26BackgroundColor: v.optional(
+    v.union(lc26BackgroundColorValidator, v.null()),
+  ),
+  player2Lc26BackgroundColor: v.optional(
+    v.union(lc26BackgroundColorValidator, v.null()),
+  ),
 });
 
 // Provider-neutral sync validators
