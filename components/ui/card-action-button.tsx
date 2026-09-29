@@ -5,10 +5,12 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * Icon-only button for the corner of a `group` Card. It stays invisible until
- * the card is hovered or the button is focused, and stays visible while
- * `revealed` is true (for example while its tooltip is open) so it does not
- * flicker away under the pointer. A disabled button reveals at a lower opacity.
+ * Icon-only button for the corner of a `group` Card. On devices that can hover
+ * it stays invisible until the card is hovered or the button is focused, and
+ * stays visible while `revealed` is true (for example while its tooltip is
+ * open) so it does not flicker away under the pointer. Devices without hover
+ * (touch screens) never fire hover, so there the button is always visible.
+ * A disabled button reveals at a lower opacity.
  */
 export function CardActionButton({
   revealed = false,
@@ -27,8 +29,8 @@ export function CardActionButton({
             ? "opacity-30"
             : "opacity-70"
           : disabled
-            ? "opacity-0 group-hover:opacity-30"
-            : "opacity-0 group-hover:opacity-70 focus-visible:opacity-70",
+            ? "opacity-30 [@media(hover:hover)]:opacity-0 group-hover:opacity-30"
+            : "opacity-70 [@media(hover:hover)]:opacity-0 group-hover:opacity-70 focus-visible:opacity-70",
         className,
       )}
       {...props}

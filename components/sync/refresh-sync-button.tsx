@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useMutation } from "convex/react";
 import { RefreshCw } from "lucide-react";
 import { api } from "@/convex/_generated/api";
@@ -33,7 +33,9 @@ const FEEDBACK_TIMEOUT_MS = 4000;
  * active; otherwise the scheduled loop is the only source of updates.
  *
  * The `icon` variant is a hover-revealed corner button for a `group` Card. It
- * reports the outcome of a click in its tooltip instead of a line of text.
+ * shows the outcome of a click in its tooltip instead of a line of text, and
+ * mirrors that outcome into a visually hidden live region so screen readers
+ * still hear it.
  */
 export function RefreshSyncButton({
   tournament,
@@ -53,6 +55,7 @@ export function RefreshSyncButton({
   const [isRequesting, setIsRequesting] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [tooltipOpen, setTooltipOpen] = useState(false);
+  const descriptionId = useId();
 
   const isPolling =
     tournament.mode === "auto" && tournament.pollingStatus === "active";
@@ -84,44 +87,64 @@ export function RefreshSyncButton({
     const showingFeedback = feedback !== null;
     const isDisabled = !isPolling || isRequesting;
     return (
-      <Tooltip
-        open={tooltipOpen || showingFeedback}
-        onOpenChange={setTooltipOpen}
-      >
-        <TooltipTrigger asChild>
-          {/*
-           * A natively disabled button cannot be hovered or focused, so the
-           * span is the tooltip trigger. While the button is disabled the span
-           * also becomes the tab stop (announced as a single disabled button)
-           * so keyboard users can still read why refresh is unavailable. When
-           * the button is enabled the span drops out of the tab order and the
-           * button's own focus reaches the trigger by bubbling.
-           */}
-          <span
-            className={cn(
-              "ring-offset-background focus-visible:ring-ring inline-flex rounded-xs focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden",
-              className,
-            )}
-            tabIndex={isDisabled ? 0 : undefined}
-            role={isDisabled ? "button" : undefined}
-            aria-disabled={isDisabled ? true : undefined}
-            aria-label={isDisabled ? "Refresh now" : undefined}
-          >
-            <CardActionButton
-              revealed={tooltipOpen || showingFeedback}
-              onClick={handleClick}
-              disabled={isDisabled}
-              aria-hidden={isDisabled ? true : undefined}
+      <>
+        <Tooltip
+          open={tooltipOpen || showingFeedback}
+          onOpenChange={setTooltipOpen}
+        >
+          <TooltipTrigger asChild>
+            {/*
+             * A natively disabled button cannot be hovered or focused, so the
+             * span is the tooltip trigger. While the button is disabled the
+             * span also becomes the tab stop (announced as a single disabled
+             * button) so keyboard users can still read why refresh is
+             * unavailable. When the button is enabled the span drops out of
+             * the tab order and the button's own focus reaches the trigger by
+             * bubbling.
+             *
+             * Radix only describes the trigger (this span) by the tooltip, and
+             * only while it is open, so whichever element is the exposed
+             * control is described by the always-present hidden copy below.
+             */}
+            <span
+              className={cn(
+                "ring-offset-background focus-visible:ring-ring inline-flex rounded-xs focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden",
+                className,
+              )}
+              tabIndex={isDisabled ? 0 : undefined}
+              role={isDisabled ? "button" : undefined}
+              aria-disabled={isDisabled ? true : undefined}
+              aria-label={isDisabled ? "Refresh now" : undefined}
+              aria-describedby={isDisabled ? descriptionId : undefined}
             >
-              <RefreshCw className={cn(isRequesting && "animate-spin")} />
-              <span className="sr-only">Refresh now</span>
-            </CardActionButton>
-          </span>
-        </TooltipTrigger>
-        <TooltipContent side="top">
-          <p>{feedback ?? description}</p>
-        </TooltipContent>
-      </Tooltip>
+              <CardActionButton
+                revealed={tooltipOpen || showingFeedback}
+                onClick={handleClick}
+                disabled={isDisabled}
+                aria-hidden={isDisabled ? true : undefined}
+                aria-describedby={descriptionId}
+              >
+                <RefreshCw className={cn(isRequesting && "animate-spin")} />
+                <span className="sr-only">Refresh now</span>
+              </CardActionButton>
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            <p>{feedback ?? description}</p>
+          </TooltipContent>
+        </Tooltip>
+        <span id={descriptionId} className="sr-only">
+          {description}
+        </span>
+        {/*
+         * The tooltip is not a live region, so the click outcome is mirrored
+         * here. The region is always mounted so the announcement fires when
+         * its text changes rather than when it first appears.
+         */}
+        <span role="status" className="sr-only">
+          {feedback}
+        </span>
+      </>
     );
   }
 

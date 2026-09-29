@@ -35,3 +35,28 @@ describe("RefreshSyncButton icon variant keyboard access", () => {
     expect(refreshSyncButtonSource).toContain("disabled={isDisabled}");
   });
 });
+
+describe("RefreshSyncButton icon variant announcements", () => {
+  it("mirrors click feedback into an always-mounted live region", () => {
+    // The tooltip is not a live region, so screen readers would otherwise
+    // never hear whether the refresh was scheduled or refused.
+    expect(refreshSyncButtonSource).toMatch(
+      /<span role="status" className="sr-only">\s*\{feedback\}\s*<\/span>/,
+    );
+  });
+
+  it("describes whichever element is the exposed control", () => {
+    // Radix describes only the trigger span, and only while the tooltip is
+    // open. The enabled button and the disabled wrapper both need a stable
+    // description of their own.
+    expect(refreshSyncButtonSource).toContain(
+      'id={descriptionId} className="sr-only"',
+    );
+    expect(refreshSyncButtonSource).toContain(
+      "aria-describedby={descriptionId}",
+    );
+    expect(refreshSyncButtonSource).toContain(
+      "aria-describedby={isDisabled ? descriptionId : undefined}",
+    );
+  });
+});
