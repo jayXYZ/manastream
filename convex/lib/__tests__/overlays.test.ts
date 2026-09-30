@@ -55,10 +55,7 @@ describe("enrichStandingsOverlay", () => {
           externalRoundId: 401,
           externalTournamentId: 999,
           roundNumber: 8,
-          standings: [
-            makeStanding(1, 101, "Ada"),
-            makeStanding(8, 108, "Ben"),
-          ],
+          standings: [makeStanding(1, 101, "Ada"), makeStanding(8, 108, "Ben")],
           updatedAt: 1,
         },
       ],
@@ -92,7 +89,92 @@ describe("enrichStandingsOverlay", () => {
       }),
     ]);
   });
+
+  it("looks up only the bracket's own players when no standings are selected", async () => {
+    const player1 = makePlayer("player1", "Ada", 101, "Dimir Tempo");
+    const player2 = makePlayer("player2", "Ben", 108, "Jeskai Control");
+    // Entrants who fell short of the top 8: a bracket must not read them.
+    const fieldPlayers = Array.from({ length: 30 }, (_, index) =>
+      makePlayer(`field${index}`, `Field ${index}`, 200 + index, "Mono Red"),
+    );
+    const scans: IndexScan[] = [];
+    const ctx = makeOverlayCtx({
+      externalTournament: {
+        _id: "externalTournament1",
+        _creationTime: 1,
+        externalTournamentId: 999,
+        currentRoundId: 501,
+        currentRoundNumber: 9,
+        currentRoundName: "Quarterfinals",
+        completedRounds: [{ roundId: 401, roundName: "Round 8" }],
+      },
+      tournaments: [
+        {
+          _id: "tournament1",
+          _creationTime: 1,
+          userId: "user1",
+          name: "Test Tournament",
+          mode: "manual",
+          externalTournamentId: 999,
+          currentRound: 9,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ],
+      pairings: [
+        {
+          _id: "pairing1",
+          _creationTime: 1,
+          externalId: "pairing:999:501:9001",
+          externalTournamentId: 999,
+          tournamentId: "tournament1",
+          externalRoundId: 501,
+          roundNumber: 9,
+          externalMatchId: 9001,
+          player1: player1._id,
+          player2: player2._id,
+          player1Seed: 1,
+          player2Seed: 8,
+          player1TournamentRecord: "#1",
+          player2TournamentRecord: "#8",
+          status: "UPCOMING",
+          createdAt: 1,
+        },
+      ],
+      players: [player1, player2, ...fieldPlayers],
+      roundStandings: [],
+      scans,
+    });
+
+    const overlay = {
+      _id: "overlay1",
+      _creationTime: 1,
+      name: "Standings",
+      overlayType: "standings",
+      tournamentId: "tournament1",
+      publicUuid: "overlay-public-id",
+      showCurrentBracket: true,
+      createdAt: 1,
+    };
+
+    const enriched = await enrichStandingsOverlay(ctx, overlay as never);
+
+    expect(enriched.standingsDataWithPlayers).toBeUndefined();
+    expect(
+      enriched.bracketDataWithPlayers?.map((player) => player.name),
+    ).toEqual(["Ada", "Ben"]);
+    // Player data came from per-player lookups, never a tournament-wide
+    // scan of players, statuses or decklists.
+    const tournamentWideScans = scans.filter(
+      (scan) =>
+        ["players", "playerStatuses", "playerDecklists"].includes(scan.table) &&
+        scan.index === "by_external_tournament_id",
+    );
+    expect(tournamentWideScans).toEqual([]);
+  });
 });
+
+type IndexScan = { table: string; index: string };
 
 function makeOverlayCtx(args: {
   externalTournament: Record<string, unknown>;
@@ -100,6 +182,7 @@ function makeOverlayCtx(args: {
   pairings: Record<string, unknown>[];
   players: Record<string, unknown>[];
   roundStandings: Record<string, unknown>[];
+  scans?: IndexScan[];
 }) {
   const rowsByTable = {
     tournaments: args.tournaments,
@@ -123,7 +206,9 @@ function makeOverlayCtx(args: {
         if (!rows) {
           throw new Error(`Unexpected table ${tableName}`);
         }
-        return makeQueryable(rows);
+        return makeQueryable(rows, (index) =>
+          args.scans?.push({ table: tableName, index }),
+        );
       },
       get(id: string) {
         return Promise.resolve(rowsById.get(id) ?? null);
@@ -132,14 +217,18 @@ function makeOverlayCtx(args: {
   } as never;
 }
 
-function makeQueryable(rows: Record<string, unknown>[]) {
+function makeQueryable(
+  rows: Record<string, unknown>[],
+  onScan: (indexName: string) => void,
+) {
   return {
     withIndex(
-      _indexName: string,
+      indexName: string,
       buildQuery: (query: {
         eq: (field: string, value: unknown) => unknown;
       }) => unknown,
     ) {
+      onScan(indexName);
       const clauses: Record<string, unknown> = {};
       const query = {
         eq(field: string, value: unknown) {

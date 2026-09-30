@@ -2,7 +2,11 @@ import { Doc, Id } from "../_generated/dataModel";
 import { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Infer } from "convex/values";
 import type { getOverlayByIdValidator } from "../validators";
-import { getPlayerData } from "./playerData";
+import {
+  TournamentPlayerData,
+  getPlayerData,
+  loadTournamentPlayerData,
+} from "./playerData";
 import { getCurrentRoundPairingsWithPlayerData } from "./pairings";
 import { getPlayersForMatch } from "./players";
 import { getTournamentTimerAndRoundInfo } from "./tournaments";
@@ -178,7 +182,10 @@ export async function enrichMatchOverlay(
 
 /**
  * Helper function to enrich a deck overlay with feature match data.
- * Always returns matchData field (null if matchId is not set).
+ * Always returns a matchData field: null when matchId is not set, or when the
+ * referenced feature match or either of its players no longer exists. This
+ * feeds the public OBS browser source, so a dangling reference must render an
+ * empty overlay rather than throw and break the source.
  */
 export async function enrichDeckOverlay(
   ctx: QueryCtx,
@@ -193,7 +200,10 @@ export async function enrichDeckOverlay(
   }
   const featureMatch = await ctx.db.get(overlay.matchId);
   if (!featureMatch) {
-    throw new Error("Feature match not found for deck overlay");
+    return {
+      ...overlay,
+      matchData: null,
+    };
   }
   const [player1, player2] = await Promise.all([
     ctx.db.get(featureMatch.player1),
@@ -201,7 +211,10 @@ export async function enrichDeckOverlay(
   ]);
 
   if (!player1 || !player2) {
-    throw new Error("Player not found for feature match in deck overlay");
+    return {
+      ...overlay,
+      matchData: null,
+    };
   }
   return {
     ...overlay,
@@ -226,24 +239,39 @@ export async function enrichStandingsOverlay(
   );
   const showCurrentBracket = overlay.showCurrentBracket === true;
   const shouldShowBracket = showCurrentBracket && isEliminationPhase;
-  const bracketDataWithPlayers = shouldShowBracket
-    ? await getEliminationBracketDataWithPlayers(ctx, overlay, externalTournament)
-    : undefined;
-
-  // If no roundStandingsId is set, return overlay without standings data
-  if (!overlay.roundStandingsId) {
-    return {
-      ...overlay,
-      roundDisplayName: externalTournament?.currentRoundName ?? undefined,
-      isEliminationPhase: shouldShowBracket,
-      bracketDataWithPlayers,
-      standingsDataWithPlayers: undefined,
-    };
-  }
 
   // Read the existing standings (created by updateStandingsOverlay mutation)
-  const roundStandings = await ctx.db.get(overlay.roundStandingsId);
-  if (!roundStandings || !Array.isArray(roundStandings.standings)) {
+  const roundStandings = overlay.roundStandingsId
+    ? await ctx.db.get(overlay.roundStandingsId)
+    : null;
+  const standingsRows =
+    roundStandings && Array.isArray(roundStandings.standings)
+      ? roundStandings.standings
+      : null;
+
+  // Standings rows cover every entrant, so when they will be rendered one
+  // bulk load of the tournament's players serves them and the bracket both.
+  // Without standings the bracket looks up only its own (at most eight)
+  // participants, so a 300-player event does not scan every player, status
+  // and decklist row, and unrelated player edits do not invalidate it.
+  const players =
+    roundStandings && standingsRows
+      ? await loadTournamentPlayerData(ctx, roundStandings.externalTournamentId)
+      : undefined;
+  const bracketDataWithPlayers =
+    shouldShowBracket && externalTournament
+      ? await getEliminationBracketDataWithPlayers(
+          ctx,
+          overlay,
+          externalTournament,
+          roundStandings?.externalTournamentId ===
+            externalTournament.externalTournamentId
+            ? players
+            : undefined,
+        )
+      : undefined;
+
+  if (!roundStandings || !standingsRows || !players) {
     return {
       ...overlay,
       roundDisplayName: externalTournament?.currentRoundName ?? undefined,
@@ -261,26 +289,12 @@ export async function enrichStandingsOverlay(
       ? `Round ${roundStandings.roundNumber}`
       : undefined);
 
-  // Enrich standings with player data
-  const standingsDataWithPlayers = await Promise.all(
-    roundStandings.standings.map(async (standing) => {
-      // Try to find matching player by externalPlayerId
-      const player = await ctx.db
-        .query("players")
-        .withIndex("by_external_tournament_id_and_external_player_id", (q) =>
-          q
-            .eq("externalTournamentId", roundStandings.externalTournamentId)
-            .eq("externalPlayerId", standing.externalPlayerId),
-        )
-        .first();
-
-      return {
-        ...standing,
-        seed: standing.rank > 0 ? standing.rank : undefined,
-        playerData: player ? await getPlayerData(ctx, player) : undefined,
-      };
-    }),
-  );
+  // Enrich standings with player data, matched by Melee player id
+  const standingsDataWithPlayers = standingsRows.map((standing) => ({
+    ...standing,
+    seed: standing.rank > 0 ? standing.rank : undefined,
+    playerData: players.byExternalPlayerId.get(standing.externalPlayerId),
+  }));
 
   return {
     ...overlay,
@@ -312,9 +326,10 @@ async function getExternalTournamentForStandingsOverlay(
 async function getEliminationBracketDataWithPlayers(
   ctx: QueryCtx,
   overlay: Doc<"overlays"> & { overlayType: "standings" },
-  externalTournament: Doc<"externalTournaments"> | null,
+  externalTournament: Doc<"externalTournaments">,
+  playerData: TournamentPlayerData | undefined,
 ) {
-  if (!externalTournament?.currentRoundId) {
+  if (!externalTournament.currentRoundId) {
     return undefined;
   }
 
@@ -325,6 +340,7 @@ async function getEliminationBracketDataWithPlayers(
       externalRoundId: externalTournament.currentRoundId,
       roundNumber: externalTournament.currentRoundNumber,
     },
+    playerData,
   );
   if (pairings.length === 0) {
     return undefined;
@@ -451,6 +467,28 @@ export async function enrichOverlay(
   }
 
   return overlay;
+}
+
+/**
+ * Look up an overlay by its public UUID and enrich it. Shared by the public
+ * `getOverlayByUuid` query (used by the overlay page) and the internal query
+ * behind the `/api/overlay/:uuid` HTTP route, so the route does not depend on
+ * the public API surface.
+ */
+export async function getEnrichedOverlayByPublicUuid(
+  ctx: QueryCtx,
+  publicUuid: string,
+): Promise<EnrichedOverlay | null> {
+  const overlay = await ctx.db
+    .query("overlays")
+    .withIndex("by_public_uuid", (q) => q.eq("publicUuid", publicUuid))
+    .unique();
+
+  if (!overlay) {
+    return null;
+  }
+
+  return await enrichOverlay(ctx, overlay);
 }
 
 /**

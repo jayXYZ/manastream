@@ -40,10 +40,10 @@ export default function MatchSettings({
     overlayName !== overlay.name || selectedTemplate !== overlay.template;
 
   const setMatchOverlaySettings = useMutation(
-    api.overlays.setMatchOverlaySettings,
+    api.overlays.match.setMatchOverlaySettings,
   );
 
-  const deleteOverlayMutation = useMutation(api.overlays.deleteOverlay);
+  const deleteOverlayMutation = useMutation(api.overlays.shared.deleteOverlay);
 
   const handleSave = () => {
     // Validate overlay name

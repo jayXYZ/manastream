@@ -1,3 +1,7 @@
+import type { Id } from "../_generated/dataModel";
+import type { MutationCtx } from "../_generated/server";
+import { internal } from "../_generated/api";
+
 export const CARD_IMAGE_POLICY = "oldestNonReprint:v1" as const;
 export const BASIC_LAND_SET_CODE = "LEB" as const;
 export const SCRYFALL_ACCEPT_HEADER = "application/json;q=0.9,*/*;q=0.8";
@@ -69,6 +73,68 @@ export interface ScryfallRequest {
     Accept: string;
     "User-Agent": string;
   };
+}
+
+/**
+ * Whether a stored deck list holds real card lines rather than one of the
+ * placeholder values written before a Melee decklist has been fetched.
+ */
+export function isResolvableDeckList(deckList: string): boolean {
+  const trimmed = deckList.trim();
+  return (
+    trimmed.length > 0 &&
+    trimmed !== "PENDING" &&
+    trimmed !== "MISSING_DECKLIST" &&
+    trimmed !== "Unknown"
+  );
+}
+
+/**
+ * The `deckCardsStatus` to write when a player row is inserted or its deck
+ * list changes, before card resolution has run.
+ */
+export function getInitialDeckCardsStatus(
+  deckList: string,
+): "pending" | "failed" {
+  if (isResolvableDeckList(deckList)) {
+    return "pending";
+  }
+  if (deckList === "PENDING") {
+    return "pending";
+  }
+  return "failed";
+}
+
+/**
+ * Schedule card resolution for one player, skipping placeholder deck lists.
+ */
+export async function scheduleDeckCardsResolution(
+  ctx: Pick<MutationCtx, "scheduler">,
+  playerId: Id<"players">,
+  deckList: string,
+): Promise<void> {
+  if (!isResolvableDeckList(deckList)) {
+    return;
+  }
+  await ctx.scheduler.runAfter(0, internal.deckCards.resolvePlayerDeckCards, {
+    playerId,
+  });
+}
+
+/**
+ * Schedule card resolution for a batch of players whose deck lists the
+ * caller has already checked with `isResolvableDeckList`.
+ */
+export async function scheduleDeckCardsResolutionBatch(
+  ctx: Pick<MutationCtx, "scheduler">,
+  playerIds: Id<"players">[],
+): Promise<void> {
+  if (playerIds.length === 0) {
+    return;
+  }
+  await ctx.scheduler.runAfter(0, internal.deckCards.resolvePlayersDeckCards, {
+    playerIds,
+  });
 }
 
 export function normalizeCardName(name: string): string {

@@ -66,13 +66,11 @@ export function MatchPreviewController({
   const [isOpen, setIsOpen] = useState(false);
   const [dialogResetKey, setDialogResetKey] = useState(0);
   const [tooltipOpen, setTooltipOpen] = useState(false);
-  const matchOverlay = useQuery(api.overlays.getOverlayById, {
+  const matchOverlay = useQuery(api.overlays.queries.getOverlayById, {
     overlayId: matchOverlayId,
   });
-  const updateMatchOverlayDisplayInfo = useMutation(
-    api.overlays.updateMatchOverlayDisplayInfo,
-  );
-  if (!matchOverlay || !updateMatchOverlayDisplayInfo) {
+  const updateMatchOverlay = useMutation(api.overlays.match.updateMatchOverlay);
+  if (!matchOverlay || !updateMatchOverlay) {
     return;
   }
 
@@ -117,7 +115,7 @@ export function MatchPreviewController({
         matchOverlay={matchOverlay as MatchOverlayWithPlayers}
         isOpen={isOpen}
         setIsOpen={setIsOpen}
-        updateMatchOverlayDisplayInfo={updateMatchOverlayDisplayInfo}
+        updateMatchOverlay={updateMatchOverlay}
       />
     </>
   );
@@ -194,21 +192,21 @@ function MatchOverlayPreviewDialog({
   matchOverlay,
   isOpen,
   setIsOpen,
-  updateMatchOverlayDisplayInfo,
+  updateMatchOverlay,
 }: {
   matchOverlay: MatchOverlayWithPlayers;
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
-  updateMatchOverlayDisplayInfo: (args: {
+  updateMatchOverlay: (args: {
     overlayId: Id<"overlays">;
-    player1DisplayName?: string;
-    player2DisplayName?: string;
-    player1DisplayDeck?: string;
-    player2DisplayDeck?: string;
-    player1TournamentRecord?: string;
-    player2TournamentRecord?: string;
-    player1Lc26BackgroundColor?: Lc26BackgroundColor;
-    player2Lc26BackgroundColor?: Lc26BackgroundColor;
+    player1DisplayName?: string | null;
+    player2DisplayName?: string | null;
+    player1DisplayDeck?: string | null;
+    player2DisplayDeck?: string | null;
+    player1TournamentRecord?: string | null;
+    player2TournamentRecord?: string | null;
+    player1Lc26BackgroundColor?: Lc26BackgroundColor | null;
+    player2Lc26BackgroundColor?: Lc26BackgroundColor | null;
   }) => Promise<null>;
 }) {
   const [inputs, setInputs] = useState(() =>
@@ -223,26 +221,27 @@ function MatchOverlayPreviewDialog({
   };
 
   const handleUpdate = async () => {
-    // Convert empty strings to undefined to clear overrides
+    // Empty strings and "auto" send `null`, which clears the override so the
+    // overlay falls back to the linked player's data.
     const updateData = {
       overlayId: matchOverlay._id,
-      player1DisplayName: inputs.player1Name || undefined,
-      player2DisplayName: inputs.player2Name || undefined,
-      player1DisplayDeck: inputs.player1DeckName || undefined,
-      player2DisplayDeck: inputs.player2DeckName || undefined,
-      player1TournamentRecord: inputs.player1TournamentRecord || undefined,
-      player2TournamentRecord: inputs.player2TournamentRecord || undefined,
+      player1DisplayName: inputs.player1Name || null,
+      player2DisplayName: inputs.player2Name || null,
+      player1DisplayDeck: inputs.player1DeckName || null,
+      player2DisplayDeck: inputs.player2DeckName || null,
+      player1TournamentRecord: inputs.player1TournamentRecord || null,
+      player2TournamentRecord: inputs.player2TournamentRecord || null,
       player1Lc26BackgroundColor:
         inputs.player1Lc26BackgroundColor === "auto"
-          ? undefined
+          ? null
           : inputs.player1Lc26BackgroundColor,
       player2Lc26BackgroundColor:
         inputs.player2Lc26BackgroundColor === "auto"
-          ? undefined
+          ? null
           : inputs.player2Lc26BackgroundColor,
     };
 
-    await updateMatchOverlayDisplayInfo(updateData);
+    await updateMatchOverlay(updateData);
 
     // Update inputs to reflect cleared overrides (show API values)
     // This happens before the query updates, so we compute what the values should be

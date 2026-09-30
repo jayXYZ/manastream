@@ -5,10 +5,11 @@ import {
   query,
   mutation,
 } from "./_generated/server";
-import type { MutationCtx } from "./_generated/server";
-import { internal } from "./_generated/api";
 import { v } from "convex/values";
-import { getOwnTournament } from "./lib/tournaments";
+import {
+  getOptionalOwnTournament,
+  getOwnTournament,
+} from "./lib/tournaments";
 import {
   decklistStatusValidator,
   playerRefreshRunValidator,
@@ -17,15 +18,21 @@ import { isPlayerRefreshRunCurrent } from "./lib/playerRefresh";
 import {
   composePlayerData,
   getChangedRegistrationStatuses,
-  getPlayerData,
   getPlayerDecklistByPlayerId,
   insertPlayerDataRows,
+  loadTournamentPlayerData,
   upsertPlayerDecklist,
 } from "./lib/playerData";
 import {
   CachedPlayerForSync,
   shouldApplyDecklistUpdate,
 } from "./lib/playerSync";
+import {
+  getInitialDeckCardsStatus,
+  isResolvableDeckList,
+  scheduleDeckCardsResolution,
+  scheduleDeckCardsResolutionBatch,
+} from "./lib/deckCards";
 
 const decklistUpdateValidator = v.object({
   playerId: v.id("players"),
@@ -265,20 +272,16 @@ export const getAllTournamentPlayers = query({
     }),
   ),
   handler: async (ctx) => {
-    const tournament = await getOwnTournament(ctx);
-    if (!tournament.externalTournamentId) {
+    const tournament = await getOptionalOwnTournament(ctx);
+    if (!tournament?.externalTournamentId) {
+      // Signed out, not initialized, or no Melee tournament linked.
       return [];
     }
-    const players = await ctx.db
-      .query("players")
-      .withIndex("by_external_tournament_id", (q) =>
-        q.eq("externalTournamentId", tournament.externalTournamentId!),
-      )
-      .collect();
-    const playersWithData = await Promise.all(
-      players.map((player) => getPlayerData(ctx, player)),
+    const { players } = await loadTournamentPlayerData(
+      ctx,
+      tournament.externalTournamentId,
     );
-    return playersWithData.map((player) => ({
+    return players.map((player) => ({
       externalPlayerId: player.externalPlayerId,
       name: player.name,
       registrationStatus: player.registrationStatus,
@@ -481,6 +484,7 @@ export const updatePlayerInfo = mutation({
     deckName: v.string(),
     deckList: v.string(),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     // Get the authenticated user's tournament to verify authorization
     const tournament = await getOwnTournament(ctx);
@@ -520,50 +524,6 @@ export const updatePlayerInfo = mutation({
       deckList: args.deckList,
     });
     await scheduleDeckCardsResolution(ctx, player._id, args.deckList);
+    return null;
   },
 });
-
-function getInitialDeckCardsStatus(deckList: string) {
-  if (isResolvableDeckList(deckList)) {
-    return "pending" as const;
-  }
-  if (deckList === "PENDING") {
-    return "pending" as const;
-  }
-  return "failed" as const;
-}
-
-function isResolvableDeckList(deckList: string) {
-  const trimmed = deckList.trim();
-  return (
-    trimmed.length > 0 &&
-    trimmed !== "PENDING" &&
-    trimmed !== "MISSING_DECKLIST" &&
-    trimmed !== "Unknown"
-  );
-}
-
-async function scheduleDeckCardsResolution(
-  ctx: Pick<MutationCtx, "scheduler">,
-  playerId: Id<"players">,
-  deckList: string,
-) {
-  if (!isResolvableDeckList(deckList)) {
-    return;
-  }
-  await ctx.scheduler.runAfter(0, internal.deckCards.resolvePlayerDeckCards, {
-    playerId,
-  });
-}
-
-async function scheduleDeckCardsResolutionBatch(
-  ctx: Pick<MutationCtx, "scheduler">,
-  playerIds: Id<"players">[],
-) {
-  if (playerIds.length === 0) {
-    return;
-  }
-  await ctx.scheduler.runAfter(0, internal.deckCards.resolvePlayersDeckCards, {
-    playerIds,
-  });
-}

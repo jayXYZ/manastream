@@ -1,8 +1,11 @@
 import { Doc, Id } from "../_generated/dataModel";
 import { MutationCtx, QueryCtx } from "../_generated/server";
-import { internal } from "../_generated/api";
 import { NewPlayerEntry, PlayerWithData } from "../types";
 import { getPlayerData, insertPlayerDataRows } from "./playerData";
+import {
+  getInitialDeckCardsStatus,
+  scheduleDeckCardsResolution,
+} from "./deckCards";
 
 /**
  * Helper function to get player data for a given match
@@ -140,37 +143,4 @@ export function createPendingPlayerEntry(
     deckName: PENDING_DECK_INFO,
     deckList: PENDING_DECK_INFO,
   };
-}
-
-function getInitialDeckCardsStatus(deckList: string) {
-  if (isResolvableDeckList(deckList)) {
-    return "pending" as const;
-  }
-  if (deckList === "PENDING") {
-    return "pending" as const;
-  }
-  return "failed" as const;
-}
-
-function isResolvableDeckList(deckList: string) {
-  const trimmed = deckList.trim();
-  return (
-    trimmed.length > 0 &&
-    trimmed !== "PENDING" &&
-    trimmed !== "MISSING_DECKLIST" &&
-    trimmed !== "Unknown"
-  );
-}
-
-async function scheduleDeckCardsResolution(
-  ctx: Pick<MutationCtx, "scheduler">,
-  playerId: Id<"players">,
-  deckList: string,
-) {
-  if (!isResolvableDeckList(deckList)) {
-    return;
-  }
-  await ctx.scheduler.runAfter(0, internal.deckCards.resolvePlayerDeckCards, {
-    playerId,
-  });
 }

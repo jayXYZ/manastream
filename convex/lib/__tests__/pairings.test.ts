@@ -134,12 +134,17 @@ function makePairingsCtx(args: {
   pairings: Record<string, unknown>[];
   players: { _id: string; name: string; externalPlayerId?: number }[];
 }) {
-  const playersById = new Map(args.players.map((player) => [player._id, player]));
+  const playersById = new Map(
+    args.players.map((player) => [player._id, player]),
+  );
   return {
     db: {
       query(tableName: string) {
         if (tableName === "pairings") {
           return makeQueryable(args.pairings);
+        }
+        if (tableName === "players") {
+          return makeQueryable(args.players);
         }
         if (tableName === "playerStatuses" || tableName === "playerDecklists") {
           return makeQueryable([]);

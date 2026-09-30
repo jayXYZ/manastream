@@ -18,6 +18,7 @@ import type { MatchOverlayWithPlayers } from "@/convex/types";
 import type { Infer } from "convex/values";
 import { getOverlayByIdValidator } from "@/convex/validators";
 import { Spinner } from "@/components/ui/spinner";
+import { AccountNotSetUp } from "@/components/account-not-set-up";
 // Type for the overlay data returned from getOverlayById query
 type OverlayData = Infer<typeof getOverlayByIdValidator> | undefined;
 
@@ -39,7 +40,7 @@ function LifeTrackerContent() {
   const tournament = useQuery(api.tournaments.getUserTournament);
   const tournamentMode = tournament?.mode;
   const overlayData = useQuery(
-    api.overlays.getOverlayById,
+    api.overlays.queries.getOverlayById,
     connectedOverlayId
       ? { overlayId: connectedOverlayId as Id<"overlays"> }
       : "skip",
@@ -73,12 +74,20 @@ function LifeTrackerContent() {
     };
   }, [releaseWakeLock]);
 
-  if (!tournament) {
+  if (tournament === undefined) {
     return (
       <div className="flex flex-col gap-4 items-center justify-center min-h-screen">
         <Spinner />
         <div className="text-2xl font-bold">Loading tournament...</div>
       </div>
+    );
+  }
+
+  // Null means signed in but not initialized (unverified password sign-up),
+  // not "still loading"; show the setup state instead of spinning forever.
+  if (tournament === null) {
+    return (
+      <AccountNotSetUp className="flex items-center justify-center min-h-screen" />
     );
   }
 

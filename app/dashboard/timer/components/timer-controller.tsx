@@ -11,6 +11,7 @@ import { Play, Pause, Square, Edit3 } from "lucide-react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { formatTime } from "@/lib/utils";
+import { AccountNotSetUp } from "@/components/account-not-set-up";
 
 interface TimerControllerProps {
   initialMinutes?: number;
@@ -207,8 +208,15 @@ export function TimerController({
     [tournamentId, setTimer],
   );
 
-  if (!tournament) {
+  if (tournament === undefined) {
     return <p>Loading...</p>;
+  }
+
+  // Null means signed in but not initialized (unverified password sign-up),
+  // not "still loading"; show the setup state instead of a permanent
+  // loading message.
+  if (tournament === null) {
+    return <AccountNotSetUp />;
   }
 
   // Get reset target for disabled check

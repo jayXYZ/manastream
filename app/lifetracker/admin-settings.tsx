@@ -30,7 +30,7 @@ function clearPersistedSettings() {
 // Custom hook to safely validate and update connected overlay
 function useOverlayValidation() {
   const { connectedOverlayId, setConnectedOverlayId } = useLifeTrackerStore();
-  const allOverlays = useQuery(api.overlays.getUserOverlays);
+  const allOverlays = useQuery(api.overlays.queries.getUserOverlays);
 
   useEffect(() => {
     if (allOverlays && connectedOverlayId) {
@@ -65,7 +65,7 @@ export default function AdminSettings(props: {
   );
 
   // Mutation for resetting match
-  const resetMatch = useMutation(api.overlays.resetMatch);
+  const resetMatch = useMutation(api.overlays.match.resetMatch);
 
   // Fetch all overlays and filter for type "match"
   const matchOverlays =

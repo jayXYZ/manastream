@@ -6,7 +6,7 @@ import { useQuery } from "convex/react";
 import type { Overlay } from "@/convex/types";
 
 export default function CardControllerPopout() {
-  const overlays = useQuery(api.overlays.getUserOverlays);
+  const overlays = useQuery(api.overlays.queries.getUserOverlays);
 
   function isCardOverlay(overlay: Overlay): overlay is Overlay {
     return overlay.overlayType === "card";

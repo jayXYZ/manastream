@@ -31,10 +31,10 @@ export function CardController({ cardOverlayId, title }: CardControllerProps) {
   const [cardlist, setCardlist] = useState<string[]>([]);
   const [prints, setPrints] = useState<Scry.Card[]>([]);
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
-  const cardOverlay = useQuery(api.overlays.getOverlayById, {
+  const cardOverlay = useQuery(api.overlays.queries.getOverlayById, {
     overlayId: cardOverlayId,
   });
-  const setCard = useMutation(api.overlays.updateCardOverlay);
+  const setCard = useMutation(api.overlays.card.updateCardOverlay);
 
   const handleValueChange = async (value: string) => {
     setInput(value);

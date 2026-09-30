@@ -3,7 +3,7 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 
 const useVariablesData = (overlayId: Id<"overlays">) => {
-  const overlay = useQuery(api.overlays.getOverlayById, {
+  const overlay = useQuery(api.overlays.queries.getOverlayById, {
     overlayId,
   });
 
