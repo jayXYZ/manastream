@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { FeatureMatchWithPlayers } from "@/convex/types";
 import { Id } from "@/convex/_generated/dataModel";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ArrowUpDown, Check } from "lucide-react";
 import { AccountNotSetUp } from "@/components/account-not-set-up";
 
 export default function MatchSelect(props: {
@@ -68,19 +68,27 @@ export default function MatchSelect(props: {
 
   // Always available on the confirmation screen so a wrong tap can be undone
   // without leaving the picker, at round start or mid-round.
+  const backToList = () => {
+    setShowPlayerSelect(false);
+    setSelectedMatch(null);
+  };
+
   const backToListButton = (
     <Button
       variant="outline"
-      onClick={() => {
-        setShowPlayerSelect(false);
-        setSelectedMatch(null);
-      }}
+      onClick={backToList}
       className="w-full h-16 text-lg font-bold"
     >
       <ArrowLeft className="size-5 mr-2" />
       Back to Feature Match List
     </Button>
   );
+
+  // Shared by the Back / Switch Players / Confirm row on the confirmation
+  // screen. min-w-0 lets a button shrink below its content, and the stacked
+  // narrow-screen layout keeps that content inside the button.
+  const confirmRowButtonClass =
+    "flex-1 min-w-0 shrink h-20 flex-col gap-1 px-2 has-[>svg]:px-2 text-base leading-tight sm:flex-row sm:gap-2 sm:px-4 sm:has-[>svg]:px-4 sm:text-xl font-bold whitespace-normal break-words";
 
   if (tournament === undefined) {
     return (
@@ -139,28 +147,40 @@ export default function MatchSelect(props: {
       );
     }
     return (
-      <div className="flex flex-col gap-4 justify-between h-full p-4">
+      <div className="flex flex-col gap-4 justify-between h-full w-full p-4">
         <div className="text-2xl font-bold text-center rotate-180">
           {playersSwitched
             ? selectedMatch.player1Data.name
             : selectedMatch.player2Data.name}
         </div>
-        <div className="flex flex-col gap-4">
-          <div className="flex gap-4">
-            <Button
-              onClick={() => setPlayersSwitched(!playersSwitched)}
-              className="w-full h-20 text-xl font-bold px-6 whitespace-normal break-words"
-            >
-              Switch Players
-            </Button>
-            <Button
-              onClick={handlePlayerSelect}
-              className="h-20 text-xl font-bold px-8 whitespace-normal"
-            >
-              Confirm
-            </Button>
-          </div>
-          {backToListButton}
+        {/* The root is w-full so the row is sized by the screen, not by the
+            buttons' intrinsic width. On phones every button takes an equal
+            third with its icon stacked above a smaller label so both stay
+            inside the button; from sm up they sit side by side and Switch
+            Players takes two units. */}
+        <div className="flex gap-2 sm:gap-4">
+          <Button
+            variant="outline"
+            onClick={backToList}
+            className={confirmRowButtonClass}
+          >
+            <ArrowLeft className="size-6" />
+            Back
+          </Button>
+          <Button
+            onClick={() => setPlayersSwitched(!playersSwitched)}
+            className={`${confirmRowButtonClass} sm:flex-[2]`}
+          >
+            <ArrowUpDown className="size-6" />
+            Switch Players
+          </Button>
+          <Button
+            onClick={handlePlayerSelect}
+            className={`${confirmRowButtonClass} bg-green-600 text-white hover:bg-green-700 active:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700 dark:active:bg-green-700`}
+          >
+            <Check className="size-6" />
+            Confirm
+          </Button>
         </div>
         <div className="text-2xl font-bold text-center">
           {playersSwitched
