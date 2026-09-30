@@ -83,6 +83,12 @@ export default function MatchSelect(props: {
     </Button>
   );
 
+  // Shared by the Back / Switch Players / Confirm row on the confirmation
+  // screen. min-w-0 lets a button shrink below its content, and the stacked
+  // narrow-screen layout keeps that content inside the button.
+  const confirmRowButtonClass =
+    "flex-1 min-w-0 shrink h-20 flex-col gap-1 px-2 has-[>svg]:px-2 text-base leading-tight sm:flex-row sm:gap-2 sm:px-4 sm:has-[>svg]:px-4 sm:text-xl font-bold whitespace-normal break-words";
+
   if (!tournament) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -129,34 +135,36 @@ export default function MatchSelect(props: {
       );
     }
     return (
-      <div className="flex flex-col gap-4 justify-between h-full p-4">
+      <div className="flex flex-col gap-4 justify-between h-full w-full p-4">
         <div className="text-2xl font-bold text-center rotate-180">
           {playersSwitched
             ? selectedMatch.player1Data.name
             : selectedMatch.player2Data.name}
         </div>
-        {/* Back and Confirm share one flex unit each and Switch Players takes
-            two, so the row always fits the container and the text wraps
-            instead of overflowing on narrow screens. */}
-        <div className="flex gap-4">
+        {/* The root is w-full so the row is sized by the screen, not by the
+            buttons' intrinsic width. On phones every button takes an equal
+            third with its icon stacked above a smaller label so both stay
+            inside the button; from sm up they sit side by side and Switch
+            Players takes two units. */}
+        <div className="flex gap-2 sm:gap-4">
           <Button
             variant="outline"
             onClick={backToList}
-            className="flex-1 min-w-0 shrink h-20 text-xl font-bold px-4 whitespace-normal break-words"
+            className={confirmRowButtonClass}
           >
             <ArrowLeft className="size-6" />
             Back
           </Button>
           <Button
             onClick={() => setPlayersSwitched(!playersSwitched)}
-            className="flex-[2] min-w-0 shrink h-20 text-xl font-bold px-4 whitespace-normal break-words"
+            className={`${confirmRowButtonClass} sm:flex-[2]`}
           >
             <ArrowUpDown className="size-6" />
             Switch Players
           </Button>
           <Button
             onClick={handlePlayerSelect}
-            className="flex-1 min-w-0 shrink h-20 text-xl font-bold px-4 whitespace-normal break-words bg-green-600 text-white hover:bg-green-700 active:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700 dark:active:bg-green-700"
+            className={`${confirmRowButtonClass} bg-green-600 text-white hover:bg-green-700 active:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700 dark:active:bg-green-700`}
           >
             <Check className="size-6" />
             Confirm
