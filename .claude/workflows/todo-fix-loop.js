@@ -189,7 +189,17 @@ Change nothing else. Then run:
 Return the commit sha.`,
       { label: `note #${iteration}`, phase: 'Finalize', effort: 'low', schema: FINALIZE_SCHEMA },
     )
-    results.push({ task: fix.taskTitle, outcome: 'not-an-issue', reason: fix.verification, commit: note && note.commitSha })
+    results.push({
+      task: fix.taskTitle,
+      outcome: note && note.committed ? 'not-an-issue' : 'note-commit-failed',
+      reason: fix.verification,
+      commit: note && note.commitSha,
+      notes: note && note.notes,
+    })
+    // An uncommitted note would ride along into the next task's commit (or
+    // leave the same task open, to be re-verified forever), so stop here
+    // exactly as the normal finalize branch does when its commit fails.
+    if (!note || !note.committed) { log(`Iteration ${iteration}: not-an-issue note was not committed; stopping.`); break }
     continue
   }
 
@@ -256,10 +266,13 @@ and do NOT commit. Set approved=true only when you would merge this.`,
    Mark it complete: for a checkbox item change "- [ ]" to "- [x]"; for a
    headed task prefix the heading text with "[DONE] " (keep the number and
    title). Change nothing else in the file.
-2. Stage ONLY these paths, one \`git add -- <path>\` each (skip any that
-   does not exist):
+2. Stage ONLY these paths, one \`git add -- <path>\` each:
    ${FILE}
    ${taskPaths.join('\n   ')}
+   A path that was deleted or renamed away by the fix must still be staged:
+   \`git add -- <path>\` records the removal of a tracked file even though
+   the file is gone. Skip a path only when git rejects it because it is
+   neither on disk nor tracked ("pathspec ... did not match any files").
    Never run \`git add -A\`, \`git add .\` or \`git add -u\`. Then run
    \`git status --porcelain\`: any other modified or untracked path is not
    part of this task. Leave it unstaged and list it in notes.

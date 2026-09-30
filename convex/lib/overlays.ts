@@ -4,8 +4,8 @@ import type { Infer } from "convex/values";
 import type { getOverlayByIdValidator } from "../validators";
 import {
   TournamentPlayerData,
-  createTournamentPlayerDataLoader,
   getPlayerData,
+  loadTournamentPlayerData,
 } from "./playerData";
 import { getCurrentRoundPairingsWithPlayerData } from "./pairings";
 import { getPlayersForMatch } from "./players";
@@ -234,38 +234,44 @@ export async function enrichStandingsOverlay(
     ctx,
     overlay,
   );
-  // One bulk load of the tournament's players serves both the bracket and
-  // the standings rows below, instead of three lookups per row.
-  const loadPlayers = createTournamentPlayerDataLoader(ctx);
   const isEliminationPhase = ELIMINATION_ROUND_NAMES.has(
     externalTournament?.currentRoundName ?? "",
   );
   const showCurrentBracket = overlay.showCurrentBracket === true;
   const shouldShowBracket = showCurrentBracket && isEliminationPhase;
+
+  // Read the existing standings (created by updateStandingsOverlay mutation)
+  const roundStandings = overlay.roundStandingsId
+    ? await ctx.db.get(overlay.roundStandingsId)
+    : null;
+  const standingsRows =
+    roundStandings && Array.isArray(roundStandings.standings)
+      ? roundStandings.standings
+      : null;
+
+  // Standings rows cover every entrant, so when they will be rendered one
+  // bulk load of the tournament's players serves them and the bracket both.
+  // Without standings the bracket looks up only its own (at most eight)
+  // participants, so a 300-player event does not scan every player, status
+  // and decklist row, and unrelated player edits do not invalidate it.
+  const players =
+    roundStandings && standingsRows
+      ? await loadTournamentPlayerData(ctx, roundStandings.externalTournamentId)
+      : undefined;
   const bracketDataWithPlayers =
     shouldShowBracket && externalTournament
       ? await getEliminationBracketDataWithPlayers(
           ctx,
           overlay,
           externalTournament,
-          await loadPlayers(externalTournament.externalTournamentId),
+          roundStandings?.externalTournamentId ===
+            externalTournament.externalTournamentId
+            ? players
+            : undefined,
         )
       : undefined;
 
-  // If no roundStandingsId is set, return overlay without standings data
-  if (!overlay.roundStandingsId) {
-    return {
-      ...overlay,
-      roundDisplayName: externalTournament?.currentRoundName ?? undefined,
-      isEliminationPhase: shouldShowBracket,
-      bracketDataWithPlayers,
-      standingsDataWithPlayers: undefined,
-    };
-  }
-
-  // Read the existing standings (created by updateStandingsOverlay mutation)
-  const roundStandings = await ctx.db.get(overlay.roundStandingsId);
-  if (!roundStandings || !Array.isArray(roundStandings.standings)) {
+  if (!roundStandings || !standingsRows || !players) {
     return {
       ...overlay,
       roundDisplayName: externalTournament?.currentRoundName ?? undefined,
@@ -284,8 +290,7 @@ export async function enrichStandingsOverlay(
       : undefined);
 
   // Enrich standings with player data, matched by Melee player id
-  const players = await loadPlayers(roundStandings.externalTournamentId);
-  const standingsDataWithPlayers = roundStandings.standings.map((standing) => ({
+  const standingsDataWithPlayers = standingsRows.map((standing) => ({
     ...standing,
     seed: standing.rank > 0 ? standing.rank : undefined,
     playerData: players.byExternalPlayerId.get(standing.externalPlayerId),
@@ -322,7 +327,7 @@ async function getEliminationBracketDataWithPlayers(
   ctx: QueryCtx,
   overlay: Doc<"overlays"> & { overlayType: "standings" },
   externalTournament: Doc<"externalTournaments">,
-  playerData: TournamentPlayerData,
+  playerData: TournamentPlayerData | undefined,
 ) {
   if (!externalTournament.currentRoundId) {
     return undefined;

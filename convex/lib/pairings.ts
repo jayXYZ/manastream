@@ -10,11 +10,7 @@ import {
   createPlayer,
   getPlayerByExternalPlayerId,
 } from "./players";
-import {
-  TournamentPlayerData,
-  getPlayerDataById,
-  loadTournamentPlayerData,
-} from "./playerData";
+import { TournamentPlayerData, getPlayerDataById } from "./playerData";
 
 type SnapshotCurrentRoundPairingsArgs = {
   tournamentId: Id<"tournaments">;
@@ -28,10 +24,11 @@ type CurrentRoundPairingsFilter = {
 };
 
 /**
- * The round's pairings with both players' data joined in. Player data comes
- * from `playerData` when given, otherwise from one bulk load of the Melee
- * tournament's players, so the cost is a few index scans rather than four
- * lookups per pairing.
+ * The round's pairings with both players' data joined in. Pass `playerData`
+ * when the caller already holds the tournament's players (a Swiss round's
+ * pairings page loads them all anyway); otherwise each pairing's two players
+ * are looked up directly, which keeps a top-8 bracket at a handful of reads
+ * instead of a scan of every entrant.
  */
 export async function getCurrentRoundPairingsWithPlayerData(
   ctx: QueryCtx,
@@ -60,19 +57,11 @@ export async function getCurrentRoundPairingsWithPlayerData(
             .collect()
         : [];
 
-  if (pairings.length === 0) {
-    return [];
-  }
-  // All pairings of a tournament's round share one Melee tournament.
-  const players =
-    playerData ??
-    (await loadTournamentPlayerData(ctx, pairings[0].externalTournamentId));
-
   return await Promise.all(
     pairings.map(async (pairing) => {
       const [player1Data, player2Data] = await Promise.all([
-        getPlayerDataById(ctx, pairing.player1, players),
-        getPlayerDataById(ctx, pairing.player2, players),
+        getPlayerDataById(ctx, pairing.player1, playerData),
+        getPlayerDataById(ctx, pairing.player2, playerData),
       ]);
       return { ...pairing, player1Data, player2Data };
     }),

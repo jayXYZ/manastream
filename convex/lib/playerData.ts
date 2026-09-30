@@ -176,22 +176,6 @@ export async function loadTournamentPlayerData(
 }
 
 /**
- * Memoizes loadTournamentPlayerData per Melee tournament id for the life of
- * one query, so enrichment steps that need the same players share one load.
- */
-export function createTournamentPlayerDataLoader(ctx: QueryCtx | MutationCtx) {
-  const cache = new Map<number, Promise<TournamentPlayerData>>();
-  return (externalTournamentId: number): Promise<TournamentPlayerData> => {
-    let loading = cache.get(externalTournamentId);
-    if (!loading) {
-      loading = loadTournamentPlayerData(ctx, externalTournamentId);
-      cache.set(externalTournamentId, loading);
-    }
-    return loading;
-  };
-}
-
-/**
  * Player data by players-table id, from the preloaded tournament set when
  * the player is in it, otherwise from a direct lookup. The fallback covers
  * rows that predate externalTournamentId being stored on players.
