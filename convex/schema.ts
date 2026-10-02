@@ -78,6 +78,10 @@ export default defineSchema({
 
   pairings: defineTable(pairingValidator)
     .index("by_tournament_and_round", ["tournamentId", "roundNumber"])
+    .index("by_tournament_and_external_round", [
+      "tournamentId",
+      "externalRoundId",
+    ])
     .index("by_external_round", ["externalRoundId"])
     .index("by_external_id", ["externalId"]),
 

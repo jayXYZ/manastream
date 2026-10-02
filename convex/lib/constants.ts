@@ -41,3 +41,11 @@ export const ELIMINATION_ROUND_NAMES = new Set([
 export function isEliminationRoundName(roundName: string | undefined): boolean {
   return roundName !== undefined && ELIMINATION_ROUND_NAMES.has(roundName);
 }
+
+// How many matches a top-8 cut's rounds hold, so a partly captured round
+// can be told from a complete one.
+export const EXPECTED_ELIMINATION_MATCHES: Record<string, number> = {
+  Quarterfinals: 4,
+  Semifinals: 2,
+  Finals: 1,
+};

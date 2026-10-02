@@ -104,6 +104,7 @@ describe("roundHasUncapturedPairings", () => {
     const ctx = makePairingsCtx({ pairings: stored, players: [] });
     expect(
       await roundHasUncapturedPairings(ctx, {
+        tournamentId: "tournament1" as never,
         externalTournamentId: 999,
         externalRoundId: 101,
         externalMatchIds: ["day1"],
@@ -111,6 +112,7 @@ describe("roundHasUncapturedPairings", () => {
     ).toBe(false);
     expect(
       await roundHasUncapturedPairings(ctx, {
+        tournamentId: "tournament1" as never,
         externalTournamentId: 999,
         externalRoundId: 101,
         externalMatchIds: [],
@@ -122,6 +124,7 @@ describe("roundHasUncapturedPairings", () => {
     const ctx = makePairingsCtx({ pairings: stored, players: [] });
     expect(
       await roundHasUncapturedPairings(ctx, {
+        tournamentId: "tournament1" as never,
         externalTournamentId: 999,
         externalRoundId: 101,
         externalMatchIds: ["day1", "late-table"],
