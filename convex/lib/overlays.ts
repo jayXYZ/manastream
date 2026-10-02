@@ -3,7 +3,11 @@ import { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Infer } from "convex/values";
 import type { getOverlayByIdValidator } from "../validators";
 import { getPlayerData, loadTournamentPlayerData } from "./playerData";
-import { getCurrentRoundPairingsWithPlayerData } from "./pairings";
+import { internal } from "../_generated/api";
+import {
+  findRoundsNeedingCapture,
+  getCurrentRoundPairingsWithPlayerData,
+} from "./pairings";
 import { getPlayersForMatch } from "./players";
 import { getTournamentTimerAndRoundInfo } from "./tournaments";
 import { generatePublicUuid } from "./utils";
@@ -363,7 +367,7 @@ export const COMPLETED_BRACKET_DISPLAY_NAME = "Final Results";
  * current round when it is part of the cut. A finished tournament lists its
  * finals as completed and as current; it is counted once.
  */
-function listEliminationRounds(
+export function listEliminationRounds(
   externalTournament: Doc<"externalTournaments">,
 ): EliminationRound[] {
   const rounds: EliminationRound[] = (externalTournament.completedRounds ?? [])
@@ -382,6 +386,46 @@ function listEliminationRounds(
     });
   }
   return rounds;
+}
+
+/**
+ * Fetches any elimination round the bracket cannot draw in full: one no poll
+ * captured (the cut of a tournament linked after it finished, or a round
+ * missed while polling was down) or one whose pairings have no result yet.
+ * Without these rows the bracket shows only the current round's players.
+ * Nothing is scheduled when every round is captured with its results.
+ */
+export async function scheduleEliminationPairingsBackfill(
+  ctx: MutationCtx,
+  tournament: Doc<"tournaments">,
+): Promise<number[]> {
+  const externalTournamentId = tournament.externalTournamentId;
+  if (externalTournamentId === undefined) {
+    return [];
+  }
+  const externalTournament = await ctx.db
+    .query("externalTournaments")
+    .withIndex("by_external_tournament_id", (q) =>
+      q.eq("externalTournamentId", externalTournamentId),
+    )
+    .unique();
+  if (!externalTournament) {
+    return [];
+  }
+  const roundIds = await findRoundsNeedingCapture(
+    ctx,
+    tournament._id,
+    listEliminationRounds(externalTournament).map((round) => round.roundId),
+  );
+  if (roundIds.length === 0) {
+    return [];
+  }
+  await ctx.scheduler.runAfter(
+    0,
+    internal.tournamentSync.backfillEliminationPairings,
+    { tournamentId: tournament._id, externalTournamentId, roundIds },
+  );
+  return roundIds;
 }
 
 function resolveBracketStage(

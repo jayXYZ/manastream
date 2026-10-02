@@ -22,7 +22,10 @@ import {
   requireStandingsOverlayAccess,
   requireTournamentAccess,
 } from "../lib/auth";
-import { createStandingsOverlayHelper } from "../lib/overlays";
+import {
+  createStandingsOverlayHelper,
+  scheduleEliminationPairingsBackfill,
+} from "../lib/overlays";
 import { filterUndefined } from "../lib/utils";
 import { isEliminationRoundName } from "../lib/constants";
 import { getMeleeCredentialsForTournament } from "../lib/settings";
@@ -132,6 +135,7 @@ export const updateStandingsOverlay = mutation({
         showCurrentBracket: true,
         showCompletedBracket: false,
       });
+      await scheduleEliminationPairingsBackfill(ctx, tournament);
       return null;
     }
     if (args.showCompletedBracket) {
@@ -139,6 +143,7 @@ export const updateStandingsOverlay = mutation({
         showCurrentBracket: false,
         showCompletedBracket: true,
       });
+      await scheduleEliminationPairingsBackfill(ctx, tournament);
       return null;
     }
 
@@ -162,6 +167,7 @@ export const updateStandingsOverlay = mutation({
         showCurrentBracket: false,
         showCompletedBracket: false,
       });
+      await scheduleEliminationPairingsBackfill(ctx, tournament);
       return null;
     }
     const standings = await getRoundStandingsHelper(ctx, args.externalRoundId);

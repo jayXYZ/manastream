@@ -30,6 +30,7 @@ import {
   recordPairingResults,
   reportedMatchResults,
   roundHasUncapturedPairings,
+  snapshotCurrentRoundPairings,
 } from "./lib/pairings";
 import {
   PlayerRefreshRun,
@@ -42,6 +43,7 @@ import {
   fetchMeleeCurrentStandings,
   fetchMeleeDecklist,
   fetchMeleePlayerList,
+  fetchMeleeRoundMatches,
   fetchMeleeRoundStandings,
   fetchMeleeTournament,
 } from "./lib/melee/api";
@@ -669,6 +671,106 @@ export const hasUncapturedPairings = internalQuery({
   returns: v.boolean(),
   handler: async (ctx, args) => {
     return await roundHasUncapturedPairings(ctx, args);
+  },
+});
+
+/**
+ * Stores a round's pairings without touching the stored current round, for
+ * rounds fetched after the fact. A snapshot for a Melee tournament the
+ * tournament is no longer linked to is ignored.
+ */
+export const capturePairingsForRound = internalMutation({
+  args: {
+    tournamentId: v.id("tournaments"),
+    snapshot: roundSnapshotValidator,
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const tournament = await ctx.db.get(args.tournamentId);
+    if (
+      !tournament ||
+      tournament.externalTournamentId !== args.snapshot.externalTournamentId
+    ) {
+      return null;
+    }
+    await snapshotCurrentRoundPairings(ctx, {
+      tournamentId: args.tournamentId,
+      externalTournamentId: args.snapshot.externalTournamentId,
+      snapshot: args.snapshot,
+    });
+    return null;
+  },
+});
+
+/**
+ * Fetches elimination rounds the bracket cannot draw in full and stores
+ * their pairings with any reported results; rounds already captured only
+ * gain their results. Scheduled by the standings overlay when a bracket view
+ * is selected. Each round is fetched on its own so one failure does not lose
+ * the others.
+ */
+export const backfillEliminationPairings = internalAction({
+  args: {
+    tournamentId: v.id("tournaments"),
+    externalTournamentId: v.number(),
+    roundIds: v.array(v.number()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const credentials: MeleeCredentials = await ctx.runQuery(
+      internal.overlays.standings.getRoundStandingsCredentials,
+      { tournamentId: args.tournamentId },
+    );
+    const overview = await fetchMeleeTournament(
+      args.externalTournamentId,
+      credentials,
+    );
+    const standings = standingsByPlayerId(
+      await fetchMeleeCurrentStandings(args.externalTournamentId, credentials),
+    );
+    const seedMaps = new Map<number, Map<number, number>>();
+
+    for (const roundId of args.roundIds) {
+      try {
+        const matches = await fetchMeleeRoundMatches(roundId, credentials);
+        if (matches.length === 0) {
+          continue;
+        }
+        const lastSwissRoundId = getLastSwissRoundId(overview, roundId);
+        let lastSwissSeedByPlayerId: Map<number, number> | undefined;
+        if (lastSwissRoundId !== undefined) {
+          lastSwissSeedByPlayerId = seedMaps.get(lastSwissRoundId);
+          if (!lastSwissSeedByPlayerId) {
+            lastSwissSeedByPlayerId = seedMapFromStandings(
+              await fetchMeleeRoundStandings(lastSwissRoundId, credentials),
+            );
+            seedMaps.set(lastSwissRoundId, lastSwissSeedByPlayerId);
+          }
+        }
+        const snapshot = buildRoundSnapshot({
+          overview,
+          matches,
+          standingsByPlayerId: standings,
+          lastSwissSeedByPlayerId,
+        });
+        if (!snapshot) {
+          continue;
+        }
+        await ctx.runMutation(internal.tournamentSync.capturePairingsForRound, {
+          tournamentId: args.tournamentId,
+          snapshot,
+        });
+        console.log(
+          `Tournament ${args.externalTournamentId}: backfilled pairings for round ${roundId}`,
+        );
+      } catch (error) {
+        console.error(
+          `Tournament ${args.externalTournamentId}: could not backfill round ${roundId}:`,
+          error,
+        );
+      }
+    }
+    return null;
   },
 });
 

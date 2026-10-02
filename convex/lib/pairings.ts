@@ -68,6 +68,36 @@ export async function getCurrentRoundPairingsWithPlayerData(
   );
 }
 
+/**
+ * The given rounds the bracket cannot draw in full from what is stored: no
+ * pairing captured for this tournament, or a pairing with no winner yet.
+ * Meant for elimination rounds, which hold at most a handful of pairings.
+ */
+export async function findRoundsNeedingCapture(
+  ctx: QueryCtx,
+  tournamentId: Id<"tournaments">,
+  externalRoundIds: number[],
+): Promise<number[]> {
+  const needed: number[] = [];
+  for (const externalRoundId of externalRoundIds) {
+    const captured = (
+      await ctx.db
+        .query("pairings")
+        .withIndex("by_external_round", (q) =>
+          q.eq("externalRoundId", externalRoundId),
+        )
+        .collect()
+    ).filter((pairing) => pairing.tournamentId === tournamentId);
+    if (
+      captured.length === 0 ||
+      captured.some((pairing) => pairing.winnerPlayerId === undefined)
+    ) {
+      needed.push(externalRoundId);
+    }
+  }
+  return needed;
+}
+
 /** Byes and malformed matches are never stored as pairings. */
 function isCapturablePairing(match: SnapshotMatch): boolean {
   return match.competitors.length === 2;
