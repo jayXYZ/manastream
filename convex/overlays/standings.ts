@@ -29,6 +29,7 @@ import {
 import { filterUndefined } from "../lib/utils";
 import { isEliminationRoundName } from "../lib/constants";
 import { getMeleeCredentialsForTournament } from "../lib/settings";
+import { getOwnExternalTournament } from "../lib/tournaments";
 import type { MeleeCredentials } from "../lib/melee/api";
 
 export const updateRoundStandings = internalMutation({
@@ -135,7 +136,12 @@ export const updateStandingsOverlay = mutation({
         showCurrentBracket: true,
         showCompletedBracket: false,
       });
-      await scheduleEliminationPairingsBackfill(ctx, tournament);
+      const externalTournament = await getOwnExternalTournament(ctx);
+      await scheduleEliminationPairingsBackfill(
+        ctx,
+        tournament,
+        externalTournament?.currentRoundId,
+      );
       return null;
     }
     if (args.showCompletedBracket) {
@@ -167,7 +173,11 @@ export const updateStandingsOverlay = mutation({
         showCurrentBracket: false,
         showCompletedBracket: false,
       });
-      await scheduleEliminationPairingsBackfill(ctx, tournament);
+      await scheduleEliminationPairingsBackfill(
+        ctx,
+        tournament,
+        args.externalRoundId,
+      );
       return null;
     }
     const standings = await getRoundStandingsHelper(ctx, args.externalRoundId);

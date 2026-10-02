@@ -391,13 +391,17 @@ export function listEliminationRounds(
 /**
  * Fetches any elimination round the bracket cannot draw in full: one no poll
  * captured (the cut of a tournament linked after it finished, or a round
- * missed while polling was down) or one whose pairings have no result yet.
- * Without these rows the bracket shows only the current round's players.
- * Nothing is scheduled when every round is captured with its results.
+ * missed while polling was down), one captured only in part, or one whose
+ * pairings have no result yet. Without these rows the bracket shows only the
+ * current round's players. Only the rounds the view draws are fetched: up to
+ * `upToRoundId`, or every elimination round when it is omitted. The round
+ * being polled is left to the poll. Nothing is scheduled when every round in
+ * scope is captured with its results.
  */
 export async function scheduleEliminationPairingsBackfill(
   ctx: MutationCtx,
   tournament: Doc<"tournaments">,
+  upToRoundId?: number,
 ): Promise<number[]> {
   const externalTournamentId = tournament.externalTournamentId;
   if (externalTournamentId === undefined) {
@@ -412,10 +416,21 @@ export async function scheduleEliminationPairingsBackfill(
   if (!externalTournament) {
     return [];
   }
+  const rounds = listEliminationRounds(externalTournament);
+  const upToIndex =
+    upToRoundId === undefined
+      ? rounds.length - 1
+      : rounds.findIndex((round) => round.roundId === upToRoundId);
   const roundIds = await findRoundsNeedingCapture(
     ctx,
     tournament._id,
-    listEliminationRounds(externalTournament).map((round) => round.roundId),
+    rounds.slice(0, upToIndex + 1),
+    {
+      polledRoundId:
+        tournament.pollingStatus === "active"
+          ? externalTournament.currentRoundId
+          : undefined,
+    },
   );
   if (roundIds.length === 0) {
     return [];

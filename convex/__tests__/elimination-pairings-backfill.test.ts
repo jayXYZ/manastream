@@ -3,6 +3,7 @@ import { convexTest } from "convex-test";
 import { defineSchema } from "convex/server";
 import { expect, it } from "vitest";
 import { api, internal } from "../_generated/api";
+import { Id } from "../_generated/dataModel";
 import schema from "../schema";
 
 const modules = import.meta.glob("../**/*.{js,ts}");
@@ -10,7 +11,7 @@ const modules = import.meta.glob("../**/*.{js,ts}");
 // so insert validation is disabled while argument/return validation stays on.
 const testSchema = defineSchema(schema.tables, { schemaValidation: false });
 
-async function setup() {
+async function setup(options?: { pollingStatus?: "active" | "inactive" }) {
   const t = convexTest(testSchema, modules);
   const ids = await t.run(async (ctx) => {
     const user = await ctx.db.insert("users", {});
@@ -18,6 +19,7 @@ async function setup() {
       userId: user,
       mode: "manual",
       externalTournamentId: 999,
+      pollingStatus: options?.pollingStatus,
       manualTimerRunning: false,
       createdAt: 1,
       updatedAt: 1,
@@ -75,13 +77,15 @@ async function setup() {
       publicUuid: "standings",
       createdAt: 1,
     });
-    return { user, tournament, externalTournament, overlay };
+    return { user, tournament, externalTournament, overlay, ada };
   });
   const owner = t.withIdentity({ subject: ids.user });
   return { t, owner, ids };
 }
 
-async function scheduledBackfills(t: Awaited<ReturnType<typeof setup>>["t"]) {
+type Backend = Awaited<ReturnType<typeof setup>>["t"];
+
+async function scheduledBackfills(t: Backend) {
   const jobs = await t.run((ctx) =>
     ctx.db.system.query("_scheduled_functions").collect(),
   );
@@ -92,38 +96,75 @@ async function scheduledBackfills(t: Awaited<ReturnType<typeof setup>>["t"]) {
     }));
 }
 
-function snapshotForRound(roundId: number, roundNumber: number) {
+/** A full round: `count` finished matches, seeds paired top against bottom. */
+function snapshotForRound(roundId: number, roundNumber: number, count: number) {
+  const seeds = Array.from({ length: count * 2 }, (_, index) => index + 1);
   return {
     externalTournamentId: 999,
     roundId,
     roundNumber,
     roundDisplayName: "Quarterfinals",
     isEliminationRound: true,
-    matches: [
-      {
-        externalMatchId: `qf-${roundId}`,
-        tableNumber: 1,
+    matches: Array.from({ length: count }, (_, index) => {
+      const top = seeds[index];
+      const bottom = seeds[seeds.length - 1 - index];
+      return {
+        externalMatchId: `r${roundId}-m${index}`,
+        tableNumber: index + 1,
         isFeatureMatch: false,
         hasResult: true,
-        winnerExternalPlayerId: 101,
+        winnerExternalPlayerId: 100 + top,
         competitors: [
-          { externalPlayerId: 101, name: "Ada", tournamentRecord: "#1", seed: 1 },
-          { externalPlayerId: 108, name: "Hal", tournamentRecord: "#8", seed: 8 },
+          {
+            externalPlayerId: 100 + top,
+            name: `Seed ${top}`,
+            tournamentRecord: `#${top}`,
+            seed: top,
+          },
+          {
+            externalPlayerId: 100 + bottom,
+            name: `Seed ${bottom}`,
+            tournamentRecord: `#${bottom}`,
+            seed: bottom,
+          },
         ],
-      },
-    ],
+      };
+    }),
   };
 }
 
-it("selecting a bracket view schedules a fetch of the uncaptured elimination rounds", async () => {
+async function capture(
+  t: Backend,
+  tournamentId: Id<"tournaments">,
+  roundId: number,
+  roundNumber: number,
+  count: number,
+) {
+  await t.mutation(internal.tournamentSync.capturePairingsForRound, {
+    tournamentId,
+    snapshot: snapshotForRound(roundId, roundNumber, count),
+  });
+}
+
+it("the completed bracket fetches every round that is missing, partial or unresolved", async () => {
   const { t, owner, ids } = await setup();
   await owner.mutation(api.overlays.standings.updateStandingsOverlay, {
     overlayId: ids.overlay,
     showCompletedBracket: true,
   });
-  // The quarterfinals and semifinals are missing and the captured final has
-  // no result yet; the Swiss round is not part of the bracket.
+  // Quarterfinals and semifinals are missing and the captured final has no
+  // result yet; the Swiss round is not part of the bracket.
   expect(await scheduledBackfills(t)).toEqual([{ roundIds: [501, 502, 503] }]);
+});
+
+it("a historical bracket view fetches only the rounds through that stage", async () => {
+  const { t, owner, ids } = await setup();
+  await owner.mutation(api.overlays.standings.updateStandingsOverlay, {
+    overlayId: ids.overlay,
+    externalRoundId: 502,
+    showCurrentBracket: false,
+  });
+  expect(await scheduledBackfills(t)).toEqual([{ roundIds: [501, 502] }]);
 });
 
 it("a Swiss round selection schedules no backfill", async () => {
@@ -136,24 +177,32 @@ it("a Swiss round selection schedules no backfill", async () => {
   expect(await scheduledBackfills(t)).toEqual([]);
 });
 
+it("the round being polled is left to the poll", async () => {
+  const { t, owner, ids } = await setup({ pollingStatus: "active" });
+  await owner.mutation(api.overlays.standings.updateStandingsOverlay, {
+    overlayId: ids.overlay,
+    showCurrentBracket: true,
+  });
+  expect(await scheduledBackfills(t)).toEqual([{ roundIds: [501, 502] }]);
+});
+
 it("captured rounds are stored with results and leave the current round alone", async () => {
   const { t, owner, ids } = await setup();
-  await t.mutation(internal.tournamentSync.capturePairingsForRound, {
-    tournamentId: ids.tournament,
-    snapshot: snapshotForRound(501, 9),
-  });
-  await t.mutation(internal.tournamentSync.capturePairingsForRound, {
-    tournamentId: ids.tournament,
-    snapshot: snapshotForRound(502, 10),
-  });
+  await capture(t, ids.tournament, 501, 9, 4);
+  await capture(t, ids.tournament, 502, 10, 2);
 
   const pairings = await t.run((ctx) => ctx.db.query("pairings").collect());
-  const quarterfinal = pairings.find((pairing) => pairing.externalRoundId === 501);
-  expect(quarterfinal?.status).toBe("COMPLETE");
-  expect(quarterfinal?.winnerPlayerId).toBe(quarterfinal?.player1);
-  // The new opponent was created as a pending player entry.
-  const hal = await t.run((ctx) => ctx.db.get(quarterfinal!.player2));
-  expect(hal?.name).toBe("Hal");
+  const quarterfinals = pairings.filter(
+    (pairing) => pairing.externalRoundId === 501,
+  );
+  expect(quarterfinals).toHaveLength(4);
+  expect(quarterfinals.every((pairing) => pairing.status === "COMPLETE")).toBe(
+    true,
+  );
+  expect(quarterfinals[0].winnerPlayerId).toBe(quarterfinals[0].player1);
+  // New opponents were created as pending player entries.
+  const seed8 = await t.run((ctx) => ctx.db.get(quarterfinals[0].player2));
+  expect(seed8?.name).toBe("Seed 8");
 
   const externalTournament = await t.run((ctx) =>
     ctx.db.get(ids.externalTournament),
@@ -161,20 +210,72 @@ it("captured rounds are stored with results and leave the current round alone", 
   expect(externalTournament?.currentRoundId).toBe(503);
   expect(externalTournament?.currentRoundName).toBe("Finals");
 
-  // Only the final, which still has no result, is fetched again.
+  // With the rounds through the semifinals complete, that view needs nothing.
   await owner.mutation(api.overlays.standings.updateStandingsOverlay, {
     overlayId: ids.overlay,
     externalRoundId: 502,
     showCurrentBracket: false,
   });
-  expect(await scheduledBackfills(t)).toEqual([{ roundIds: [503] }]);
+  expect(await scheduledBackfills(t)).toEqual([]);
+});
+
+it("a round captured only in part is fetched again", async () => {
+  const { t, owner, ids } = await setup();
+  // One quarterfinal of four, finished.
+  await capture(t, ids.tournament, 501, 9, 1);
+  await owner.mutation(api.overlays.standings.updateStandingsOverlay, {
+    overlayId: ids.overlay,
+    externalRoundId: 501,
+    showCurrentBracket: false,
+  });
+  expect(await scheduledBackfills(t)).toEqual([{ roundIds: [501] }]);
+});
+
+it("a second account linking the same Melee tournament gets its own pairings", async () => {
+  const { t, ids } = await setup();
+  const second = await t.run(async (ctx) => {
+    const user = await ctx.db.insert("users", {});
+    return await ctx.db.insert("tournaments", {
+      userId: user,
+      mode: "manual",
+      externalTournamentId: 999,
+      manualTimerRunning: false,
+      createdAt: 1,
+      updatedAt: 1,
+    });
+  });
+  await capture(t, ids.tournament, 501, 9, 4);
+  await capture(t, second, 501, 9, 4);
+
+  const pairings = await t.run((ctx) =>
+    ctx.db
+      .query("pairings")
+      .withIndex("by_external_round", (q) => q.eq("externalRoundId", 501))
+      .collect(),
+  );
+  expect(
+    pairings.filter((pairing) => pairing.tournamentId === ids.tournament),
+  ).toHaveLength(4);
+  expect(
+    pairings.filter((pairing) => pairing.tournamentId === second),
+  ).toHaveLength(4);
+  // A repeat capture for either account changes nothing.
+  await capture(t, second, 501, 9, 4);
+  expect(
+    await t.run((ctx) =>
+      ctx.db
+        .query("pairings")
+        .withIndex("by_external_round", (q) => q.eq("externalRoundId", 501))
+        .collect(),
+    ),
+  ).toHaveLength(8);
 });
 
 it("a snapshot for a Melee tournament no longer linked is ignored", async () => {
   const { t, ids } = await setup();
   await t.mutation(internal.tournamentSync.capturePairingsForRound, {
     tournamentId: ids.tournament,
-    snapshot: { ...snapshotForRound(601, 9), externalTournamentId: 1000 },
+    snapshot: { ...snapshotForRound(601, 9, 1), externalTournamentId: 1000 },
   });
   const pairings = await t.run((ctx) => ctx.db.query("pairings").collect());
   expect(pairings.map((pairing) => pairing.externalRoundId)).toEqual([503]);

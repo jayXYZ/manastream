@@ -11,6 +11,7 @@ import {
   getPlayerByExternalPlayerId,
 } from "./players";
 import { TournamentPlayerData, getPlayerDataById } from "./playerData";
+import { EXPECTED_ELIMINATION_MATCHES } from "./constants";
 
 type SnapshotCurrentRoundPairingsArgs = {
   tournamentId: Id<"tournaments">;
@@ -38,14 +39,14 @@ export async function getCurrentRoundPairingsWithPlayerData(
 ) {
   const pairings =
     filter.externalRoundId != null
-      ? (
-          await ctx.db
-            .query("pairings")
-            .withIndex("by_external_round", (q) =>
-              q.eq("externalRoundId", filter.externalRoundId!),
-            )
-            .collect()
-        ).filter((pairing) => pairing.tournamentId === tournamentId)
+      ? await ctx.db
+          .query("pairings")
+          .withIndex("by_tournament_and_external_round", (q) =>
+            q
+              .eq("tournamentId", tournamentId)
+              .eq("externalRoundId", filter.externalRoundId!),
+          )
+          .collect()
       : filter.roundNumber != null
         ? await ctx.db
             .query("pairings")
@@ -69,33 +70,54 @@ export async function getCurrentRoundPairingsWithPlayerData(
 }
 
 /**
- * The given rounds the bracket cannot draw in full from what is stored: no
- * pairing captured for this tournament, or a pairing with no winner yet.
- * Meant for elimination rounds, which hold at most a handful of pairings.
+ * The elimination rounds the bracket cannot draw in full from what is
+ * stored: fewer pairings than the round holds (none, or a partial capture),
+ * or a pairing with no winner yet. The round being polled is left to the
+ * poll, which captures its pairings and records its results as they land.
  */
 export async function findRoundsNeedingCapture(
   ctx: QueryCtx,
   tournamentId: Id<"tournaments">,
-  externalRoundIds: number[],
+  rounds: { roundId: number; roundName: string }[],
+  options: { polledRoundId?: number },
 ): Promise<number[]> {
   const needed: number[] = [];
-  for (const externalRoundId of externalRoundIds) {
-    const captured = (
-      await ctx.db
-        .query("pairings")
-        .withIndex("by_external_round", (q) =>
-          q.eq("externalRoundId", externalRoundId),
-        )
-        .collect()
-    ).filter((pairing) => pairing.tournamentId === tournamentId);
+  for (const round of rounds) {
+    if (round.roundId === options.polledRoundId) {
+      continue;
+    }
+    const captured = await ctx.db
+      .query("pairings")
+      .withIndex("by_tournament_and_external_round", (q) =>
+        q.eq("tournamentId", tournamentId).eq("externalRoundId", round.roundId),
+      )
+      .collect();
+    const expected = EXPECTED_ELIMINATION_MATCHES[round.roundName] ?? 1;
     if (
-      captured.length === 0 ||
+      captured.length < expected ||
       captured.some((pairing) => pairing.winnerPlayerId === undefined)
     ) {
-      needed.push(externalRoundId);
+      needed.push(round.roundId);
     }
   }
   return needed;
+}
+
+/**
+ * The tournament's own row for a Melee match. Pairing rows are keyed by the
+ * Melee ids, which every account linking that Melee tournament shares, so
+ * the account's tournament id tells its row from another account's.
+ */
+async function findPairingForTournament(
+  ctx: QueryCtx,
+  tournamentId: Id<"tournaments">,
+  externalId: string,
+): Promise<Doc<"pairings"> | undefined> {
+  const rows = await ctx.db
+    .query("pairings")
+    .withIndex("by_external_id", (q) => q.eq("externalId", externalId))
+    .collect();
+  return rows.find((pairing) => pairing.tournamentId === tournamentId);
 }
 
 /** Byes and malformed matches are never stored as pairings. */
@@ -123,6 +145,7 @@ export function capturablePairingMatchIds(snapshot: RoundSnapshot): string[] {
 export async function roundHasUncapturedPairings(
   ctx: QueryCtx,
   args: {
+    tournamentId: Id<"tournaments">;
     externalTournamentId: number;
     externalRoundId: number;
     externalMatchIds: string[];
@@ -134,10 +157,11 @@ export async function roundHasUncapturedPairings(
       externalRoundId: args.externalRoundId,
       externalMatchId,
     });
-    const existingPairing = await ctx.db
-      .query("pairings")
-      .withIndex("by_external_id", (q) => q.eq("externalId", externalId))
-      .first();
+    const existingPairing = await findPairingForTournament(
+      ctx,
+      args.tournamentId,
+      externalId,
+    );
     if (!existingPairing) {
       return true;
     }
@@ -161,10 +185,11 @@ export async function snapshotCurrentRoundPairings(
       externalRoundId: snapshot.roundId,
       externalMatchId: match.externalMatchId,
     });
-    const existingPairing = await ctx.db
-      .query("pairings")
-      .withIndex("by_external_id", (q) => q.eq("externalId", externalId))
-      .first();
+    const existingPairing = await findPairingForTournament(
+      ctx,
+      args.tournamentId,
+      externalId,
+    );
     if (existingPairing) {
       await applyPairingResult(ctx, existingPairing, match);
       continue;
@@ -280,6 +305,7 @@ export function reportedMatchResults(snapshot: RoundSnapshot): MatchResult[] {
 export async function recordPairingResults(
   ctx: MutationCtx,
   args: {
+    tournamentId: Id<"tournaments">;
     externalTournamentId: number;
     externalRoundId: number;
     results: MatchResult[];
@@ -292,10 +318,11 @@ export async function recordPairingResults(
       externalRoundId: args.externalRoundId,
       externalMatchId: result.externalMatchId,
     });
-    const pairing = await ctx.db
-      .query("pairings")
-      .withIndex("by_external_id", (q) => q.eq("externalId", externalId))
-      .first();
+    const pairing = await findPairingForTournament(
+      ctx,
+      args.tournamentId,
+      externalId,
+    );
     if (!pairing || pairing.winnerPlayerId !== undefined) {
       continue;
     }

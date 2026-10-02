@@ -664,6 +664,7 @@ export const detectNewRound = internalMutation({
  */
 export const hasUncapturedPairings = internalQuery({
   args: {
+    tournamentId: v.id("tournaments"),
     externalTournamentId: v.number(),
     externalRoundId: v.number(),
     externalMatchIds: v.array(v.string()),
@@ -780,6 +781,7 @@ export const backfillEliminationPairings = internalAction({
  */
 export const recordEliminationResults = internalMutation({
   args: {
+    tournamentId: v.id("tournaments"),
     externalTournamentId: v.number(),
     externalRoundId: v.number(),
     results: v.array(
@@ -861,6 +863,7 @@ async function captureFinalRoundBeforeStopping(
  */
 async function syncEliminationResults(
   ctx: ActionCtx,
+  tournamentId: Id<"tournaments">,
   overview: MeleeTournamentOverviewResponse,
   matches: MeleeMatch[],
 ): Promise<void> {
@@ -877,6 +880,7 @@ async function syncEliminationResults(
     return;
   }
   await ctx.runMutation(internal.tournamentSync.recordEliminationResults, {
+    tournamentId,
     externalTournamentId: snapshot.externalTournamentId,
     externalRoundId: snapshot.roundId,
     results,
@@ -1400,6 +1404,7 @@ export const pollTournamentAndScheduleNext = internalAction({
         const pairingsPosted: boolean = await ctx.runQuery(
           internal.tournamentSync.hasUncapturedPairings,
           {
+            tournamentId: tournament._id,
             externalTournamentId,
             externalRoundId: currentMatch.RoundId,
             externalMatchIds: capturableMatchIds(overview, matches),
@@ -1412,7 +1417,12 @@ export const pollTournamentAndScheduleNext = internalAction({
           console.log(
             `Tournament ${externalTournamentId}: round ${currentMatch.RoundNumber} unchanged, skipping full fetch`,
           );
-          await syncEliminationResults(ctx, overview, matches);
+          await syncEliminationResults(
+            ctx,
+            tournament._id,
+            overview,
+            matches,
+          );
           await ctx.runMutation(
             internal.tournamentSync.finishPollingCycleAndScheduleNext,
             {

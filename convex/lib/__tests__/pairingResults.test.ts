@@ -110,6 +110,7 @@ describe("recordPairingResults", () => {
       patches,
     });
     const changed = await recordPairingResults(ctx, {
+      tournamentId: "tournament1" as never,
       externalTournamentId: 999,
       externalRoundId: 503,
       results: [
