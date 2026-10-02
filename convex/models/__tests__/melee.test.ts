@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildRoundSnapshot,
   getRoundDisplayName,
+  parseMatchWinner,
   isEliminationPhase,
   isTournamentComplete,
   parseCompletedRounds,
@@ -297,5 +298,65 @@ describe("buildRoundSnapshot", () => {
 
     expect(snapshot!.matches).toHaveLength(1);
     expect(snapshot!.matches[0].externalMatchId).toBe("current");
+  });
+});
+
+describe("parseMatchWinner", () => {
+  const ada = makeCompetitor({ playerId: 101, name: "Ada" });
+  const ben = makeCompetitor({ playerId: 108, name: "Ben" });
+
+  it("is undefined until Melee reports a result", () => {
+    const match = makeMatch({
+      guid: "m1",
+      roundId: 501,
+      roundNumber: 9,
+      competitors: [{ ...ada, GameWins: 2 }, { ...ben, GameWins: 0 }],
+    });
+    expect(parseMatchWinner(match)).toBeUndefined();
+  });
+
+  it("names the competitor with more game wins", () => {
+    const match = makeMatch({
+      guid: "m1",
+      roundId: 501,
+      roundNumber: 9,
+      hasResult: true,
+      competitors: [{ ...ada, GameWins: 1 }, { ...ben, GameWins: 2 }],
+    });
+    expect(parseMatchWinner(match)).toBe(108);
+  });
+
+  it("falls back to the result string when game wins tie", () => {
+    const match = {
+      ...makeMatch({
+        guid: "m1",
+        roundId: 501,
+        roundNumber: 9,
+        hasResult: true,
+        competitors: [{ ...ada, GameWins: null }, { ...ben, GameWins: null }],
+      }),
+      ResultString: "Ada won 2-1-0",
+    };
+    expect(parseMatchWinner(match)).toBe(101);
+    expect(
+      parseMatchWinner({ ...match, ResultString: "Draw" }),
+    ).toBeUndefined();
+  });
+
+  it("is carried on the round snapshot", () => {
+    const snapshot = buildRoundSnapshot({
+      overview: makeStandardOverview(),
+      matches: [
+        makeMatch({
+          guid: "m1",
+          roundId: 1529974,
+          roundNumber: 3,
+          hasResult: true,
+          competitors: [{ ...ada, GameWins: 2 }, { ...ben, GameWins: 1 }],
+        }),
+      ],
+      standingsByPlayerId: new Map(),
+    });
+    expect(snapshot?.matches[0].winnerExternalPlayerId).toBe(101);
   });
 });

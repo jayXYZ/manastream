@@ -171,7 +171,7 @@ export async function requireRoundForTournament(
   ctx: QueryCtx | MutationCtx,
   tournament: Doc<"tournaments">,
   externalRoundId: number,
-): Promise<void> {
+): Promise<{ roundName: string }> {
   const externalTournamentId = tournament.externalTournamentId;
   if (externalTournamentId === undefined) {
     throw new Error("No Melee tournament linked");
@@ -182,13 +182,16 @@ export async function requireRoundForTournament(
       q.eq("externalTournamentId", externalTournamentId),
     )
     .unique();
-  const isKnownRound =
-    externalTournament !== null &&
-    (externalTournament.currentRoundId === externalRoundId ||
-      (externalTournament.completedRounds ?? []).some(
-        (round) => round.roundId === externalRoundId,
-      ));
-  if (!isKnownRound) {
+  const completedRound = (externalTournament?.completedRounds ?? []).find(
+    (round) => round.roundId === externalRoundId,
+  );
+  const roundName =
+    completedRound?.roundName ??
+    (externalTournament?.currentRoundId === externalRoundId
+      ? (externalTournament.currentRoundName ?? "")
+      : undefined);
+  if (roundName === undefined) {
     throw new Error("Round not found in the linked Melee tournament");
   }
+  return { roundName };
 }

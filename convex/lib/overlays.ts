@@ -2,21 +2,33 @@ import { Doc, Id } from "../_generated/dataModel";
 import { MutationCtx, QueryCtx } from "../_generated/server";
 import type { Infer } from "convex/values";
 import type { getOverlayByIdValidator } from "../validators";
-import {
-  TournamentPlayerData,
-  getPlayerData,
-  loadTournamentPlayerData,
-} from "./playerData";
+import { getPlayerData, loadTournamentPlayerData } from "./playerData";
 import { getCurrentRoundPairingsWithPlayerData } from "./pairings";
 import { getPlayersForMatch } from "./players";
 import { getTournamentTimerAndRoundInfo } from "./tournaments";
 import { generatePublicUuid } from "./utils";
+import { ELIMINATION_ROUND_NAMES, isEliminationRoundName } from "./constants";
 
-const ELIMINATION_ROUND_NAMES = new Set([
-  "Quarterfinals",
-  "Semifinals",
-  "Finals",
-]);
+/**
+ * Drops every deck overlay's selected match for a tournament. Used when the
+ * tournament is linked to a different Melee tournament: the old match belongs
+ * to the previous Melee tournament and would fail the access check on the
+ * next deck overlay update.
+ */
+export async function clearDeckOverlayMatches(
+  ctx: MutationCtx,
+  tournamentId: Id<"tournaments">,
+): Promise<void> {
+  const overlays = await ctx.db
+    .query("overlays")
+    .withIndex("by_tournament", (q) => q.eq("tournamentId", tournamentId))
+    .collect();
+  for (const overlay of overlays) {
+    if (overlay.overlayType === "deck" && overlay.matchId !== undefined) {
+      await ctx.db.patch(overlay._id, { matchId: undefined });
+    }
+  }
+}
 
 // Creation functions
 
@@ -234,11 +246,26 @@ export async function enrichStandingsOverlay(
     ctx,
     overlay,
   );
-  const isEliminationPhase = ELIMINATION_ROUND_NAMES.has(
-    externalTournament?.currentRoundName ?? "",
-  );
-  const showCurrentBracket = overlay.showCurrentBracket === true;
-  const shouldShowBracket = showCurrentBracket && isEliminationPhase;
+  const bracketStage = externalTournament
+    ? resolveBracketStage(overlay, externalTournament)
+    : undefined;
+
+  if (bracketStage && externalTournament) {
+    const bracket = await getEliminationBracket(
+      ctx,
+      overlay.tournamentId,
+      externalTournament,
+      bracketStage,
+    );
+    return {
+      ...overlay,
+      roundDisplayName: bracketStage.roundDisplayName,
+      isEliminationPhase: true,
+      bracketDataWithPlayers: bracket.players,
+      bracketMatches: bracket.matches,
+      standingsDataWithPlayers: undefined,
+    };
+  }
 
   // Read the existing standings (created by updateStandingsOverlay mutation)
   const roundStandings = overlay.roundStandingsId
@@ -249,34 +276,20 @@ export async function enrichStandingsOverlay(
       ? roundStandings.standings
       : null;
 
-  // Standings rows cover every entrant, so when they will be rendered one
-  // bulk load of the tournament's players serves them and the bracket both.
-  // Without standings the bracket looks up only its own (at most eight)
-  // participants, so a 300-player event does not scan every player, status
-  // and decklist row, and unrelated player edits do not invalidate it.
+  // Standings rows cover every entrant, so one bulk load of the
+  // tournament's players serves them all.
   const players =
     roundStandings && standingsRows
       ? await loadTournamentPlayerData(ctx, roundStandings.externalTournamentId)
-      : undefined;
-  const bracketDataWithPlayers =
-    shouldShowBracket && externalTournament
-      ? await getEliminationBracketDataWithPlayers(
-          ctx,
-          overlay,
-          externalTournament,
-          roundStandings?.externalTournamentId ===
-            externalTournament.externalTournamentId
-            ? players
-            : undefined,
-        )
       : undefined;
 
   if (!roundStandings || !standingsRows || !players) {
     return {
       ...overlay,
       roundDisplayName: externalTournament?.currentRoundName ?? undefined,
-      isEliminationPhase: shouldShowBracket,
-      bracketDataWithPlayers,
+      isEliminationPhase: false,
+      bracketDataWithPlayers: undefined,
+      bracketMatches: undefined,
       standingsDataWithPlayers: undefined,
     };
   }
@@ -299,8 +312,9 @@ export async function enrichStandingsOverlay(
   return {
     ...overlay,
     roundDisplayName,
-    isEliminationPhase: shouldShowBracket,
-    bracketDataWithPlayers,
+    isEliminationPhase: false,
+    bracketDataWithPlayers: undefined,
+    bracketMatches: undefined,
     standingsDataWithPlayers,
   };
 }
@@ -323,70 +337,222 @@ async function getExternalTournamentForStandingsOverlay(
     .unique();
 }
 
-async function getEliminationBracketDataWithPlayers(
-  ctx: QueryCtx,
+type EliminationRound = {
+  roundId: number;
+  roundName: string;
+  roundNumber?: number;
+};
+
+/**
+ * Which bracket a standings overlay shows: the elimination rounds in play
+ * order, how far into them to look, and whether the last of those rounds'
+ * own results are shown. "Going into" a round means the rounds before it
+ * are decided and that round's matches are still open.
+ */
+type BracketStage = {
+  rounds: EliminationRound[];
+  upToIndex: number;
+  revealLastRoundResults: boolean;
+  roundDisplayName: string;
+};
+
+export const COMPLETED_BRACKET_DISPLAY_NAME = "Final Results";
+
+/**
+ * The tournament's elimination rounds in order: the completed ones, then the
+ * current round when it is part of the cut. A finished tournament lists its
+ * finals as completed and as current; it is counted once.
+ */
+function listEliminationRounds(
+  externalTournament: Doc<"externalTournaments">,
+): EliminationRound[] {
+  const rounds: EliminationRound[] = (externalTournament.completedRounds ?? [])
+    .filter((round) => isEliminationRoundName(round.roundName))
+    .map((round) => ({ roundId: round.roundId, roundName: round.roundName }));
+  const currentRoundId = externalTournament.currentRoundId;
+  if (
+    currentRoundId !== undefined &&
+    isEliminationRoundName(externalTournament.currentRoundName) &&
+    !rounds.some((round) => round.roundId === currentRoundId)
+  ) {
+    rounds.push({
+      roundId: currentRoundId,
+      roundName: externalTournament.currentRoundName ?? "",
+      roundNumber: externalTournament.currentRoundNumber,
+    });
+  }
+  return rounds;
+}
+
+function resolveBracketStage(
   overlay: Doc<"overlays"> & { overlayType: "standings" },
   externalTournament: Doc<"externalTournaments">,
-  playerData: TournamentPlayerData | undefined,
-) {
-  if (!externalTournament.currentRoundId) {
+): BracketStage | undefined {
+  const rounds = listEliminationRounds(externalTournament);
+  if (rounds.length === 0) {
     return undefined;
   }
+  if (overlay.showCompletedBracket) {
+    return {
+      rounds,
+      upToIndex: rounds.length - 1,
+      revealLastRoundResults: true,
+      roundDisplayName: COMPLETED_BRACKET_DISPLAY_NAME,
+    };
+  }
+  const selectedRoundId = overlay.showCurrentBracket
+    ? externalTournament.currentRoundId
+    : overlay.externalRoundId;
+  const index = rounds.findIndex((round) => round.roundId === selectedRoundId);
+  if (index === -1) {
+    // A Swiss round, or the current bracket before the cut: standings table.
+    return undefined;
+  }
+  return {
+    rounds,
+    upToIndex: index,
+    revealLastRoundResults: false,
+    roundDisplayName: rounds[index].roundName,
+  };
+}
 
-  const pairings = await getCurrentRoundPairingsWithPlayerData(
-    ctx,
-    overlay.tournamentId,
-    {
-      externalRoundId: externalTournament.currentRoundId,
-      roundNumber: externalTournament.currentRoundNumber,
-    },
-    playerData,
+type BracketPlayerEntry = {
+  name: string;
+  rank: number;
+  seed: number;
+  playerData: PlayerWithDataResult;
+};
+
+type PlayerWithDataResult = Awaited<
+  ReturnType<typeof getCurrentRoundPairingsWithPlayerData>
+>[number]["player1Data"];
+
+type BracketMatch = { seeds: number[]; winnerSeed?: number };
+
+/**
+ * Builds the bracket from the captured pairings of the elimination rounds up
+ * to the stage's round. Seeds come from the pairing rows (or the last Swiss
+ * standings for rows captured without them). A match's winner is whichever
+ * of its players appears in the next round; for the last round shown it is
+ * the result Melee reported, and only when the stage reveals it.
+ */
+async function getEliminationBracket(
+  ctx: QueryCtx,
+  tournamentId: Id<"tournaments">,
+  externalTournament: Doc<"externalTournaments">,
+  stage: BracketStage,
+): Promise<{
+  players: BracketPlayerEntry[];
+  matches: {
+    quarterfinals: BracketMatch[];
+    semifinals: BracketMatch[];
+    finals: BracketMatch[];
+    championSeed?: number;
+  };
+}> {
+  const rounds = stage.rounds.slice(0, stage.upToIndex + 1);
+  const pairingsByRound = await Promise.all(
+    rounds.map((round) =>
+      getCurrentRoundPairingsWithPlayerData(ctx, tournamentId, {
+        externalRoundId: round.roundId,
+        roundNumber: round.roundNumber,
+      }),
+    ),
   );
-  if (pairings.length === 0) {
-    return undefined;
-  }
-
   const seedByExternalPlayerId = await getLatestSwissSeedMap(
     ctx,
     externalTournament,
   );
 
-  return pairings
-    .flatMap((pairing) => {
-      const player1Seed = resolvePairingSeed({
-        storedSeed: pairing.player1Seed,
-        tournamentRecord: pairing.player1TournamentRecord,
-        externalPlayerId: pairing.player1Data?.externalPlayerId,
+  const seedByPlayerId = new Map<Id<"players">, number>();
+  const playersBySeed = new Map<number, BracketPlayerEntry>();
+  const resolveSeed = (
+    playerId: Id<"players">,
+    storedSeed: number | undefined,
+    tournamentRecord: string,
+    data: PlayerWithDataResult,
+  ) => {
+    const seed =
+      resolvePairingSeed({
+        storedSeed,
+        tournamentRecord,
+        externalPlayerId: data?.externalPlayerId,
         seedByExternalPlayerId,
+      }) ?? seedByPlayerId.get(playerId);
+    if (seed === undefined) {
+      return undefined;
+    }
+    seedByPlayerId.set(playerId, seed);
+    if (!playersBySeed.has(seed)) {
+      playersBySeed.set(seed, {
+        name: data?.name ?? "Player",
+        rank: seed,
+        seed,
+        playerData: data,
       });
-      const player2Seed = resolvePairingSeed({
-        storedSeed: pairing.player2Seed,
-        tournamentRecord: pairing.player2TournamentRecord,
-        externalPlayerId: pairing.player2Data?.externalPlayerId,
-        seedByExternalPlayerId,
-      });
+    }
+    return seed;
+  };
 
-      return [
-        player1Seed
-          ? {
-              name: pairing.player1Data?.name ?? "Player 1",
-              rank: player1Seed,
-              seed: player1Seed,
-              playerData: pairing.player1Data,
-            }
-          : undefined,
-        player2Seed
-          ? {
-              name: pairing.player2Data?.name ?? "Player 2",
-              rank: player2Seed,
-              seed: player2Seed,
-              playerData: pairing.player2Data,
-            }
-          : undefined,
-      ];
-    })
-    .filter((player) => player !== undefined)
-    .sort((left, right) => left.seed - right.seed);
+  const matchesByRound = pairingsByRound.map((pairings, roundIndex) => {
+    const nextRoundPlayerIds = new Set(
+      (pairingsByRound[roundIndex + 1] ?? []).flatMap((pairing) => [
+        pairing.player1,
+        pairing.player2,
+      ]),
+    );
+    const isLastRound = roundIndex === rounds.length - 1;
+    return pairings.map((pairing): BracketMatch => {
+      const seed1 = resolveSeed(
+        pairing.player1,
+        pairing.player1Seed,
+        pairing.player1TournamentRecord,
+        pairing.player1Data,
+      );
+      const seed2 = resolveSeed(
+        pairing.player2,
+        pairing.player2Seed,
+        pairing.player2TournamentRecord,
+        pairing.player2Data,
+      );
+      const seeds = [seed1, seed2].filter(
+        (seed): seed is number => seed !== undefined,
+      );
+      const winnerPlayerId = isLastRound
+        ? stage.revealLastRoundResults
+          ? pairing.winnerPlayerId
+          : undefined
+        : nextRoundPlayerIds.has(pairing.player1)
+          ? pairing.player1
+          : nextRoundPlayerIds.has(pairing.player2)
+            ? pairing.player2
+            : pairing.winnerPlayerId;
+      const winnerSeed =
+        winnerPlayerId === undefined
+          ? undefined
+          : seedByPlayerId.get(winnerPlayerId);
+      return { seeds, winnerSeed };
+    });
+  });
+
+  const byName = (name: string) =>
+    matchesByRound[rounds.findIndex((round) => round.roundName === name)] ??
+    undefined;
+  const byCount = (count: number) =>
+    matchesByRound.find((matches) => matches.length === count);
+  const quarterfinals = byName("Quarterfinals") ?? byCount(4) ?? [];
+  const semifinals = byName("Semifinals") ?? byCount(2) ?? [];
+  const finals = byName("Finals") ?? byCount(1) ?? [];
+  const championSeed = stage.revealLastRoundResults
+    ? finals[0]?.winnerSeed
+    : undefined;
+
+  return {
+    players: [...playersBySeed.values()].sort(
+      (left, right) => left.seed - right.seed,
+    ),
+    matches: { quarterfinals, semifinals, finals, championSeed },
+  };
 }
 
 async function getLatestSwissSeedMap(

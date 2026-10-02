@@ -28,3 +28,16 @@ export const MANUAL_POLL_COOLDOWN = 1000 * 15; // 15 seconds
 // dead. Convex actions time out after 10 minutes; the extra minute ensures
 // the run can no longer be executing.
 export const PLAYER_REFRESH_TIMEOUT = 1000 * 60 * 11; // 11 minutes
+
+// Display names getRoundDisplayName gives the rounds of a top-8 cut. Both
+// the overlay and the dashboard use them to tell a bracket round from a
+// Swiss round.
+export const ELIMINATION_ROUND_NAMES = new Set([
+  "Quarterfinals",
+  "Semifinals",
+  "Finals",
+]);
+
+export function isEliminationRoundName(roundName: string | undefined): boolean {
+  return roundName !== undefined && ELIMINATION_ROUND_NAMES.has(roundName);
+}

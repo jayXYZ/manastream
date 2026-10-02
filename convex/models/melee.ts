@@ -290,6 +290,40 @@ export function parseMeleeRegistrationStatus(
 }
 
 /**
+ * Melee player id of a reported match's winner: the competitor with more
+ * game wins, or failing that the one Melee's result string says won. A match
+ * with no result, a draw, or a result that names neither player gives
+ * undefined.
+ */
+export function parseMatchWinner(match: MeleeMatch): number | undefined {
+  if (!match.HasResult) {
+    return undefined;
+  }
+  const competitors = match.Competitors.flatMap((competitor) => {
+    const player = competitor.Team?.Players?.[0];
+    return player
+      ? [{ player, gameWins: competitor.GameWins ?? 0 }]
+      : [];
+  });
+  if (competitors.length !== 2) {
+    return undefined;
+  }
+  const [first, second] = competitors;
+  if (first.gameWins !== second.gameWins) {
+    return first.gameWins > second.gameWins
+      ? first.player.ID
+      : second.player.ID;
+  }
+  const resultString = (match.ResultString ?? "").trim();
+  const named = competitors.find(({ player }) =>
+    [player.DisplayName, player.Name, player.Username].some(
+      (name) => name && resultString.startsWith(`${name} won`),
+    ),
+  );
+  return named?.player.ID;
+}
+
+/**
  * Compose the per-cycle API responses into the provider-neutral
  * RoundSnapshot consumed by round detection, pairings, and feature matches.
  * Returns undefined when there is no current round (no matches).
@@ -320,6 +354,7 @@ export function buildRoundSnapshot(args: {
     tableNumber: match.TableNumber ?? undefined,
     isFeatureMatch: match.FeatureMatch,
     hasResult: match.HasResult,
+    winnerExternalPlayerId: parseMatchWinner(match),
     competitors: match.Competitors.flatMap((competitor) => {
       const player = competitor.Team?.Players?.[0];
       if (!player) {
