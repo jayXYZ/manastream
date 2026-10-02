@@ -710,6 +710,48 @@ function capturableMatchIds(
 }
 
 /**
+ * Captures the current round once more when the event closes. The finals
+ * result usually lands in the same cycle the event is closed, and a final
+ * paired and reported between two polls has no pairing row at all; the full
+ * snapshot path inserts missing pairings with their winners and records
+ * results on existing ones. Best effort: a failure here is logged and must
+ * not stop the tournament from being marked complete.
+ */
+async function captureFinalRoundBeforeStopping(
+  ctx: ActionCtx,
+  tournamentId: Id<"tournaments">,
+  externalTournamentId: number,
+  overview: MeleeTournamentOverviewResponse,
+  credentials: MeleeCredentials,
+): Promise<void> {
+  try {
+    const matches = await fetchMeleeCurrentRoundMatches(
+      externalTournamentId,
+      credentials,
+    );
+    const snapshot = await fetchRoundSnapshot(
+      externalTournamentId,
+      overview,
+      matches,
+      credentials,
+    );
+    if (!snapshot) {
+      return;
+    }
+    await ctx.runMutation(internal.tournamentSync.detectNewRound, {
+      tournamentId,
+      snapshot,
+      completedRounds: parseCompletedRounds(overview, snapshot.roundId),
+    });
+  } catch (error) {
+    console.error(
+      `Tournament ${externalTournamentId}: could not capture the final round before stopping:`,
+      error,
+    );
+  }
+}
+
+/**
  * Records the results Melee reports for the current round when it is an
  * elimination round. Bracket rounds have at most a handful of matches, so
  * this costs a few index reads per cycle and writes only new results.
@@ -1186,12 +1228,12 @@ export const pollTournamentAndScheduleNext = internalAction({
         console.log(
           `Tournament ${externalTournamentId} is complete. Stopping polling.`,
         );
-        // The finals result usually lands in the same cycle the event is
-        // closed; capture it so the completed bracket can name the winner.
-        await syncEliminationResults(
+        await captureFinalRoundBeforeStopping(
           ctx,
+          tournament._id,
+          externalTournamentId,
           overview,
-          await fetchMeleeCurrentRoundMatches(externalTournamentId, credentials),
+          credentials,
         );
         await ctx.runMutation(internal.tournamentSync.recordCompletedRounds, {
           externalTournamentId,

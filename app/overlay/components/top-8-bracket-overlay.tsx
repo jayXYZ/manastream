@@ -208,7 +208,7 @@ type BracketLayout = {
  * matches that feed it, with a "winner" placeholder for a slot no match has
  * filled yet. Without match data the layout is the empty seeded bracket.
  */
-function buildBracketLayout(matches?: Top8BracketMatches): BracketLayout {
+export function buildBracketLayout(matches?: Top8BracketMatches): BracketLayout {
   const quarterfinalMatches = orderQuarterfinals(matches?.quarterfinals ?? []);
   const quarterfinals = quarterfinalMatches.map((match) => ({
     slots: match.seeds.map((seed) => ({
@@ -244,21 +244,43 @@ function buildBracketLayout(matches?: Top8BracketMatches): BracketLayout {
   };
 }
 
-function orderQuarterfinals(matches: BracketMatch[]): BracketMatch[] {
-  if (matches.length !== TOP_8_PAIRINGS.length) {
-    return TOP_8_PAIRINGS.map(([top, bottom]) => ({ seeds: [top, bottom] }));
-  }
-  const position = (match: BracketMatch) => {
-    const best = Math.min(...match.seeds);
-    const index = QUARTERFINAL_ORDER.indexOf(best);
-    return index === -1 ? QUARTERFINAL_ORDER.length + best : index;
-  };
-  return [...matches]
-    .map((match) => ({
+/**
+ * Puts each captured quarterfinal in the seeded position its seeds belong
+ * to, keeping the standard top-to-bottom order. Positions no captured match
+ * fills show the seeds expected there, so a partially posted round still
+ * shows the matches Melee has published. A match whose seeds fit no free
+ * position takes the first one left.
+ */
+export function orderQuarterfinals(matches: BracketMatch[]): BracketMatch[] {
+  const positions: (BracketMatch | undefined)[] = TOP_8_PAIRINGS.map(
+    () => undefined,
+  );
+  const unplaced: BracketMatch[] = [];
+  for (const match of matches) {
+    const sorted = {
       ...match,
       seeds: [...match.seeds].sort((left, right) => left - right),
-    }))
-    .sort((left, right) => position(left) - position(right));
+    };
+    const best = sorted.seeds[0];
+    const index = QUARTERFINAL_ORDER.indexOf(best);
+    const position =
+      index !== -1 && positions[index] === undefined
+        ? index
+        : TOP_8_PAIRINGS.findIndex(
+            (pair, candidate) =>
+              positions[candidate] === undefined &&
+              pair.some((seed) => sorted.seeds.includes(seed)),
+          );
+    if (position === -1) {
+      unplaced.push(sorted);
+    } else {
+      positions[position] = sorted;
+    }
+  }
+  return positions.map(
+    (match, index) =>
+      match ?? unplaced.shift() ?? { seeds: [...TOP_8_PAIRINGS[index]] },
+  );
 }
 
 /**

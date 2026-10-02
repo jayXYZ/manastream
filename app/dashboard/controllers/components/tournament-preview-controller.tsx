@@ -35,15 +35,11 @@ import { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { CardActionButton } from "@/components/ui/card-action-button";
 import { RefreshSyncButton } from "@/components/sync/refresh-sync-button";
+import { ELIMINATION_ROUND_NAMES } from "@/convex/lib/constants";
 
 const CURRENT_BRACKET_VALUE = "current-bracket";
 const COMPLETED_BRACKET_VALUE = "completed-bracket";
 const NO_STANDINGS_VALUE = "-1";
-const ELIMINATION_ROUND_NAMES = new Set([
-  "Quarterfinals",
-  "Semifinals",
-  "Finals",
-]);
 
 function PreviewRow({
   label,
@@ -223,13 +219,17 @@ function TournamentOverlayPreviewDialog({
     api.overlays.standings.updateStandingsOverlay,
   );
   // A saved match from a previously linked Melee tournament is not in the
-  // current list; treat it as unselected so it is cleared on save.
+  // current list; treat it as unselected so it is cleared on save. Until the
+  // list has loaded the saved selection is kept as is, so saving an
+  // unrelated edit early cannot clear a valid match.
+  const featureMatchesLoaded = allFeatureMatches !== undefined;
   const deckMatchIds = new Set(
     allFeatureMatches?.map((featureMatch) => featureMatch._id) ?? [],
   );
   const selectedDeckMatchId =
-    inputs.deckOverlayMatchId !== undefined &&
-    deckMatchIds.has(inputs.deckOverlayMatchId)
+    !featureMatchesLoaded ||
+    (inputs.deckOverlayMatchId !== undefined &&
+      deckMatchIds.has(inputs.deckOverlayMatchId))
       ? inputs.deckOverlayMatchId
       : undefined;
   const handleUpdate = () => {
@@ -237,7 +237,7 @@ function TournamentOverlayPreviewDialog({
       const savedMatchId = deckOverlay.matchId;
       const savedMatchIsStale =
         savedMatchId !== undefined &&
-        allFeatureMatches !== undefined &&
+        featureMatchesLoaded &&
         !deckMatchIds.has(savedMatchId);
       const deckSelectionChanged = selectedDeckMatchId !== savedMatchId;
       // Only touch the deck overlay when its selection changes, so an
