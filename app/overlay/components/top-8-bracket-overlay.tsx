@@ -23,22 +23,39 @@ export type Top8BracketStanding = Pick<
   playerData?: Pick<NonNullable<StandingRow["playerData"]>, "deckName">;
 };
 
+export type Top8BracketMatches = NonNullable<
+  StandingsOverlayType["bracketMatches"]
+>;
+
+type BracketMatch = Top8BracketMatches["quarterfinals"][number];
+
 type BracketPlayer = {
   seed: number;
   name: string;
   deckName: string;
 };
 
+// Seed order of the quarterfinal matches from top to bottom, so the 1 and 2
+// seeds sit in opposite halves.
+const QUARTERFINAL_ORDER = [1, 4, 2, 3];
+
 export default function Top8BracketOverlay({
   commentators,
   standings,
+  matches,
   theme,
 }: {
   commentators: string;
   standings: Top8BracketStanding[];
+  matches?: Top8BracketMatches;
   theme: BraunDarkPalette;
 }) {
   const playersBySeed = buildPlayersBySeed(standings);
+  const layout = buildBracketLayout(matches);
+  const champion =
+    layout.championSeed !== undefined
+      ? playersBySeed.get(layout.championSeed)
+      : undefined;
 
   return (
     <div
@@ -66,18 +83,22 @@ export default function Top8BracketOverlay({
         >
           <BracketColumn title="Quarterfinals" theme={theme}>
             <div className="grid gap-[34px]">
-              {TOP_8_PAIRINGS.map(([topSeed, bottomSeed]) => (
-                <MatchPair key={`${topSeed}-${bottomSeed}`} theme={theme}>
-                  <PlayerSlot
-                    player={playersBySeed.get(topSeed)}
-                    seed={topSeed}
-                    theme={theme}
-                  />
-                  <PlayerSlot
-                    player={playersBySeed.get(bottomSeed)}
-                    seed={bottomSeed}
-                    theme={theme}
-                  />
+              {layout.quarterfinals.map((match, index) => (
+                <MatchPair key={`qf-${index}`} theme={theme}>
+                  {match.slots.map((slot, slotIndex) => (
+                    <PlayerSlot
+                      key={slotIndex}
+                      player={
+                        slot.seed !== undefined
+                          ? playersBySeed.get(slot.seed)
+                          : undefined
+                      }
+                      seed={slot.seed}
+                      placeholder={slot.placeholder}
+                      eliminated={slot.eliminated}
+                      theme={theme}
+                    />
+                  ))}
                 </MatchPair>
               ))}
             </div>
@@ -85,23 +106,48 @@ export default function Top8BracketOverlay({
 
           <BracketColumn title="Semifinals" theme={theme}>
             <div className="grid gap-[150px]">
-              <MatchPair theme={theme}>
-                <WinnerSlot label="QF 1 winner" theme={theme} />
-                <WinnerSlot label="QF 2 winner" theme={theme} />
-              </MatchPair>
-              <MatchPair theme={theme}>
-                <WinnerSlot label="QF 3 winner" theme={theme} />
-                <WinnerSlot label="QF 4 winner" theme={theme} />
-              </MatchPair>
+              {layout.semifinals.map((match, index) => (
+                <MatchPair key={`sf-${index}`} theme={theme}>
+                  {match.slots.map((slot, slotIndex) => (
+                    <PlayerSlot
+                      key={slotIndex}
+                      player={
+                        slot.seed !== undefined
+                          ? playersBySeed.get(slot.seed)
+                          : undefined
+                      }
+                      seed={slot.seed}
+                      placeholder={slot.placeholder}
+                      eliminated={slot.eliminated}
+                      theme={theme}
+                    />
+                  ))}
+                </MatchPair>
+              ))}
             </div>
           </BracketColumn>
 
           <BracketColumn title="Finals" theme={theme}>
-            <div className="grid gap-[250px]">
-              <MatchPair theme={theme}>
-                <WinnerSlot label="SF 1 winner" theme={theme} />
-                <WinnerSlot label="SF 2 winner" theme={theme} />
-              </MatchPair>
+            <div className="grid gap-[60px]">
+              {layout.finals.map((match, index) => (
+                <MatchPair key={`f-${index}`} theme={theme}>
+                  {match.slots.map((slot, slotIndex) => (
+                    <PlayerSlot
+                      key={slotIndex}
+                      player={
+                        slot.seed !== undefined
+                          ? playersBySeed.get(slot.seed)
+                          : undefined
+                      }
+                      seed={slot.seed}
+                      placeholder={slot.placeholder}
+                      eliminated={slot.eliminated}
+                      theme={theme}
+                    />
+                  ))}
+                </MatchPair>
+              ))}
+              {champion && <ChampionCard player={champion} theme={theme} />}
             </div>
           </BracketColumn>
         </div>
@@ -139,6 +185,113 @@ export default function Top8BracketOverlay({
       `}</style>
     </div>
   );
+}
+
+type BracketSlot = {
+  seed?: number;
+  placeholder: string;
+  eliminated: boolean;
+};
+
+type BracketLayoutMatch = { slots: BracketSlot[] };
+
+type BracketLayout = {
+  quarterfinals: BracketLayoutMatch[];
+  semifinals: BracketLayoutMatch[];
+  finals: BracketLayoutMatch[];
+  championSeed?: number;
+};
+
+/**
+ * Lays the bracket out from the captured matches. Quarterfinals keep the
+ * standard 1-8 / 4-5 / 2-7 / 3-6 order; each later match sits beside the two
+ * matches that feed it, with a "winner" placeholder for a slot no match has
+ * filled yet. Without match data the layout is the empty seeded bracket.
+ */
+function buildBracketLayout(matches?: Top8BracketMatches): BracketLayout {
+  const quarterfinalMatches = orderQuarterfinals(matches?.quarterfinals ?? []);
+  const quarterfinals = quarterfinalMatches.map((match) => ({
+    slots: match.seeds.map((seed) => ({
+      seed,
+      placeholder: "TBD",
+      eliminated: match.winnerSeed !== undefined && match.winnerSeed !== seed,
+    })),
+  }));
+
+  const semifinalMatches = matches?.semifinals ?? [];
+  const semifinals = [0, 1].map((index) =>
+    feedingMatch({
+      feeders: [quarterfinalMatches[index * 2], quarterfinalMatches[index * 2 + 1]],
+      feederLabels: [`QF ${index * 2 + 1} winner`, `QF ${index * 2 + 2} winner`],
+      candidates: semifinalMatches,
+    }),
+  );
+  const orderedSemifinals = semifinals.map((match) => match.source);
+
+  const finals = [
+    feedingMatch({
+      feeders: orderedSemifinals,
+      feederLabels: ["SF 1 winner", "SF 2 winner"],
+      candidates: matches?.finals ?? [],
+    }),
+  ];
+
+  return {
+    quarterfinals,
+    semifinals: semifinals.map(({ slots }) => ({ slots })),
+    finals: finals.map(({ slots }) => ({ slots })),
+    championSeed: matches?.championSeed,
+  };
+}
+
+function orderQuarterfinals(matches: BracketMatch[]): BracketMatch[] {
+  if (matches.length !== TOP_8_PAIRINGS.length) {
+    return TOP_8_PAIRINGS.map(([top, bottom]) => ({ seeds: [top, bottom] }));
+  }
+  const position = (match: BracketMatch) => {
+    const best = Math.min(...match.seeds);
+    const index = QUARTERFINAL_ORDER.indexOf(best);
+    return index === -1 ? QUARTERFINAL_ORDER.length + best : index;
+  };
+  return [...matches]
+    .map((match) => ({
+      ...match,
+      seeds: [...match.seeds].sort((left, right) => left - right),
+    }))
+    .sort((left, right) => position(left) - position(right));
+}
+
+/**
+ * The match fed by two earlier matches: its slots hold the seed that came
+ * through each feeder, or that feeder's "winner" placeholder.
+ */
+function feedingMatch(args: {
+  feeders: (BracketMatch | undefined)[];
+  feederLabels: string[];
+  candidates: BracketMatch[];
+}): { slots: BracketSlot[]; source: BracketMatch | undefined } {
+  const feederSeeds = args.feeders.map(
+    (feeder) => new Set(feeder?.seeds ?? []),
+  );
+  const source = args.candidates.find((candidate) =>
+    candidate.seeds.some((seed) =>
+      feederSeeds.some((seeds) => seeds.has(seed)),
+    ),
+  );
+  const slots = args.feeders.map((feeder, index): BracketSlot => {
+    const seed =
+      source?.seeds.find((candidate) => feederSeeds[index].has(candidate)) ??
+      feeder?.winnerSeed;
+    return {
+      seed,
+      placeholder: args.feederLabels[index],
+      eliminated:
+        seed !== undefined &&
+        source?.winnerSeed !== undefined &&
+        source.winnerSeed !== seed,
+    };
+  });
+  return { slots, source };
 }
 
 function buildPlayersBySeed(standings: Top8BracketStanding[]) {
@@ -213,12 +366,19 @@ function MatchPair({
 function PlayerSlot({
   player,
   seed,
+  placeholder,
+  eliminated,
   theme,
 }: {
   player?: BracketPlayer;
-  seed: number;
+  seed?: number;
+  placeholder: string;
+  eliminated: boolean;
   theme: BraunDarkPalette;
 }) {
+  if (seed === undefined) {
+    return <WinnerSlot label={placeholder} theme={theme} />;
+  }
   return (
     <div
       className="grid min-w-0"
@@ -226,6 +386,7 @@ function PlayerSlot({
         gridTemplateColumns: "88px minmax(0, 1fr)",
         minHeight: 78,
         borderBottom: `1px solid ${theme.rule}`,
+        opacity: eliminated ? 0.45 : 1,
       }}
     >
       <div
@@ -251,7 +412,7 @@ function PlayerSlot({
             lineHeight: 1.05,
           }}
         >
-          {player?.name ?? "TBD"}
+          {player?.name ?? placeholder}
         </div>
         <div
           className="mt-2 truncate"
@@ -264,6 +425,84 @@ function PlayerSlot({
           }}
         >
           {player?.deckName ?? "-"}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ChampionCard({
+  player,
+  theme,
+}: {
+  player: BracketPlayer;
+  theme: BraunDarkPalette;
+}) {
+  return (
+    <div
+      className="grid min-w-0 overflow-hidden"
+      style={{
+        border: `1px solid ${theme.accent}`,
+        background: theme.surfaceRaised,
+      }}
+    >
+      <div
+        className="px-5"
+        style={{
+          height: 34,
+          display: "flex",
+          alignItems: "center",
+          borderBottom: `1px solid ${theme.rule}`,
+          color: theme.accent,
+          fontSize: 13,
+          fontWeight: 500,
+          letterSpacing: "0.25em",
+          textTransform: "uppercase",
+        }}
+      >
+        Champion
+      </div>
+      <div
+        className="grid min-w-0"
+        style={{ gridTemplateColumns: "88px minmax(0, 1fr)", minHeight: 78 }}
+      >
+        <div
+          className="flex items-center justify-center"
+          style={{
+            color: theme.accent,
+            fontSize: 30,
+            fontWeight: 600,
+            fontVariantNumeric: "tabular-nums",
+            borderRight: `1px solid ${theme.rule}`,
+          }}
+        >
+          {player.seed}
+        </div>
+        <div className="flex min-w-0 flex-col justify-center px-5">
+          <div
+            className="truncate"
+            style={{
+              color: theme.text,
+              fontSize: 28,
+              fontWeight: 600,
+              letterSpacing: 0,
+              lineHeight: 1.05,
+            }}
+          >
+            {player.name}
+          </div>
+          <div
+            className="mt-2 truncate"
+            style={{
+              color: theme.muted,
+              fontSize: 19,
+              fontWeight: 400,
+              letterSpacing: "0.01em",
+              lineHeight: 1.1,
+            }}
+          >
+            {player.deckName}
+          </div>
         </div>
       </div>
     </div>

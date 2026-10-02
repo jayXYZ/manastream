@@ -24,6 +24,7 @@ import {
 } from "../lib/auth";
 import { createStandingsOverlayHelper } from "../lib/overlays";
 import { filterUndefined } from "../lib/utils";
+import { isEliminationRoundName } from "../lib/constants";
 import { getMeleeCredentialsForTournament } from "../lib/settings";
 import type { MeleeCredentials } from "../lib/melee/api";
 
@@ -105,11 +106,20 @@ export const fetchAndUpdateRoundStandings = internalAction({
   },
 });
 
+/**
+ * Points a standings overlay at one view: the bracket going into the current
+ * elimination round, the finished bracket with the finals result, or a
+ * completed round. A Swiss round shows that round's standings table, which
+ * are fetched from Melee on first use. An elimination round shows the
+ * bracket as it stood going into that round, built from captured pairings,
+ * so no standings are fetched for it.
+ */
 export const updateStandingsOverlay = mutation({
   args: {
     overlayId: v.id("overlays"),
     externalRoundId: v.optional(v.number()),
     showCurrentBracket: v.optional(v.boolean()),
+    showCompletedBracket: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -120,6 +130,14 @@ export const updateStandingsOverlay = mutation({
     if (args.showCurrentBracket) {
       await ctx.db.patch(args.overlayId, {
         showCurrentBracket: true,
+        showCompletedBracket: false,
+      });
+      return null;
+    }
+    if (args.showCompletedBracket) {
+      await ctx.db.patch(args.overlayId, {
+        showCurrentBracket: false,
+        showCompletedBracket: true,
       });
       return null;
     }
@@ -127,16 +145,31 @@ export const updateStandingsOverlay = mutation({
     if (args.externalRoundId === undefined) {
       await ctx.db.patch(args.overlayId, {
         showCurrentBracket: false,
+        showCompletedBracket: false,
       });
       return null;
     }
 
-    await requireRoundForTournament(ctx, tournament, args.externalRoundId);
+    const { roundName } = await requireRoundForTournament(
+      ctx,
+      tournament,
+      args.externalRoundId,
+    );
+    if (isEliminationRoundName(roundName)) {
+      await ctx.db.patch(args.overlayId, {
+        roundStandingsId: undefined,
+        externalRoundId: args.externalRoundId,
+        showCurrentBracket: false,
+        showCompletedBracket: false,
+      });
+      return null;
+    }
     const standings = await getRoundStandingsHelper(ctx, args.externalRoundId);
     await ctx.db.patch(args.overlayId, {
       roundStandingsId: standings,
       externalRoundId: args.externalRoundId,
       showCurrentBracket: false,
+      showCompletedBracket: false,
     });
     return null;
   },

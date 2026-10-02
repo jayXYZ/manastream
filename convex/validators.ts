@@ -163,6 +163,8 @@ export const pairingValidator = v.object({
   // Melee's own feature-match flag at the time the round was captured. A
   // hint only; feature matches are selected in Manastream.
   featuredInMelee: v.optional(v.boolean()),
+  // Set once Melee reports the result; the bracket overlay reads it.
+  winnerPlayerId: v.optional(v.id("players")),
   createdAt: v.number(),
 });
 
@@ -353,6 +355,8 @@ export const standingsOverlayValidator = v.object({
   roundStandingsId: v.optional(v.id("roundStandings")), // Reference to the round standings
   externalRoundId: v.optional(v.number()),
   showCurrentBracket: v.optional(v.boolean()),
+  // The finished bracket, including the finals result.
+  showCompletedBracket: v.optional(v.boolean()),
   createdAt: v.number(),
 });
 
@@ -543,6 +547,20 @@ export const deckOverlayWithMatchAndPlayersValidator = v.object({
   matchData: featureMatchWithPlayersValidator,
 });
 
+// A bracket match as the overlay draws it: the seeds paired in it and, once
+// known, the seed that advanced.
+export const bracketMatchValidator = v.object({
+  seeds: v.array(v.number()),
+  winnerSeed: v.optional(v.number()),
+});
+
+export const bracketMatchesValidator = v.object({
+  quarterfinals: v.array(bracketMatchValidator),
+  semifinals: v.array(bracketMatchValidator),
+  finals: v.array(bracketMatchValidator),
+  championSeed: v.optional(v.number()),
+});
+
 export const standingsOverlayWithPlayersValidator = v.object({
   ...standingsOverlayValidator.fields,
   roundDisplayName: v.optional(v.string()),
@@ -557,6 +575,7 @@ export const standingsOverlayWithPlayersValidator = v.object({
       }),
     ),
   ),
+  bracketMatches: v.optional(bracketMatchesValidator),
   standingsDataWithPlayers: v.optional(
     v.array(
       v.object({
@@ -651,6 +670,8 @@ export const snapshotMatchValidator = v.object({
   tableNumber: v.optional(v.number()),
   isFeatureMatch: v.boolean(),
   hasResult: v.boolean(),
+  // Melee player id of the winner, when the reported result names one.
+  winnerExternalPlayerId: v.optional(v.number()),
   competitors: v.array(snapshotCompetitorValidator),
 });
 

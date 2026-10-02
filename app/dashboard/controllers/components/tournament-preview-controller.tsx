@@ -37,6 +37,7 @@ import { CardActionButton } from "@/components/ui/card-action-button";
 import { RefreshSyncButton } from "@/components/sync/refresh-sync-button";
 
 const CURRENT_BRACKET_VALUE = "current-bracket";
+const COMPLETED_BRACKET_VALUE = "completed-bracket";
 const NO_STANDINGS_VALUE = "-1";
 const ELIMINATION_ROUND_NAMES = new Set([
   "Quarterfinals",
@@ -193,6 +194,12 @@ function TournamentOverlayPreviewDialog({
     currentPairings.pairingCount > 0 &&
     currentPairings.roundName !== undefined &&
     ELIMINATION_ROUND_NAMES.has(currentPairings.roundName);
+  // The finished bracket needs the finals to have been paired: either the
+  // tournament has moved past them or they are the round being played.
+  const hasCompletedBracketOption =
+    (completedRounds?.some((round) => round.roundName === "Finals") ??
+      false) ||
+    (hasCurrentBracketOption && currentPairings.roundName === "Finals");
   const [inputs, setInputs] = useState({
     eventName: tournament.eventName ?? "",
     currentRoundDisplayName: tournament.currentRoundDisplayName ?? "",
@@ -202,9 +209,12 @@ function TournamentOverlayPreviewDialog({
     commentatorRight: tournament.commentatorRight ?? "",
     commentatorRightSubText: tournament.commentatorRightSubText ?? "",
     deckOverlayMatchId: deckOverlay?.matchId,
-    standingsOverlaySelection: standingsOverlay?.showCurrentBracket
-      ? CURRENT_BRACKET_VALUE
-      : (standingsOverlay?.externalRoundId?.toString() ?? NO_STANDINGS_VALUE),
+    standingsOverlaySelection: standingsOverlay?.showCompletedBracket
+      ? COMPLETED_BRACKET_VALUE
+      : standingsOverlay?.showCurrentBracket
+        ? CURRENT_BRACKET_VALUE
+        : (standingsOverlay?.externalRoundId?.toString() ??
+          NO_STANDINGS_VALUE),
   });
 
   const updateDeckOverlay = useMutation(api.overlays.deck.updateDeckOverlay);
@@ -212,12 +222,32 @@ function TournamentOverlayPreviewDialog({
   const updateStandingsOverlay = useMutation(
     api.overlays.standings.updateStandingsOverlay,
   );
+  // A saved match from a previously linked Melee tournament is not in the
+  // current list; treat it as unselected so it is cleared on save.
+  const deckMatchIds = new Set(
+    allFeatureMatches?.map((featureMatch) => featureMatch._id) ?? [],
+  );
+  const selectedDeckMatchId =
+    inputs.deckOverlayMatchId !== undefined &&
+    deckMatchIds.has(inputs.deckOverlayMatchId)
+      ? inputs.deckOverlayMatchId
+      : undefined;
   const handleUpdate = () => {
     if (deckOverlay) {
-      updateDeckOverlay({
-        overlayId: deckOverlay._id,
-        matchId: inputs.deckOverlayMatchId,
-      });
+      const savedMatchId = deckOverlay.matchId;
+      const savedMatchIsStale =
+        savedMatchId !== undefined &&
+        allFeatureMatches !== undefined &&
+        !deckMatchIds.has(savedMatchId);
+      const deckSelectionChanged = selectedDeckMatchId !== savedMatchId;
+      // Only touch the deck overlay when its selection changes, so an
+      // unrelated edit cannot fail on the deck overlay's access check.
+      if (deckSelectionChanged || savedMatchIsStale) {
+        updateDeckOverlay({
+          overlayId: deckOverlay._id,
+          matchId: selectedDeckMatchId,
+        });
+      }
     }
     // Update tournament with event info AND commentator info
     updateTournament({
@@ -236,6 +266,14 @@ function TournamentOverlayPreviewDialog({
       updateStandingsOverlay({
         overlayId: standingsOverlay._id,
         showCurrentBracket: true,
+      });
+    } else if (
+      standingsOverlay &&
+      inputs.standingsOverlaySelection === COMPLETED_BRACKET_VALUE
+    ) {
+      updateStandingsOverlay({
+        overlayId: standingsOverlay._id,
+        showCompletedBracket: true,
       });
     } else if (
       standingsOverlay &&
@@ -270,7 +308,7 @@ function TournamentOverlayPreviewDialog({
             <div className="flex flex-col gap-2">
               <Label>Deck Overlay Match</Label>
               <Select
-                value={inputs.deckOverlayMatchId ?? ""}
+                value={selectedDeckMatchId ?? ""}
                 onValueChange={(value) =>
                   setInputs({
                     ...inputs,
@@ -327,13 +365,20 @@ function TournamentOverlayPreviewDialog({
                       Current bracket - {currentPairings.roundName}
                     </SelectItem>
                   )}
+                  {hasCompletedBracketOption && (
+                    <SelectItem value={COMPLETED_BRACKET_VALUE}>
+                      Completed bracket - Final results
+                    </SelectItem>
+                  )}
                   {completedRounds && completedRounds.length > 0 ? (
                     completedRounds.map((round) => (
                       <SelectItem
                         key={round.roundId}
                         value={round.roundId.toString()}
                       >
-                        {round.roundName}
+                        {ELIMINATION_ROUND_NAMES.has(round.roundName)
+                          ? `Bracket - ${round.roundName}`
+                          : round.roundName}
                       </SelectItem>
                     ))
                   ) : (

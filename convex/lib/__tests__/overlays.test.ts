@@ -174,6 +174,168 @@ describe("enrichStandingsOverlay", () => {
   });
 });
 
+describe("enrichStandingsOverlay bracket stages", () => {
+  // Seeds 1-8 by player id; the cut plays out 1-8, 4-5, 2-7, 3-6, then
+  // 1 beats 4 and 2 beats 3, and 2 wins the final.
+  const seeds = [1, 2, 3, 4, 5, 6, 7, 8];
+  const players = seeds.map((seed) =>
+    makePlayer(`p${seed}`, `Seed ${seed}`, 100 + seed, `Deck ${seed}`),
+  );
+  const pairing = (
+    id: string,
+    externalRoundId: number,
+    roundNumber: number,
+    top: number,
+    bottom: number,
+    winner?: number,
+  ) => ({
+    _id: id,
+    _creationTime: 1,
+    externalId: `pairing:999:${externalRoundId}:${id}`,
+    externalTournamentId: 999,
+    tournamentId: "tournament1",
+    externalRoundId,
+    roundNumber,
+    externalMatchId: id,
+    player1: `p${top}`,
+    player2: `p${bottom}`,
+    player1Seed: top,
+    player2Seed: bottom,
+    player1TournamentRecord: `#${top}`,
+    player2TournamentRecord: `#${bottom}`,
+    status: winner ? "COMPLETE" : "IN_PROGRESS",
+    winnerPlayerId: winner ? `p${winner}` : undefined,
+    createdAt: 1,
+  });
+  const pairings = [
+    pairing("qf1", 501, 9, 1, 8, 1),
+    pairing("qf2", 501, 9, 4, 5, 4),
+    pairing("qf3", 501, 9, 2, 7, 2),
+    pairing("qf4", 501, 9, 3, 6, 3),
+    pairing("sf1", 502, 10, 1, 4, 1),
+    pairing("sf2", 502, 10, 2, 3, 2),
+    pairing("f1", 503, 11, 1, 2, 2),
+  ];
+  const tournaments = [
+    {
+      _id: "tournament1",
+      _creationTime: 1,
+      userId: "user1",
+      mode: "manual",
+      externalTournamentId: 999,
+      createdAt: 1,
+      updatedAt: 1,
+    },
+  ];
+  const finishedTournament = {
+    _id: "externalTournament1",
+    _creationTime: 1,
+    externalTournamentId: 999,
+    currentRoundId: 503,
+    currentRoundNumber: 11,
+    currentRoundName: "Finals",
+    completedRounds: [
+      { roundId: 401, roundName: "Round 8" },
+      { roundId: 501, roundName: "Quarterfinals" },
+      { roundId: 502, roundName: "Semifinals" },
+      { roundId: 503, roundName: "Finals" },
+    ],
+  };
+  const overlay = (fields: Record<string, unknown>) =>
+    ({
+      _id: "overlay1",
+      _creationTime: 1,
+      name: "Standings",
+      overlayType: "standings",
+      tournamentId: "tournament1",
+      publicUuid: "overlay-public-id",
+      createdAt: 1,
+      ...fields,
+    }) as never;
+  const ctx = () =>
+    makeOverlayCtx({
+      externalTournament: finishedTournament,
+      tournaments,
+      pairings,
+      players,
+      roundStandings: [],
+    });
+
+  it("shows the bracket going into a completed elimination round", async () => {
+    const enriched = await enrichStandingsOverlay(
+      ctx(),
+      overlay({ externalRoundId: 502 }),
+    );
+    expect(enriched.isEliminationPhase).toBe(true);
+    expect(enriched.roundDisplayName).toBe("Semifinals");
+    expect(enriched.bracketDataWithPlayers?.map((p) => p.seed)).toEqual(seeds);
+    expect(enriched.bracketMatches).toEqual({
+      quarterfinals: [
+        { seeds: [1, 8], winnerSeed: 1 },
+        { seeds: [4, 5], winnerSeed: 4 },
+        { seeds: [2, 7], winnerSeed: 2 },
+        { seeds: [3, 6], winnerSeed: 3 },
+      ],
+      semifinals: [
+        { seeds: [1, 4], winnerSeed: undefined },
+        { seeds: [2, 3], winnerSeed: undefined },
+      ],
+      finals: [],
+      championSeed: undefined,
+    });
+    expect(enriched.standingsDataWithPlayers).toBeUndefined();
+  });
+
+  it("the finals selection shows the finalists but not the result", async () => {
+    const enriched = await enrichStandingsOverlay(
+      ctx(),
+      overlay({ externalRoundId: 503 }),
+    );
+    expect(enriched.roundDisplayName).toBe("Finals");
+    expect(enriched.bracketMatches?.semifinals).toEqual([
+      { seeds: [1, 4], winnerSeed: 1 },
+      { seeds: [2, 3], winnerSeed: 2 },
+    ]);
+    expect(enriched.bracketMatches?.finals).toEqual([
+      { seeds: [1, 2], winnerSeed: undefined },
+    ]);
+    expect(enriched.bracketMatches?.championSeed).toBeUndefined();
+  });
+
+  it("the completed bracket names the champion from the reported result", async () => {
+    const enriched = await enrichStandingsOverlay(
+      ctx(),
+      overlay({ showCompletedBracket: true, externalRoundId: 401 }),
+    );
+    expect(enriched.roundDisplayName).toBe("Final Results");
+    expect(enriched.bracketMatches?.finals).toEqual([
+      { seeds: [1, 2], winnerSeed: 2 },
+    ]);
+    expect(enriched.bracketMatches?.championSeed).toBe(2);
+  });
+
+  it("the current bracket during the finals matches the finals selection", async () => {
+    const enriched = await enrichStandingsOverlay(
+      ctx(),
+      overlay({ showCurrentBracket: true }),
+    );
+    expect(enriched.roundDisplayName).toBe("Finals");
+    expect(enriched.bracketMatches?.championSeed).toBeUndefined();
+    expect(enriched.bracketMatches?.finals).toEqual([
+      { seeds: [1, 2], winnerSeed: undefined },
+    ]);
+  });
+
+  it("a Swiss round selection still resolves to the standings table", async () => {
+    const enriched = await enrichStandingsOverlay(
+      ctx(),
+      overlay({ externalRoundId: 401 }),
+    );
+    expect(enriched.isEliminationPhase).toBe(false);
+    expect(enriched.bracketMatches).toBeUndefined();
+  });
+});
+
 type IndexScan = { table: string; index: string };
 
 function makeOverlayCtx(args: {

@@ -27,6 +27,8 @@ import {
 import { checkForNewRound } from "./lib/rounds";
 import {
   capturablePairingMatchIds,
+  recordPairingResults,
+  reportedMatchResults,
   roundHasUncapturedPairings,
 } from "./lib/pairings";
 import {
@@ -671,6 +673,27 @@ export const hasUncapturedPairings = internalQuery({
 });
 
 /**
+ * Stores reported elimination-round results on captured pairings, so the
+ * bracket overlay can show who advanced and who won the final.
+ */
+export const recordEliminationResults = internalMutation({
+  args: {
+    externalTournamentId: v.number(),
+    externalRoundId: v.number(),
+    results: v.array(
+      v.object({
+        externalMatchId: v.string(),
+        winnerExternalPlayerId: v.number(),
+      }),
+    ),
+  },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    return await recordPairingResults(ctx, args);
+  },
+});
+
+/**
  * The pairings snapshotCurrentRoundPairings would store for these matches.
  * Which matches those are does not depend on standings, so none are fetched.
  */
@@ -684,6 +707,36 @@ function capturableMatchIds(
     standingsByPlayerId: new Map(),
   });
   return snapshot ? capturablePairingMatchIds(snapshot) : [];
+}
+
+/**
+ * Records the results Melee reports for the current round when it is an
+ * elimination round. Bracket rounds have at most a handful of matches, so
+ * this costs a few index reads per cycle and writes only new results.
+ * Swiss results are not tracked: the standings table covers them.
+ */
+async function syncEliminationResults(
+  ctx: ActionCtx,
+  overview: MeleeTournamentOverviewResponse,
+  matches: MeleeMatch[],
+): Promise<void> {
+  const snapshot = buildRoundSnapshot({
+    overview,
+    matches,
+    standingsByPlayerId: new Map(),
+  });
+  if (!snapshot || !snapshot.isEliminationRound) {
+    return;
+  }
+  const results = reportedMatchResults(snapshot);
+  if (results.length === 0) {
+    return;
+  }
+  await ctx.runMutation(internal.tournamentSync.recordEliminationResults, {
+    externalTournamentId: snapshot.externalTournamentId,
+    externalRoundId: snapshot.roundId,
+    results,
+  });
 }
 
 /**
@@ -1133,6 +1186,13 @@ export const pollTournamentAndScheduleNext = internalAction({
         console.log(
           `Tournament ${externalTournamentId} is complete. Stopping polling.`,
         );
+        // The finals result usually lands in the same cycle the event is
+        // closed; capture it so the completed bracket can name the winner.
+        await syncEliminationResults(
+          ctx,
+          overview,
+          await fetchMeleeCurrentRoundMatches(externalTournamentId, credentials),
+        );
         await ctx.runMutation(internal.tournamentSync.recordCompletedRounds, {
           externalTournamentId,
           completedRounds: parseCompletedRounds(overview, undefined),
@@ -1203,11 +1263,12 @@ export const pollTournamentAndScheduleNext = internalAction({
         );
         if (!pairingsPosted) {
           // Quiet cycle: the round's pairings are already captured and
-          // feature matches are chosen in Manastream, so there is nothing
-          // to sync.
+          // feature matches are chosen in Manastream, so only a bracket
+          // round's reported results are left to record.
           console.log(
             `Tournament ${externalTournamentId}: round ${currentMatch.RoundNumber} unchanged, skipping full fetch`,
           );
+          await syncEliminationResults(ctx, overview, matches);
           await ctx.runMutation(
             internal.tournamentSync.finishPollingCycleAndScheduleNext,
             {

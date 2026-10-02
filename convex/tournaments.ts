@@ -10,6 +10,7 @@ import {
 import { getUserSettings, hasMeleeCredentials } from "./lib/settings";
 import { hasExternalTournamentChanged } from "./lib/pollingBehavior";
 import { clearPollingSession } from "./lib/pollingSession";
+import { clearDeckOverlayMatches } from "./lib/overlays";
 import { getTournamentInfoValidator, tournamentValidator } from "./validators";
 
 export const getUserTournament = query({
@@ -211,6 +212,10 @@ export const updateTournamentSettings = mutation({
           playerRefresh: undefined,
         }
       : updates;
+    if (externalTournamentChanged) {
+      // Deck overlays pointed at matches from the previous Melee tournament.
+      await clearDeckOverlayMatches(ctx, tournament._id);
+    }
 
     if (updates.mode === "auto") {
       const settings = await getUserSettings(ctx);

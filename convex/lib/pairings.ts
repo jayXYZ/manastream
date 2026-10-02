@@ -1,4 +1,4 @@
-import { Id } from "../_generated/dataModel";
+import { Doc, Id } from "../_generated/dataModel";
 import { MutationCtx, QueryCtx } from "../_generated/server";
 import {
   RoundSnapshot,
@@ -136,6 +136,7 @@ export async function snapshotCurrentRoundPairings(
       .withIndex("by_external_id", (q) => q.eq("externalId", externalId))
       .first();
     if (existingPairing) {
+      await applyPairingResult(ctx, existingPairing, match);
       continue;
     }
 
@@ -169,9 +170,122 @@ export async function snapshotCurrentRoundPairings(
       tableNumber: match.tableNumber,
       status: match.hasResult ? "COMPLETE" : "IN_PROGRESS",
       featuredInMelee: match.isFeatureMatch,
+      winnerPlayerId:
+        match.winnerExternalPlayerId === competitor1.externalPlayerId
+          ? player1
+          : match.winnerExternalPlayerId === competitor2.externalPlayerId
+            ? player2
+            : undefined,
       createdAt: Date.now(),
     });
   }
+}
+
+/**
+ * Records a reported result on an already captured pairing. Only writes when
+ * the stored status or winner would change, so a re-snapshot of a round
+ * whose results are already stored touches nothing.
+ */
+async function applyPairingResult(
+  ctx: MutationCtx,
+  pairing: Doc<"pairings">,
+  match: Pick<SnapshotMatch, "hasResult" | "winnerExternalPlayerId"> & {
+    competitors: Pick<SnapshotCompetitor, "externalPlayerId">[];
+  },
+): Promise<void> {
+  if (!match.hasResult || pairing.status === "COMPLETE") {
+    if (!match.hasResult || pairing.winnerPlayerId !== undefined) {
+      return;
+    }
+  }
+  const [competitor1, competitor2] = match.competitors;
+  const winnerPlayerId =
+    match.winnerExternalPlayerId === undefined
+      ? undefined
+      : match.winnerExternalPlayerId === competitor1?.externalPlayerId
+        ? pairing.player1
+        : match.winnerExternalPlayerId === competitor2?.externalPlayerId
+          ? pairing.player2
+          : undefined;
+  if (
+    pairing.status === "COMPLETE" &&
+    (winnerPlayerId === undefined || pairing.winnerPlayerId === winnerPlayerId)
+  ) {
+    return;
+  }
+  await ctx.db.patch(pairing._id, {
+    status: "COMPLETE",
+    ...(winnerPlayerId !== undefined ? { winnerPlayerId } : {}),
+  });
+}
+
+export type MatchResult = {
+  externalMatchId: string;
+  winnerExternalPlayerId: number;
+};
+
+/**
+ * The reported results in a snapshot that name a winner. Built from the
+ * current match list alone, so a quiet poll cycle can record them without
+ * fetching standings.
+ */
+export function reportedMatchResults(snapshot: RoundSnapshot): MatchResult[] {
+  return snapshot.matches.flatMap((match) =>
+    match.hasResult && match.winnerExternalPlayerId !== undefined
+      ? [
+          {
+            externalMatchId: match.externalMatchId,
+            winnerExternalPlayerId: match.winnerExternalPlayerId,
+          },
+        ]
+      : [],
+  );
+}
+
+/**
+ * Stores reported results on the round's captured pairings. Pairings not yet
+ * captured are skipped; the next full snapshot inserts them with the result.
+ * Returns how many pairings changed.
+ */
+export async function recordPairingResults(
+  ctx: MutationCtx,
+  args: {
+    externalTournamentId: number;
+    externalRoundId: number;
+    results: MatchResult[];
+  },
+): Promise<number> {
+  let changed = 0;
+  for (const result of args.results) {
+    const externalId = generatePairingExternalId({
+      externalTournamentId: args.externalTournamentId,
+      externalRoundId: args.externalRoundId,
+      externalMatchId: result.externalMatchId,
+    });
+    const pairing = await ctx.db
+      .query("pairings")
+      .withIndex("by_external_id", (q) => q.eq("externalId", externalId))
+      .first();
+    if (!pairing || pairing.winnerPlayerId !== undefined) {
+      continue;
+    }
+    const [player1, player2] = await Promise.all([
+      ctx.db.get(pairing.player1),
+      ctx.db.get(pairing.player2),
+    ]);
+    const winnerPlayerId =
+      player1?.externalPlayerId === result.winnerExternalPlayerId
+        ? pairing.player1
+        : player2?.externalPlayerId === result.winnerExternalPlayerId
+          ? pairing.player2
+          : undefined;
+    if (winnerPlayerId === undefined) {
+      continue;
+    }
+    await ctx.db.patch(pairing._id, { status: "COMPLETE", winnerPlayerId });
+    changed += 1;
+  }
+  return changed;
 }
 
 function generatePairingExternalId(args: {
