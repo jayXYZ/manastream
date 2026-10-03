@@ -188,6 +188,7 @@ describe("enrichStandingsOverlay bracket stages", () => {
     top: number,
     bottom: number,
     winner?: number,
+    gameWins?: [number, number],
   ) => ({
     _id: id,
     _creationTime: 1,
@@ -205,16 +206,18 @@ describe("enrichStandingsOverlay bracket stages", () => {
     player2TournamentRecord: `#${bottom}`,
     status: winner ? "COMPLETE" : "IN_PROGRESS",
     winnerPlayerId: winner ? `p${winner}` : undefined,
+    player1GameWins: gameWins?.[0],
+    player2GameWins: gameWins?.[1],
     createdAt: 1,
   });
   const pairings = [
-    pairing("qf1", 501, 9, 1, 8, 1),
+    pairing("qf1", 501, 9, 1, 8, 1, [2, 1]),
     pairing("qf2", 501, 9, 4, 5, 4),
     pairing("qf3", 501, 9, 2, 7, 2),
     pairing("qf4", 501, 9, 3, 6, 3),
     pairing("sf1", 502, 10, 1, 4, 1),
     pairing("sf2", 502, 10, 2, 3, 2),
-    pairing("f1", 503, 11, 1, 2, 2),
+    pairing("f1", 503, 11, 1, 2, 2, [0, 2]),
   ];
   const tournaments = [
     {
@@ -271,7 +274,7 @@ describe("enrichStandingsOverlay bracket stages", () => {
     expect(enriched.bracketDataWithPlayers?.map((p) => p.seed)).toEqual(seeds);
     expect(enriched.bracketMatches).toEqual({
       quarterfinals: [
-        { seeds: [1, 8], winnerSeed: 1 },
+        { seeds: [1, 8], winnerSeed: 1, gameWins: [2, 1] },
         { seeds: [4, 5], winnerSeed: 4 },
         { seeds: [2, 7], winnerSeed: 2 },
         { seeds: [3, 6], winnerSeed: 3 },
@@ -299,6 +302,7 @@ describe("enrichStandingsOverlay bracket stages", () => {
     expect(enriched.bracketMatches?.finals).toEqual([
       { seeds: [1, 2], winnerSeed: undefined },
     ]);
+    expect(enriched.bracketMatches?.finals[0].gameWins).toBeUndefined();
     expect(enriched.bracketMatches?.championSeed).toBeUndefined();
   });
 
@@ -309,7 +313,7 @@ describe("enrichStandingsOverlay bracket stages", () => {
     );
     expect(enriched.roundDisplayName).toBe("Final Results");
     expect(enriched.bracketMatches?.finals).toEqual([
-      { seeds: [1, 2], winnerSeed: 2 },
+      { seeds: [1, 2], winnerSeed: 2, gameWins: [0, 2] },
     ]);
     expect(enriched.bracketMatches?.championSeed).toBe(2);
   });
@@ -375,7 +379,7 @@ describe("enrichStandingsOverlay bracket stages", () => {
     expect(enriched.bracketMatches?.quarterfinals).toHaveLength(4);
     expect(enriched.bracketMatches?.semifinals).toHaveLength(2);
     expect(enriched.bracketMatches?.finals).toEqual([
-      { seeds: [1, 2], winnerSeed: 2 },
+      { seeds: [1, 2], winnerSeed: 2, gameWins: [0, 2] },
     ]);
     expect(enriched.bracketMatches?.championSeed).toBe(2);
   });

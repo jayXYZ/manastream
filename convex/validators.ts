@@ -165,6 +165,9 @@ export const pairingValidator = v.object({
   featuredInMelee: v.optional(v.boolean()),
   // Set once Melee reports the result; the bracket overlay reads it.
   winnerPlayerId: v.optional(v.id("players")),
+  // Each player's game wins in the reported result, when Melee gave them.
+  player1GameWins: v.optional(v.number()),
+  player2GameWins: v.optional(v.number()),
   createdAt: v.number(),
 });
 
@@ -552,6 +555,9 @@ export const deckOverlayWithMatchAndPlayersValidator = v.object({
 export const bracketMatchValidator = v.object({
   seeds: v.array(v.number()),
   winnerSeed: v.optional(v.number()),
+  // Game wins per seed, in the same order as `seeds`; present only for a
+  // decided match whose result stored both players' game wins.
+  gameWins: v.optional(v.array(v.number())),
 });
 
 export const bracketMatchesValidator = v.object({
@@ -663,6 +669,8 @@ export const snapshotCompetitorValidator = v.object({
   tournamentRecord: v.string(),
   matchPoints: v.optional(v.number()),
   seed: v.optional(v.number()),
+  // Games this competitor won, once Melee reports the match's result.
+  gameWins: v.optional(v.number()),
 });
 
 export const snapshotMatchValidator = v.object({

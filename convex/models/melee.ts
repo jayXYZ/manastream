@@ -380,6 +380,7 @@ export function buildRoundSnapshot(args: {
           tournamentRecord: isElimination && seed ? `#${seed}` : record,
           matchPoints: standing?.Points,
           seed,
+          gameWins: match.HasResult ? (competitor.GameWins ?? undefined) : undefined,
         },
       ];
     }),

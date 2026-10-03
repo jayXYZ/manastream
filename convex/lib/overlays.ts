@@ -486,14 +486,19 @@ type PlayerWithDataResult = Awaited<
   ReturnType<typeof getCurrentRoundPairingsWithPlayerData>
 >[number]["player1Data"];
 
-type BracketMatch = { seeds: number[]; winnerSeed?: number };
+type BracketMatch = {
+  seeds: number[];
+  winnerSeed?: number;
+  gameWins?: number[];
+};
 
 /**
  * Builds the bracket from the captured pairings of the elimination rounds up
  * to the stage's round. Seeds come from the pairing rows (or the last Swiss
  * standings for rows captured without them). A match's winner is whichever
  * of its players appears in the next round; for the last round shown it is
- * the result Melee reported, and only when the stage reveals it.
+ * the result Melee reported, and only when the stage reveals it. Game wins
+ * ride along with a revealed winner, in seed order.
  */
 async function getEliminationBracket(
   ctx: QueryCtx,
@@ -590,7 +595,15 @@ async function getEliminationBracket(
         winnerPlayerId === undefined
           ? undefined
           : seedByPlayerId.get(winnerPlayerId);
-      return { seeds, winnerSeed };
+      const gameWins =
+        winnerSeed !== undefined &&
+        seed1 !== undefined &&
+        seed2 !== undefined &&
+        pairing.player1GameWins !== undefined &&
+        pairing.player2GameWins !== undefined
+          ? [pairing.player1GameWins, pairing.player2GameWins]
+          : undefined;
+      return { seeds, winnerSeed, gameWins };
     });
   });
 

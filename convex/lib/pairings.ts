@@ -235,27 +235,41 @@ export async function snapshotCurrentRoundPairings(
           : match.winnerExternalPlayerId === competitor2.externalPlayerId
             ? player2
             : undefined,
+      ...(match.hasResult ? reportedGameWins(competitor1, competitor2) : {}),
       createdAt: Date.now(),
     });
   }
 }
 
 /**
+ * The game-win fields a reported result adds to a pairing row, keyed to the
+ * row's player1/player2. Empty unless Melee gave both players' counts.
+ */
+function reportedGameWins(
+  competitor1: Pick<SnapshotCompetitor, "gameWins"> | undefined,
+  competitor2: Pick<SnapshotCompetitor, "gameWins"> | undefined,
+): { player1GameWins: number; player2GameWins: number } | Record<never, never> {
+  const player1GameWins = competitor1?.gameWins;
+  const player2GameWins = competitor2?.gameWins;
+  return player1GameWins !== undefined && player2GameWins !== undefined
+    ? { player1GameWins, player2GameWins }
+    : {};
+}
+
+/**
  * Records a reported result on an already captured pairing. Only writes when
- * the stored status or winner would change, so a re-snapshot of a round
- * whose results are already stored touches nothing.
+ * the stored status, winner, or game wins would change, so a re-snapshot of
+ * a round whose results are already stored touches nothing.
  */
 async function applyPairingResult(
   ctx: MutationCtx,
   pairing: Doc<"pairings">,
   match: Pick<SnapshotMatch, "hasResult" | "winnerExternalPlayerId"> & {
-    competitors: Pick<SnapshotCompetitor, "externalPlayerId">[];
+    competitors: Pick<SnapshotCompetitor, "externalPlayerId" | "gameWins">[];
   },
 ): Promise<void> {
-  if (!match.hasResult || pairing.status === "COMPLETE") {
-    if (!match.hasResult || pairing.winnerPlayerId !== undefined) {
-      return;
-    }
+  if (!match.hasResult) {
+    return;
   }
   const [competitor1, competitor2] = match.competitors;
   const winnerPlayerId =
@@ -266,21 +280,28 @@ async function applyPairingResult(
         : match.winnerExternalPlayerId === competitor2?.externalPlayerId
           ? pairing.player2
           : undefined;
-  if (
-    pairing.status === "COMPLETE" &&
-    (winnerPlayerId === undefined || pairing.winnerPlayerId === winnerPlayerId)
-  ) {
+  const gameWins = reportedGameWins(competitor1, competitor2);
+  const winnerChanges =
+    winnerPlayerId !== undefined && pairing.winnerPlayerId === undefined;
+  const gameWinsChange =
+    "player1GameWins" in gameWins &&
+    (pairing.player1GameWins !== gameWins.player1GameWins ||
+      pairing.player2GameWins !== gameWins.player2GameWins);
+  if (pairing.status === "COMPLETE" && !winnerChanges && !gameWinsChange) {
     return;
   }
   await ctx.db.patch(pairing._id, {
     status: "COMPLETE",
-    ...(winnerPlayerId !== undefined ? { winnerPlayerId } : {}),
+    ...(winnerChanges ? { winnerPlayerId } : {}),
+    ...gameWins,
   });
 }
 
 export type MatchResult = {
   externalMatchId: string;
   winnerExternalPlayerId: number;
+  // Both players' game wins, when Melee reported them.
+  gameWins?: { externalPlayerId: number; wins: number }[];
 };
 
 /**
@@ -295,6 +316,16 @@ export function reportedMatchResults(snapshot: RoundSnapshot): MatchResult[] {
           {
             externalMatchId: match.externalMatchId,
             winnerExternalPlayerId: match.winnerExternalPlayerId,
+            ...(match.competitors.every(
+              (competitor) => competitor.gameWins !== undefined,
+            )
+              ? {
+                  gameWins: match.competitors.map((competitor) => ({
+                    externalPlayerId: competitor.externalPlayerId,
+                    wins: competitor.gameWins!,
+                  })),
+                }
+              : {}),
           },
         ]
       : [],
@@ -343,7 +374,18 @@ export async function recordPairingResults(
     if (winnerPlayerId === undefined) {
       continue;
     }
-    await ctx.db.patch(pairing._id, { status: "COMPLETE", winnerPlayerId });
+    const winsFor = (externalPlayerId: number | undefined) =>
+      result.gameWins?.find(
+        (entry) => entry.externalPlayerId === externalPlayerId,
+      )?.wins;
+    await ctx.db.patch(pairing._id, {
+      status: "COMPLETE",
+      winnerPlayerId,
+      ...reportedGameWins(
+        { gameWins: winsFor(player1?.externalPlayerId) },
+        { gameWins: winsFor(player2?.externalPlayerId) },
+      ),
+    });
     changed += 1;
   }
   return changed;
