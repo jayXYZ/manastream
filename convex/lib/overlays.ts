@@ -11,7 +11,7 @@ import {
 import { getPlayersForMatch } from "./players";
 import { getTournamentTimerAndRoundInfo } from "./tournaments";
 import { generatePublicUuid } from "./utils";
-import { ELIMINATION_ROUND_NAMES, isEliminationRoundName } from "./constants";
+import { getEliminationRoundName, isEliminationRoundName } from "./constants";
 
 /**
  * Drops every deck overlay's selected match for a tournament. Used when the
@@ -595,13 +595,16 @@ async function getEliminationBracket(
   });
 
   const byName = (name: string) =>
-    matchesByRound[rounds.findIndex((round) => round.roundName === name)] ??
-    undefined;
-  const byCount = (count: number) =>
-    matchesByRound.find((matches) => matches.length === count);
-  const quarterfinals = byName("Quarterfinals") ?? byCount(4) ?? [];
-  const semifinals = byName("Semifinals") ?? byCount(2) ?? [];
-  const finals = byName("Finals") ?? byCount(1) ?? [];
+    matchesByRound[
+      rounds.findIndex(
+        (round) => getEliminationRoundName(round.roundName) === name,
+      )
+    ] ?? [];
+  // All stage names are recognized above. A partially captured quarterfinal
+  // round must not become a semifinal/final just because it has 2/1 matches.
+  const quarterfinals = byName("Quarterfinals");
+  const semifinals = byName("Semifinals");
+  const finals = byName("Finals");
   const championSeed = stage.revealLastRoundResults
     ? finals[0]?.winnerSeed
     : undefined;
@@ -620,7 +623,7 @@ async function getLatestSwissSeedMap(
 ) {
   const latestSwissRound = [...(externalTournament.completedRounds ?? [])]
     .reverse()
-    .find((round) => !ELIMINATION_ROUND_NAMES.has(round.roundName));
+    .find((round) => !isEliminationRoundName(round.roundName));
 
   if (!latestSwissRound) {
     return new Map<number, number>();
