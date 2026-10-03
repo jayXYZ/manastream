@@ -601,9 +601,9 @@ async function getEliminationBracket(
         seed2 !== undefined &&
         pairing.player1GameWins !== undefined &&
         pairing.player2GameWins !== undefined
-          ? [pairing.player1GameWins, pairing.player2GameWins]
-          : undefined;
-      return { seeds, winnerSeed, gameWins };
+          ? { gameWins: [pairing.player1GameWins, pairing.player2GameWins] }
+          : {};
+      return { seeds, winnerSeed, ...gameWins };
     });
   });
 

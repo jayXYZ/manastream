@@ -550,16 +550,19 @@ function PlayerSlot({
       {gameWins !== undefined && (
         <div
           className="flex items-center justify-center"
-          style={{
-            borderLeft: `1px solid ${theme.rule}`,
-            color: theme.text,
-            opacity: dimmed,
-            fontSize: 30,
-            fontWeight: 600,
-            fontVariantNumeric: "tabular-nums",
-          }}
+          style={{ borderLeft: `1px solid ${theme.rule}` }}
         >
-          {gameWins}
+          <span
+            style={{
+              color: theme.text,
+              opacity: dimmed,
+              fontSize: 30,
+              fontWeight: 600,
+              fontVariantNumeric: "tabular-nums",
+            }}
+          >
+            {gameWins}
+          </span>
         </div>
       )}
     </div>
