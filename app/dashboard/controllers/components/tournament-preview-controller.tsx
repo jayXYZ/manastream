@@ -35,7 +35,10 @@ import { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { CardActionButton } from "@/components/ui/card-action-button";
 import { RefreshSyncButton } from "@/components/sync/refresh-sync-button";
-import { ELIMINATION_ROUND_NAMES } from "@/convex/lib/constants";
+import {
+  getEliminationRoundName,
+  isEliminationRoundName,
+} from "@/convex/lib/constants";
 
 const CURRENT_BRACKET_VALUE = "current-bracket";
 const COMPLETED_BRACKET_VALUE = "completed-bracket";
@@ -189,13 +192,16 @@ function TournamentOverlayPreviewDialog({
     currentPairings?.status === "ready" &&
     currentPairings.pairingCount > 0 &&
     currentPairings.roundName !== undefined &&
-    ELIMINATION_ROUND_NAMES.has(currentPairings.roundName);
+    isEliminationRoundName(currentPairings.roundName);
   // The finished bracket needs the finals to have been paired: either the
   // tournament has moved past them or they are the round being played.
   const hasCompletedBracketOption =
-    (completedRounds?.some((round) => round.roundName === "Finals") ??
+    (completedRounds?.some(
+      (round) => getEliminationRoundName(round.roundName) === "Finals",
+    ) ??
       false) ||
-    (hasCurrentBracketOption && currentPairings.roundName === "Finals");
+    (hasCurrentBracketOption &&
+      getEliminationRoundName(currentPairings.roundName) === "Finals");
   const [inputs, setInputs] = useState({
     eventName: tournament.eventName ?? "",
     currentRoundDisplayName: tournament.currentRoundDisplayName ?? "",
@@ -209,8 +215,7 @@ function TournamentOverlayPreviewDialog({
       ? COMPLETED_BRACKET_VALUE
       : standingsOverlay?.showCurrentBracket
         ? CURRENT_BRACKET_VALUE
-        : (standingsOverlay?.externalRoundId?.toString() ??
-          NO_STANDINGS_VALUE),
+        : (standingsOverlay?.externalRoundId?.toString() ?? NO_STANDINGS_VALUE),
   });
 
   const updateDeckOverlay = useMutation(api.overlays.deck.updateDeckOverlay);
@@ -376,7 +381,7 @@ function TournamentOverlayPreviewDialog({
                         key={round.roundId}
                         value={round.roundId.toString()}
                       >
-                        {ELIMINATION_ROUND_NAMES.has(round.roundName)
+                        {isEliminationRoundName(round.roundName)
                           ? `Bracket - ${round.roundName}`
                           : round.roundName}
                       </SelectItem>

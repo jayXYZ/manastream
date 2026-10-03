@@ -334,6 +334,73 @@ describe("enrichStandingsOverlay bracket stages", () => {
     expect(enriched.isEliminationPhase).toBe(false);
     expect(enriched.bracketMatches).toBeUndefined();
   });
+
+  it("reads stored round-name variants and seeds from the final Swiss round", async () => {
+    const enriched = await enrichStandingsOverlay(
+      makeOverlayCtx({
+        externalTournament: {
+          ...finishedTournament,
+          currentRoundName: "Final",
+          completedRounds: [
+            { roundId: 401, roundName: "Round 8" },
+            { roundId: 501, roundName: "Quarter Finals" },
+            { roundId: 502, roundName: "Semi-Finals" },
+            { roundId: 503, roundName: "Final" },
+          ],
+        },
+        tournaments,
+        pairings: pairings.map((pair) => ({
+          ...pair,
+          player1Seed: undefined,
+          player2Seed: undefined,
+          player1TournamentRecord: "7-1",
+          player2TournamentRecord: "6-2",
+        })),
+        players,
+        roundStandings: [
+          {
+            _id: "swiss",
+            externalRoundId: 401,
+            externalTournamentId: 999,
+            standings: seeds.map((seed) =>
+              makeStanding(seed, 100 + seed, `Seed ${seed}`),
+            ),
+          },
+        ],
+      }),
+      overlay({ showCompletedBracket: true }),
+    );
+    expect(enriched.isEliminationPhase).toBe(true);
+    expect(enriched.bracketDataWithPlayers?.map((p) => p.seed)).toEqual(seeds);
+    expect(enriched.bracketMatches?.quarterfinals).toHaveLength(4);
+    expect(enriched.bracketMatches?.semifinals).toHaveLength(2);
+    expect(enriched.bracketMatches?.finals).toEqual([
+      { seeds: [1, 2], winnerSeed: 2 },
+    ]);
+    expect(enriched.bracketMatches?.championSeed).toBe(2);
+  });
+
+  it("does not classify a partially captured quarterfinal as a later round", async () => {
+    const enriched = await enrichStandingsOverlay(
+      makeOverlayCtx({
+        externalTournament: {
+          ...finishedTournament,
+          currentRoundId: 501,
+          currentRoundName: "Quarter Finals",
+          completedRounds: [{ roundId: 401, roundName: "Round 8" }],
+        },
+        tournaments,
+        pairings: [pairings[0]],
+        players,
+        roundStandings: [],
+      }),
+      overlay({ showCurrentBracket: true }),
+    );
+    expect(enriched.isEliminationPhase).toBe(true);
+    expect(enriched.bracketMatches?.quarterfinals).toHaveLength(1);
+    expect(enriched.bracketMatches?.semifinals).toEqual([]);
+    expect(enriched.bracketMatches?.finals).toEqual([]);
+  });
 });
 
 type IndexScan = { table: string; index: string };

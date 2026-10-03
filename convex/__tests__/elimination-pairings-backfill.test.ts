@@ -231,6 +231,32 @@ it("a round captured only in part is fetched again", async () => {
   expect(await scheduledBackfills(t)).toEqual([{ roundIds: [501] }]);
 });
 
+it("stored round-name variants retain their expected match counts", async () => {
+  const { t, owner, ids } = await setup();
+  await t.run((ctx) =>
+    ctx.db.patch(ids.externalTournament, {
+      currentRoundName: "Final",
+      completedRounds: [
+        { roundId: 401, roundName: "Round 8" },
+        { roundId: 501, roundName: "Quarter Finals" },
+        { roundId: 502, roundName: "Semi-Finals" },
+      ],
+    }),
+  );
+  // Finished but incomplete captures must still backfill all four/two matches.
+  await capture(t, ids.tournament, 501, 9, 1);
+  await capture(t, ids.tournament, 502, 10, 1);
+  await owner.mutation(api.overlays.standings.updateStandingsOverlay, {
+    overlayId: ids.overlay,
+    externalRoundId: 502,
+    showCurrentBracket: false,
+  });
+  expect(await scheduledBackfills(t)).toEqual([{ roundIds: [501, 502] }]);
+  expect(
+    await t.run((ctx) => ctx.db.query("roundStandings").collect()),
+  ).toEqual([]);
+});
+
 it("a second account linking the same Melee tournament gets its own pairings", async () => {
   const { t, ids } = await setup();
   const second = await t.run(async (ctx) => {

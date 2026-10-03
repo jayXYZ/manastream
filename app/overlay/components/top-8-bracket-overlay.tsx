@@ -5,6 +5,14 @@ import { Mic } from "lucide-react";
 const FONT = "'Instrument Sans', 'Helvetica Neue', sans-serif";
 const BOTTOM_BAR = 48;
 const SIDE_MARGIN = 140;
+const SLOT_HEIGHT = 78;
+const MATCH_HEIGHT = SLOT_HEIGHT * 2 + 2;
+const QUARTERFINAL_GAP = 34;
+const QUARTERFINAL_STEP = MATCH_HEIGHT + QUARTERFINAL_GAP;
+const BRACKET_HEIGHT = MATCH_HEIGHT * 4 + QUARTERFINAL_GAP * 3;
+const SEMIFINAL_TOP = QUARTERFINAL_STEP / 2;
+const SEMIFINAL_GAP = QUARTERFINAL_STEP * 2 - MATCH_HEIGHT;
+const FINAL_TOP = (BRACKET_HEIGHT - MATCH_HEIGHT) / 2;
 const TOP_8_PAIRINGS = [
   [1, 8],
   [4, 5],
@@ -79,10 +87,11 @@ export default function Top8BracketOverlay({
             gridTemplateColumns: "640px 360px 360px",
             columnGap: 70,
             alignItems: "center",
+            justifyContent: "center",
           }}
         >
           <BracketColumn title="Quarterfinals" theme={theme}>
-            <div className="grid gap-[34px]">
+            <div className="grid" style={{ gap: QUARTERFINAL_GAP }}>
               {layout.quarterfinals.map((match, index) => (
                 <MatchPair key={`qf-${index}`} theme={theme}>
                   {match.slots.map((slot, slotIndex) => (
@@ -105,7 +114,10 @@ export default function Top8BracketOverlay({
           </BracketColumn>
 
           <BracketColumn title="Semifinals" theme={theme}>
-            <div className="grid gap-[150px]">
+            <div
+              className="absolute inset-x-0 grid"
+              style={{ top: SEMIFINAL_TOP, gap: SEMIFINAL_GAP }}
+            >
               {layout.semifinals.map((match, index) => (
                 <MatchPair key={`sf-${index}`} theme={theme}>
                   {match.slots.map((slot, slotIndex) => (
@@ -128,7 +140,10 @@ export default function Top8BracketOverlay({
           </BracketColumn>
 
           <BracketColumn title="Finals" theme={theme}>
-            <div className="grid gap-[60px]">
+            <div
+              className="absolute inset-x-0 grid gap-[60px]"
+              style={{ top: FINAL_TOP }}
+            >
               {layout.finals.map((match, index) => (
                 <MatchPair key={`f-${index}`} theme={theme}>
                   {match.slots.map((slot, slotIndex) => (
@@ -208,7 +223,9 @@ type BracketLayout = {
  * matches that feed it, with a "winner" placeholder for a slot no match has
  * filled yet. Without match data the layout is the empty seeded bracket.
  */
-export function buildBracketLayout(matches?: Top8BracketMatches): BracketLayout {
+export function buildBracketLayout(
+  matches?: Top8BracketMatches,
+): BracketLayout {
   const quarterfinalMatches = orderQuarterfinals(matches?.quarterfinals ?? []);
   const quarterfinals = quarterfinalMatches.map((match) => ({
     slots: match.seeds.map((seed) => ({
@@ -221,8 +238,14 @@ export function buildBracketLayout(matches?: Top8BracketMatches): BracketLayout 
   const semifinalMatches = matches?.semifinals ?? [];
   const semifinals = [0, 1].map((index) =>
     feedingMatch({
-      feeders: [quarterfinalMatches[index * 2], quarterfinalMatches[index * 2 + 1]],
-      feederLabels: [`QF ${index * 2 + 1} winner`, `QF ${index * 2 + 2} winner`],
+      feeders: [
+        quarterfinalMatches[index * 2],
+        quarterfinalMatches[index * 2 + 1],
+      ],
+      feederLabels: [
+        `QF ${index * 2 + 1} winner`,
+        `QF ${index * 2 + 2} winner`,
+      ],
       candidates: semifinalMatches,
     }),
   );
@@ -360,7 +383,11 @@ function BracketColumn({
       >
         {title}
       </div>
-      <div className="pt-8">{children}</div>
+      {/* Equal-height columns keep headings aligned and the final stationary
+          when the champion appears. Later matches use feeder midpoints. */}
+      <div className="relative mt-8" style={{ height: BRACKET_HEIGHT }}>
+        {children}
+      </div>
     </section>
   );
 }
@@ -406,7 +433,7 @@ function PlayerSlot({
       className="grid min-w-0"
       style={{
         gridTemplateColumns: "88px minmax(0, 1fr)",
-        minHeight: 78,
+        minHeight: SLOT_HEIGHT,
         borderBottom: `1px solid ${theme.rule}`,
         opacity: eliminated ? 0.45 : 1,
       }}
@@ -414,7 +441,7 @@ function PlayerSlot({
       <div
         className="flex items-center justify-center"
         style={{
-          color: player ? theme.accent : theme.placeholderLabel,
+          color: player ? theme.accent : theme.muted,
           fontSize: 30,
           fontWeight: 600,
           fontVariantNumeric: "tabular-nums",
@@ -427,7 +454,7 @@ function PlayerSlot({
         <div
           className="truncate"
           style={{
-            color: player ? theme.text : theme.placeholderLabel,
+            color: player ? theme.text : theme.muted,
             fontSize: 28,
             fontWeight: 600,
             letterSpacing: 0,
@@ -439,7 +466,7 @@ function PlayerSlot({
         <div
           className="mt-2 truncate"
           style={{
-            color: player ? theme.muted : theme.placeholderDim,
+            color: theme.muted,
             fontSize: 19,
             fontWeight: 400,
             letterSpacing: "0.01em",
@@ -486,7 +513,10 @@ function ChampionCard({
       </div>
       <div
         className="grid min-w-0"
-        style={{ gridTemplateColumns: "88px minmax(0, 1fr)", minHeight: 78 }}
+        style={{
+          gridTemplateColumns: "88px minmax(0, 1fr)",
+          minHeight: SLOT_HEIGHT,
+        }}
       >
         <div
           className="flex items-center justify-center"
@@ -542,9 +572,9 @@ function WinnerSlot({
     <div
       className="flex items-center px-5"
       style={{
-        minHeight: 78,
+        minHeight: SLOT_HEIGHT,
         borderBottom: `1px solid ${theme.rule}`,
-        color: theme.placeholderLabel,
+        color: theme.muted,
         fontSize: 18,
         fontWeight: 500,
         letterSpacing: "0.12em",

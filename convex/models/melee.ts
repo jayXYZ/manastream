@@ -1,3 +1,7 @@
+import {
+  getEliminationRoundName,
+  isEliminationRoundName,
+} from "../lib/constants";
 import { Infer } from "convex/values";
 import {
   MeleeMatch,
@@ -65,11 +69,16 @@ export function isEliminationPhase(
   if (!phase) {
     return false;
   }
-  if (ELIMINATION_NAME_PATTERN.test(phase.Name ?? "")) {
+  if (
+    isEliminationRoundName(phase.Name) ||
+    ELIMINATION_NAME_PATTERN.test(phase.Name ?? "")
+  ) {
     return true;
   }
-  return phase.Rounds.some((round) =>
-    ELIMINATION_NAME_PATTERN.test(round.Name ?? ""),
+  return phase.Rounds.some(
+    (round) =>
+      isEliminationRoundName(round.Name) ||
+      ELIMINATION_NAME_PATTERN.test(round.Name ?? ""),
   );
 }
 
@@ -125,7 +134,7 @@ export function getRoundDisplayName(
   const roundName = round?.Name?.trim();
 
   if (roundName && !GENERIC_ROUND_NAME_PATTERN.test(roundName)) {
-    return roundName;
+    return getEliminationRoundName(roundName) ?? roundName;
   }
 
   const roundNumber =
@@ -301,9 +310,7 @@ export function parseMatchWinner(match: MeleeMatch): number | undefined {
   }
   const competitors = match.Competitors.flatMap((competitor) => {
     const player = competitor.Team?.Players?.[0];
-    return player
-      ? [{ player, gameWins: competitor.GameWins ?? 0 }]
-      : [];
+    return player ? [{ player, gameWins: competitor.GameWins ?? 0 }] : [];
   });
   if (competitors.length !== 2) {
     return undefined;

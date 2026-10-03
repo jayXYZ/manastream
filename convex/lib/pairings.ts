@@ -11,7 +11,10 @@ import {
   getPlayerByExternalPlayerId,
 } from "./players";
 import { TournamentPlayerData, getPlayerDataById } from "./playerData";
-import { EXPECTED_ELIMINATION_MATCHES } from "./constants";
+import {
+  EXPECTED_ELIMINATION_MATCHES,
+  getEliminationRoundName,
+} from "./constants";
 
 type SnapshotCurrentRoundPairingsArgs = {
   tournamentId: Id<"tournaments">;
@@ -92,7 +95,8 @@ export async function findRoundsNeedingCapture(
         q.eq("tournamentId", tournamentId).eq("externalRoundId", round.roundId),
       )
       .collect();
-    const expected = EXPECTED_ELIMINATION_MATCHES[round.roundName] ?? 1;
+    const roundName = getEliminationRoundName(round.roundName);
+    const expected = roundName ? EXPECTED_ELIMINATION_MATCHES[roundName] : 1;
     if (
       captured.length < expected ||
       captured.some((pairing) => pairing.winnerPlayerId === undefined)

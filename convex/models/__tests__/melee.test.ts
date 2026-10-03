@@ -145,6 +145,33 @@ describe("tournament overview parsing", () => {
     expect(getRoundDisplayName(overview, 1529977)).toBe("Finals");
   });
 
+  it.each([
+    ["Quarter Finals", "Quarterfinals"],
+    ["quarter-final", "Quarterfinals"],
+    [" QUARTERFINALS ", "Quarterfinals"],
+    ["Semi-Finals", "Semifinals"],
+    ["Semi Final", "Semifinals"],
+    ["Semi–Finals", "Semifinals"],
+    ["Final", "Finals"],
+    [" FINALS ", "Finals"],
+  ])("normalizes provider round name %s to %s", (name, expected) => {
+    const overview = makeOverview({
+      phases: [
+        makePhase({
+          id: TOP8_PHASE_ID,
+          name: "Constructed",
+          sortOrder: 1,
+          rounds: [makeRound(9001, name, 1)],
+        }),
+      ],
+    });
+    expect(isEliminationPhase(overview.Phases[0])).toBe(true);
+    expect(getRoundDisplayName(overview, 9001)).toBe(expected);
+    expect(parseCompletedRounds(overview, undefined)).toEqual([
+      { roundId: 9001, roundName: expected },
+    ]);
+  });
+
   it("lists completed rounds before the current round", () => {
     const overview = makeStandardOverview();
     expect(parseCompletedRounds(overview, 1529974)).toEqual([
@@ -310,7 +337,10 @@ describe("parseMatchWinner", () => {
       guid: "m1",
       roundId: 501,
       roundNumber: 9,
-      competitors: [{ ...ada, GameWins: 2 }, { ...ben, GameWins: 0 }],
+      competitors: [
+        { ...ada, GameWins: 2 },
+        { ...ben, GameWins: 0 },
+      ],
     });
     expect(parseMatchWinner(match)).toBeUndefined();
   });
@@ -321,7 +351,10 @@ describe("parseMatchWinner", () => {
       roundId: 501,
       roundNumber: 9,
       hasResult: true,
-      competitors: [{ ...ada, GameWins: 1 }, { ...ben, GameWins: 2 }],
+      competitors: [
+        { ...ada, GameWins: 1 },
+        { ...ben, GameWins: 2 },
+      ],
     });
     expect(parseMatchWinner(match)).toBe(108);
   });
@@ -333,7 +366,10 @@ describe("parseMatchWinner", () => {
         roundId: 501,
         roundNumber: 9,
         hasResult: true,
-        competitors: [{ ...ada, GameWins: null }, { ...ben, GameWins: null }],
+        competitors: [
+          { ...ada, GameWins: null },
+          { ...ben, GameWins: null },
+        ],
       }),
       ResultString: "Ada won 2-1-0",
     };
@@ -352,7 +388,10 @@ describe("parseMatchWinner", () => {
           roundId: 1529974,
           roundNumber: 3,
           hasResult: true,
-          competitors: [{ ...ada, GameWins: 2 }, { ...ben, GameWins: 1 }],
+          competitors: [
+            { ...ada, GameWins: 2 },
+            { ...ben, GameWins: 1 },
+          ],
         }),
       ],
       standingsByPlayerId: new Map(),
