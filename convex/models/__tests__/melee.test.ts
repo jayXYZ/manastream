@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildRoundSnapshot,
   getRoundDisplayName,
+  meleeRealName,
   parseMatchWinner,
   isEliminationPhase,
   isTournamentComplete,
@@ -73,6 +74,59 @@ describe("standings parsing", () => {
       opponentGameWinPercentage: 0.5714286,
     });
     expect(rows).toHaveLength(5);
+  });
+
+  it("names standings rows by real name when the profile displays a username", () => {
+    const player = standings[0].Team.Players[0];
+    const row = toStandingRows([
+      {
+        ...standings[0],
+        Team: {
+          ...standings[0].Team,
+          Players: [{ ...player, DisplayName: "mMouse12345" }],
+        },
+      },
+    ]);
+    expect(row[0].name).toBe("Mickey Mouse");
+  });
+});
+
+describe("meleeRealName", () => {
+  it("prefers the composed real name over the display preference", () => {
+    expect(
+      meleeRealName({
+        Name: "Mickey Mouse",
+        FirstName: "Mickey",
+        LastName: "Mouse",
+        DisplayName: "mMouse12345",
+        Username: "mMouse12345",
+      }),
+    ).toBe("Mickey Mouse");
+    expect(
+      meleeRealName({ PlayerName: "Mickey Mouse", DisplayName: "mMouse12345" }),
+    ).toBe("Mickey Mouse");
+  });
+
+  it("composes first and last name when no full name is sent", () => {
+    expect(
+      meleeRealName({
+        Name: " ",
+        FirstName: "Mickey",
+        LastName: "Mouse",
+        DisplayName: "mMouse12345",
+      }),
+    ).toBe("Mickey Mouse");
+    expect(
+      meleeRealName({ FirstName: "Cher", LastName: null, DisplayName: "x" }),
+    ).toBe("Cher");
+  });
+
+  it("falls back to display name, then username", () => {
+    expect(meleeRealName({ DisplayName: "mMouse12345", Username: "u" })).toBe(
+      "mMouse12345",
+    );
+    expect(meleeRealName({ DisplayName: null, Username: "u" })).toBe("u");
+    expect(meleeRealName({})).toBe("");
   });
 });
 
@@ -262,6 +316,33 @@ describe("buildRoundSnapshot", () => {
     expect(byeMatch.competitors).toHaveLength(1);
   });
 
+  it("names competitors by real name when the profile displays a username", () => {
+    const snapshot = buildRoundSnapshot({
+      overview: makeStandardOverview(),
+      matches: [
+        makeMatch({
+          guid: "match-guid-1",
+          roundId: 1529974,
+          roundNumber: 3,
+          tableNumber: 1,
+          competitors: [
+            makeCompetitor({
+              playerId: 4104398,
+              name: "Mickey Mouse",
+              displayName: "mMouse12345",
+            }),
+            makeCompetitor({ playerId: 4104392, name: "Sandy Beech" }),
+          ],
+        }),
+      ],
+      standingsByPlayerId: byPlayer,
+    });
+    expect(snapshot!.matches[0].competitors.map((c) => c.name)).toEqual([
+      "Mickey Mouse",
+      "Sandy Beech",
+    ]);
+  });
+
   it("shows seeds as the record during elimination rounds", () => {
     const matches = [
       makeMatch({
@@ -377,6 +458,30 @@ describe("parseMatchWinner", () => {
     expect(
       parseMatchWinner({ ...match, ResultString: "Draw" }),
     ).toBeUndefined();
+  });
+
+  it("still matches a result string written with the display username", () => {
+    const match = {
+      ...makeMatch({
+        guid: "m1",
+        roundId: 501,
+        roundNumber: 9,
+        hasResult: true,
+        competitors: [
+          {
+            ...makeCompetitor({
+              playerId: 101,
+              name: "Ada Lovelace",
+              displayName: "enchantress",
+            }),
+            GameWins: null,
+          },
+          { ...ben, GameWins: null },
+        ],
+      }),
+      ResultString: "enchantress won 2-1-0",
+    };
+    expect(parseMatchWinner(match)).toBe(101);
   });
 
   it("is carried on the round snapshot", () => {

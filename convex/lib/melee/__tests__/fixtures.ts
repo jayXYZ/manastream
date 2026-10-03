@@ -19,15 +19,17 @@ export function makePlayer(
   id: number,
   name: string,
   teamId: number,
+  options: { displayName?: string } = {},
 ): MeleePlayer {
+  const displayName = options.displayName ?? name;
   return {
     TeamId: teamId,
     ID: id,
     ScreenName: "N/A",
     MetadataDictionary: {},
     ProfileImageVersion: 0,
-    DisplayName: name,
-    DisplayNameLastFirst: name,
+    DisplayName: displayName,
+    DisplayNameLastFirst: displayName,
     Username: name.replace(/\s+/g, ""),
     ArenaScreenName: `${name}#12345`,
     DciNumber: null,
@@ -57,11 +59,19 @@ export function makeTeam(players: MeleePlayer[], teamId: number): MeleeTeam {
 export function makeCompetitor(args: {
   playerId: number;
   name: string;
+  displayName?: string;
   decklist?: Pick<MeleeMatchDecklist, "DecklistId" | "DecklistName">;
 }): MeleeMatchCompetitor {
   const teamId = args.playerId + 10000;
   return {
-    Team: makeTeam([makePlayer(args.playerId, args.name, teamId)], teamId),
+    Team: makeTeam(
+      [
+        makePlayer(args.playerId, args.name, teamId, {
+          displayName: args.displayName,
+        }),
+      ],
+      teamId,
+    ),
     ID: args.playerId + 20000,
     CheckedIn: null,
     ResultConfirmed: null,

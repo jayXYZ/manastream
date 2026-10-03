@@ -1,6 +1,6 @@
 import { Id } from "../_generated/dataModel";
 import { MeleePlayerListEntry } from "../types/melee";
-import { parseMeleeRegistrationStatus } from "../models/melee";
+import { meleeRealName, parseMeleeRegistrationStatus } from "../models/melee";
 import { buildDecklistFromMeleeRecords } from "./melee/decklist";
 import { isMissingDecklistData } from "./playerData";
 
@@ -81,8 +81,9 @@ export type PlayerSyncSummary = {
   namesUpdated: number;
 };
 
+/** The player's real name, never the username their profile may display. */
 export function playerEntryName(entry: MeleePlayerListEntry): string {
-  return entry.DisplayName || entry.PlayerName || entry.Username;
+  return meleeRealName(entry);
 }
 
 /**
