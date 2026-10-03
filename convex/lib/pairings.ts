@@ -235,29 +235,90 @@ export async function snapshotCurrentRoundPairings(
           : match.winnerExternalPlayerId === competitor2.externalPlayerId
             ? player2
             : undefined,
+      ...(match.hasResult ? reportedGameWins(competitor1, competitor2) : {}),
       createdAt: Date.now(),
     });
   }
 }
 
 /**
+ * The game-win fields a reported result adds to a pairing row, keyed to the
+ * row's player1/player2. Empty unless Melee gave both players' counts.
+ */
+function reportedGameWins(
+  competitor1: Pick<SnapshotCompetitor, "gameWins"> | undefined,
+  competitor2: Pick<SnapshotCompetitor, "gameWins"> | undefined,
+): { player1GameWins: number; player2GameWins: number } | Record<never, never> {
+  const player1GameWins = competitor1?.gameWins;
+  const player2GameWins = competitor2?.gameWins;
+  return player1GameWins !== undefined && player2GameWins !== undefined
+    ? { player1GameWins, player2GameWins }
+    : {};
+}
+
+/**
+ * The game-win fields a result changes on a stored pairing: both counts when
+ * the result gave them and they differ from what the row holds, else none.
+ */
+function gameWinsPatch(
+  pairing: Doc<"pairings">,
+  reported: ReturnType<typeof reportedGameWins>,
+): ReturnType<typeof reportedGameWins> {
+  return "player1GameWins" in reported &&
+    (pairing.player1GameWins !== reported.player1GameWins ||
+      pairing.player2GameWins !== reported.player2GameWins)
+    ? reported
+    : {};
+}
+
+/**
+ * Matches a stored pairing's player1 and player2 to the snapshot's
+ * competitors by Melee player id, so a later snapshot that lists the same
+ * match with its competitors reversed still lands on the right players.
+ * Falls back to position for a player whose row is missing.
+ */
+async function competitorsForPairing<
+  Competitor extends Pick<SnapshotCompetitor, "externalPlayerId">,
+>(
+  ctx: QueryCtx,
+  pairing: Doc<"pairings">,
+  competitors: Competitor[],
+): Promise<[Competitor | undefined, Competitor | undefined]> {
+  const [player1, player2] = await Promise.all([
+    ctx.db.get(pairing.player1),
+    ctx.db.get(pairing.player2),
+  ]);
+  const byExternalId = new Map(
+    competitors.map((competitor) => [competitor.externalPlayerId, competitor]),
+  );
+  const forPlayer = (player: Doc<"players"> | null, index: number) =>
+    player
+      ? byExternalId.get(player.externalPlayerId)
+      : competitors[index];
+  return [forPlayer(player1, 0), forPlayer(player2, 1)];
+}
+
+/**
  * Records a reported result on an already captured pairing. Only writes when
- * the stored status or winner would change, so a re-snapshot of a round
- * whose results are already stored touches nothing.
+ * the stored status, winner, or game wins would change, so a re-snapshot of
+ * a round whose results are already stored touches nothing. A stored winner
+ * is never overwritten.
  */
 async function applyPairingResult(
   ctx: MutationCtx,
   pairing: Doc<"pairings">,
   match: Pick<SnapshotMatch, "hasResult" | "winnerExternalPlayerId"> & {
-    competitors: Pick<SnapshotCompetitor, "externalPlayerId">[];
+    competitors: Pick<SnapshotCompetitor, "externalPlayerId" | "gameWins">[];
   },
 ): Promise<void> {
-  if (!match.hasResult || pairing.status === "COMPLETE") {
-    if (!match.hasResult || pairing.winnerPlayerId !== undefined) {
-      return;
-    }
+  if (!match.hasResult) {
+    return;
   }
-  const [competitor1, competitor2] = match.competitors;
+  const [competitor1, competitor2] = await competitorsForPairing(
+    ctx,
+    pairing,
+    match.competitors,
+  );
   const winnerPlayerId =
     match.winnerExternalPlayerId === undefined
       ? undefined
@@ -266,21 +327,31 @@ async function applyPairingResult(
         : match.winnerExternalPlayerId === competitor2?.externalPlayerId
           ? pairing.player2
           : undefined;
+  const winnerChanges =
+    winnerPlayerId !== undefined && pairing.winnerPlayerId === undefined;
+  const gameWins = gameWinsPatch(
+    pairing,
+    reportedGameWins(competitor1, competitor2),
+  );
   if (
     pairing.status === "COMPLETE" &&
-    (winnerPlayerId === undefined || pairing.winnerPlayerId === winnerPlayerId)
+    !winnerChanges &&
+    !("player1GameWins" in gameWins)
   ) {
     return;
   }
   await ctx.db.patch(pairing._id, {
     status: "COMPLETE",
-    ...(winnerPlayerId !== undefined ? { winnerPlayerId } : {}),
+    ...(winnerChanges ? { winnerPlayerId } : {}),
+    ...gameWins,
   });
 }
 
 export type MatchResult = {
   externalMatchId: string;
   winnerExternalPlayerId: number;
+  // Both players' game wins, when Melee reported them.
+  gameWins?: { externalPlayerId: number; wins: number }[];
 };
 
 /**
@@ -295,6 +366,16 @@ export function reportedMatchResults(snapshot: RoundSnapshot): MatchResult[] {
           {
             externalMatchId: match.externalMatchId,
             winnerExternalPlayerId: match.winnerExternalPlayerId,
+            ...(match.competitors.every(
+              (competitor) => competitor.gameWins !== undefined,
+            )
+              ? {
+                  gameWins: match.competitors.map((competitor) => ({
+                    externalPlayerId: competitor.externalPlayerId,
+                    wins: competitor.gameWins!,
+                  })),
+                }
+              : {}),
           },
         ]
       : [],
@@ -304,7 +385,9 @@ export function reportedMatchResults(snapshot: RoundSnapshot): MatchResult[] {
 /**
  * Stores reported results on the round's captured pairings. Pairings not yet
  * captured are skipped; the next full snapshot inserts them with the result.
- * Returns how many pairings changed.
+ * A pairing whose winner is already stored keeps it, but still takes game
+ * wins it lacks, so results recorded before the counts were reported fill
+ * in on a later poll. Returns how many pairings changed.
  */
 export async function recordPairingResults(
   ctx: MutationCtx,
@@ -327,13 +410,32 @@ export async function recordPairingResults(
       args.tournamentId,
       externalId,
     );
-    if (!pairing || pairing.winnerPlayerId !== undefined) {
+    if (!pairing) {
       continue;
     }
     const [player1, player2] = await Promise.all([
       ctx.db.get(pairing.player1),
       ctx.db.get(pairing.player2),
     ]);
+    const winsFor = (externalPlayerId: number | undefined) =>
+      result.gameWins?.find(
+        (entry) => entry.externalPlayerId === externalPlayerId,
+      )?.wins;
+    const gameWins = gameWinsPatch(
+      pairing,
+      reportedGameWins(
+        { gameWins: winsFor(player1?.externalPlayerId) },
+        { gameWins: winsFor(player2?.externalPlayerId) },
+      ),
+    );
+    if (pairing.winnerPlayerId !== undefined) {
+      if (!("player1GameWins" in gameWins)) {
+        continue;
+      }
+      await ctx.db.patch(pairing._id, gameWins);
+      changed += 1;
+      continue;
+    }
     const winnerPlayerId =
       player1?.externalPlayerId === result.winnerExternalPlayerId
         ? pairing.player1
@@ -343,7 +445,11 @@ export async function recordPairingResults(
     if (winnerPlayerId === undefined) {
       continue;
     }
-    await ctx.db.patch(pairing._id, { status: "COMPLETE", winnerPlayerId });
+    await ctx.db.patch(pairing._id, {
+      status: "COMPLETE",
+      winnerPlayerId,
+      ...gameWins,
+    });
     changed += 1;
   }
   return changed;

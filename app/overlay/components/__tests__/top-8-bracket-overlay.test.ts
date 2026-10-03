@@ -19,6 +19,13 @@ describe("orderQuarterfinals", () => {
     ]);
   });
 
+  it("keeps game wins with their seeds when a match is reordered", () => {
+    const [top] = orderQuarterfinals([
+      { seeds: [8, 1], winnerSeed: 1, gameWins: [0, 2] },
+    ]);
+    expect(top).toEqual({ seeds: [1, 8], winnerSeed: 1, gameWins: [2, 0] });
+  });
+
   it("gives a match with unexpected seeds the first free position", () => {
     expect(orderQuarterfinals([{ seeds: [1, 5] }, { seeds: [4, 8] }])).toEqual([
       { seeds: [1, 5] },
@@ -63,6 +70,32 @@ describe("buildBracketLayout", () => {
       "SF 2 winner",
     ]);
     expect(layout.championSeed).toBeUndefined();
+  });
+
+  it("shows game wins only on decided matches, matched to each seed", () => {
+    const layout = buildBracketLayout({
+      quarterfinals: [
+        { seeds: [1, 8], winnerSeed: 1, gameWins: [2, 1] },
+        { seeds: [4, 5], winnerSeed: 4 },
+        { seeds: [2, 7], gameWins: [1, 1] },
+        { seeds: [3, 6] },
+      ],
+      semifinals: [{ seeds: [4, 1], winnerSeed: 1, gameWins: [0, 2] }],
+      finals: [],
+    });
+    expect(layout.quarterfinals[0].slots.map((slot) => slot.gameWins)).toEqual(
+      [2, 1],
+    );
+    expect(layout.quarterfinals[1].slots.map((slot) => slot.gameWins)).toEqual(
+      [undefined, undefined],
+    );
+    expect(layout.quarterfinals[2].slots.map((slot) => slot.gameWins)).toEqual(
+      [undefined, undefined],
+    );
+    expect(layout.semifinals[0].slots).toEqual([
+      { seed: 1, placeholder: "QF 1 winner", eliminated: false, gameWins: 2 },
+      { seed: 4, placeholder: "QF 2 winner", eliminated: true, gameWins: 0 },
+    ]);
   });
 
   it("shows a partially captured quarterfinal round with its winner", () => {

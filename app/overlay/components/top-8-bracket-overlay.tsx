@@ -5,6 +5,9 @@ import { Mic } from "lucide-react";
 const FONT = "'Instrument Sans', 'Helvetica Neue', sans-serif";
 const BOTTOM_BAR = 48;
 const SIDE_MARGIN = 140;
+const SEED_GUTTER = 48;
+const SEED_GUTTER_GAP = 20;
+const SCORE_WIDTH = 72;
 const SLOT_HEIGHT = 78;
 const MATCH_HEIGHT = SLOT_HEIGHT * 2 + 2;
 const QUARTERFINAL_GAP = 34;
@@ -84,31 +87,50 @@ export default function Top8BracketOverlay({
         <div
           className="grid h-full"
           style={{
-            gridTemplateColumns: "640px 360px 360px",
+            gridTemplateColumns: `${SEED_GUTTER + SEED_GUTTER_GAP + 620}px 360px 360px`,
             columnGap: 70,
             alignItems: "center",
             justifyContent: "center",
           }}
         >
-          <BracketColumn title="Quarterfinals" theme={theme}>
+          <BracketColumn
+            title="Quarterfinals"
+            titleInset={SEED_GUTTER + SEED_GUTTER_GAP}
+            theme={theme}
+          >
             <div className="grid" style={{ gap: QUARTERFINAL_GAP }}>
               {layout.quarterfinals.map((match, index) => (
-                <MatchPair key={`qf-${index}`} theme={theme}>
-                  {match.slots.map((slot, slotIndex) => (
-                    <PlayerSlot
-                      key={slotIndex}
-                      player={
-                        slot.seed !== undefined
-                          ? playersBySeed.get(slot.seed)
-                          : undefined
-                      }
-                      seed={slot.seed}
-                      placeholder={slot.placeholder}
-                      eliminated={slot.eliminated}
-                      theme={theme}
-                    />
-                  ))}
-                </MatchPair>
+                <div
+                  key={`qf-${index}`}
+                  className="grid"
+                  style={{
+                    gridTemplateColumns: `${SEED_GUTTER}px minmax(0, 1fr)`,
+                    columnGap: SEED_GUTTER_GAP,
+                  }}
+                >
+                  <SeedGutter
+                    seeds={match.slots.map((slot) => slot.seed)}
+                    playersBySeed={playersBySeed}
+                    theme={theme}
+                  />
+                  <MatchPair theme={theme}>
+                    {match.slots.map((slot, slotIndex) => (
+                      <PlayerSlot
+                        key={slotIndex}
+                        player={
+                          slot.seed !== undefined
+                            ? playersBySeed.get(slot.seed)
+                            : undefined
+                        }
+                        seed={slot.seed}
+                        placeholder={slot.placeholder}
+                        eliminated={slot.eliminated}
+                        gameWins={slot.gameWins}
+                        theme={theme}
+                      />
+                    ))}
+                  </MatchPair>
+                </div>
               ))}
             </div>
           </BracketColumn>
@@ -131,6 +153,7 @@ export default function Top8BracketOverlay({
                       seed={slot.seed}
                       placeholder={slot.placeholder}
                       eliminated={slot.eliminated}
+                      gameWins={slot.gameWins}
                       theme={theme}
                     />
                   ))}
@@ -157,6 +180,7 @@ export default function Top8BracketOverlay({
                       seed={slot.seed}
                       placeholder={slot.placeholder}
                       eliminated={slot.eliminated}
+                      gameWins={slot.gameWins}
                       theme={theme}
                     />
                   ))}
@@ -206,6 +230,8 @@ type BracketSlot = {
   seed?: number;
   placeholder: string;
   eliminated: boolean;
+  // Games this seed won, once the match is decided and the result is known.
+  gameWins?: number;
 };
 
 type BracketLayoutMatch = { slots: BracketSlot[] };
@@ -228,10 +254,11 @@ export function buildBracketLayout(
 ): BracketLayout {
   const quarterfinalMatches = orderQuarterfinals(matches?.quarterfinals ?? []);
   const quarterfinals = quarterfinalMatches.map((match) => ({
-    slots: match.seeds.map((seed) => ({
+    slots: match.seeds.map((seed, index) => ({
       seed,
       placeholder: "TBD",
       eliminated: match.winnerSeed !== undefined && match.winnerSeed !== seed,
+      gameWins: decidedGameWins(match, index),
     })),
   }));
 
@@ -280,9 +307,15 @@ export function orderQuarterfinals(matches: BracketMatch[]): BracketMatch[] {
   );
   const unplaced: BracketMatch[] = [];
   for (const match of matches) {
+    const order = match.seeds
+      .map((seed, index) => ({ seed, index }))
+      .sort((left, right) => left.seed - right.seed);
     const sorted = {
       ...match,
-      seeds: [...match.seeds].sort((left, right) => left - right),
+      seeds: order.map(({ seed }) => seed),
+      ...(match.gameWins
+        ? { gameWins: order.map(({ index }) => match.gameWins![index]) }
+        : {}),
     };
     const best = sorted.seeds[0];
     const index = QUARTERFINAL_ORDER.indexOf(best);
@@ -334,9 +367,23 @@ function feedingMatch(args: {
         seed !== undefined &&
         source?.winnerSeed !== undefined &&
         source.winnerSeed !== seed,
+      gameWins:
+        source && seed !== undefined
+          ? decidedGameWins(source, source.seeds.indexOf(seed))
+          : undefined,
     };
   });
   return { slots, source };
+}
+
+/** Game wins for the seed at `index`, only once the match has a winner. */
+function decidedGameWins(
+  match: BracketMatch,
+  index: number,
+): number | undefined {
+  return match.winnerSeed !== undefined && index >= 0
+    ? match.gameWins?.[index]
+    : undefined;
 }
 
 function buildPlayersBySeed(standings: Top8BracketStanding[]) {
@@ -361,10 +408,13 @@ function buildPlayersBySeed(standings: Top8BracketStanding[]) {
 
 function BracketColumn({
   title,
+  titleInset = 0,
   children,
   theme,
 }: {
   title: string;
+  // Starts the title at the cards' left edge when a seed gutter sits before them.
+  titleInset?: number;
   children: React.ReactNode;
   theme: BraunDarkPalette;
 }) {
@@ -373,6 +423,7 @@ function BracketColumn({
       <div
         style={{
           height: 34,
+          paddingLeft: titleInset,
           borderBottom: `1px solid ${theme.rule}`,
           color: theme.muted,
           fontSize: 13,
@@ -389,6 +440,50 @@ function BracketColumn({
         {children}
       </div>
     </section>
+  );
+}
+
+/**
+ * The seeds of a quarterfinal, sitting outside the card so each player is
+ * numbered once. Rows line up with the card's slots: one pixel of card
+ * border, then a slot per row.
+ */
+function SeedGutter({
+  seeds,
+  playersBySeed,
+  theme,
+}: {
+  seeds: (number | undefined)[];
+  playersBySeed: Map<number, BracketPlayer>;
+  theme: BraunDarkPalette;
+}) {
+  return (
+    <div
+      className="grid"
+      style={{
+        paddingTop: 1,
+        gridTemplateRows: `repeat(${seeds.length}, ${SLOT_HEIGHT}px)`,
+      }}
+    >
+      {seeds.map((seed, index) => (
+        <div
+          key={index}
+          className="flex items-center justify-end"
+          style={{
+            color:
+              seed !== undefined && playersBySeed.has(seed)
+                ? theme.accent
+                : theme.muted,
+            fontSize: 30,
+            fontWeight: 600,
+            fontVariantNumeric: "tabular-nums",
+            lineHeight: 1,
+          }}
+        >
+          {seed}
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -417,64 +512,104 @@ function PlayerSlot({
   seed,
   placeholder,
   eliminated,
+  gameWins,
   theme,
 }: {
   player?: BracketPlayer;
   seed?: number;
   placeholder: string;
   eliminated: boolean;
+  gameWins?: number;
   theme: BraunDarkPalette;
 }) {
   if (seed === undefined) {
     return <WinnerSlot label={placeholder} theme={theme} />;
   }
+  // Only the text dims for an eliminated player. The slot's borders keep
+  // the rule color so every card frame reads the same.
+  const dimmed = eliminated ? 0.45 : 1;
   return (
     <div
-      className="grid min-w-0"
+      className="grid min-w-0 border-b last:border-b-0"
       style={{
-        gridTemplateColumns: "88px minmax(0, 1fr)",
+        gridTemplateColumns:
+          gameWins !== undefined
+            ? `minmax(0, 1fr) ${SCORE_WIDTH}px`
+            : "minmax(0, 1fr)",
         minHeight: SLOT_HEIGHT,
-        borderBottom: `1px solid ${theme.rule}`,
-        opacity: eliminated ? 0.45 : 1,
+        borderColor: theme.rule,
       }}
     >
+      <PlayerText
+        name={player?.name ?? placeholder}
+        deckName={player?.deckName ?? "-"}
+        nameColor={player ? theme.text : theme.muted}
+        opacity={dimmed}
+        theme={theme}
+      />
+      {gameWins !== undefined && (
+        <div
+          className="flex items-center justify-center"
+          style={{ borderLeft: `1px solid ${theme.rule}` }}
+        >
+          <span
+            style={{
+              color: theme.text,
+              opacity: dimmed,
+              fontSize: 30,
+              fontWeight: 600,
+              fontVariantNumeric: "tabular-nums",
+            }}
+          >
+            {gameWins}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PlayerText({
+  name,
+  deckName,
+  nameColor,
+  opacity = 1,
+  theme,
+}: {
+  name: string;
+  deckName: string;
+  nameColor: string;
+  opacity?: number;
+  theme: BraunDarkPalette;
+}) {
+  return (
+    <div
+      className="flex min-w-0 flex-col justify-center px-5"
+      style={{ opacity }}
+    >
       <div
-        className="flex items-center justify-center"
+        className="truncate"
         style={{
-          color: player ? theme.accent : theme.muted,
-          fontSize: 30,
+          color: nameColor,
+          fontSize: 28,
           fontWeight: 600,
-          fontVariantNumeric: "tabular-nums",
-          borderRight: `1px solid ${theme.rule}`,
+          letterSpacing: 0,
+          lineHeight: 1.05,
         }}
       >
-        {seed}
+        {name}
       </div>
-      <div className="flex min-w-0 flex-col justify-center px-5">
-        <div
-          className="truncate"
-          style={{
-            color: player ? theme.text : theme.muted,
-            fontSize: 28,
-            fontWeight: 600,
-            letterSpacing: 0,
-            lineHeight: 1.05,
-          }}
-        >
-          {player?.name ?? placeholder}
-        </div>
-        <div
-          className="mt-2 truncate"
-          style={{
-            color: theme.muted,
-            fontSize: 19,
-            fontWeight: 400,
-            letterSpacing: "0.01em",
-            lineHeight: 1.1,
-          }}
-        >
-          {player?.deckName ?? "-"}
-        </div>
+      <div
+        className="mt-2 truncate"
+        style={{
+          color: theme.muted,
+          fontSize: 19,
+          fontWeight: 400,
+          letterSpacing: "0.01em",
+          lineHeight: 1.1,
+        }}
+      >
+        {deckName}
       </div>
     </div>
   );
@@ -511,51 +646,13 @@ function ChampionCard({
       >
         Champion
       </div>
-      <div
-        className="grid min-w-0"
-        style={{
-          gridTemplateColumns: "88px minmax(0, 1fr)",
-          minHeight: SLOT_HEIGHT,
-        }}
-      >
-        <div
-          className="flex items-center justify-center"
-          style={{
-            color: theme.accent,
-            fontSize: 30,
-            fontWeight: 600,
-            fontVariantNumeric: "tabular-nums",
-            borderRight: `1px solid ${theme.rule}`,
-          }}
-        >
-          {player.seed}
-        </div>
-        <div className="flex min-w-0 flex-col justify-center px-5">
-          <div
-            className="truncate"
-            style={{
-              color: theme.text,
-              fontSize: 28,
-              fontWeight: 600,
-              letterSpacing: 0,
-              lineHeight: 1.05,
-            }}
-          >
-            {player.name}
-          </div>
-          <div
-            className="mt-2 truncate"
-            style={{
-              color: theme.muted,
-              fontSize: 19,
-              fontWeight: 400,
-              letterSpacing: "0.01em",
-              lineHeight: 1.1,
-            }}
-          >
-            {player.deckName}
-          </div>
-        </div>
+      <div className="grid min-w-0" style={{ minHeight: SLOT_HEIGHT }}>
+        <PlayerText
+          name={player.name}
+          deckName={player.deckName}
+          nameColor={theme.text}
+          theme={theme}
+        />
       </div>
     </div>
   );
@@ -570,10 +667,10 @@ function WinnerSlot({
 }) {
   return (
     <div
-      className="flex items-center px-5"
+      className="flex items-center border-b px-5 last:border-b-0"
       style={{
         minHeight: SLOT_HEIGHT,
-        borderBottom: `1px solid ${theme.rule}`,
+        borderColor: theme.rule,
         color: theme.muted,
         fontSize: 18,
         fontWeight: 500,

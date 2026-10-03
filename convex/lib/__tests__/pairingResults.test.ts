@@ -23,6 +23,27 @@ describe("reportedMatchResults", () => {
       }),
     ).toEqual([{ externalMatchId: "final", winnerExternalPlayerId: 101 }]);
   });
+
+  it("carries both players' game wins when Melee reported them", () => {
+    const [result] = reportedMatchResults({
+      externalTournamentId: 999,
+      roundId: 503,
+      roundNumber: 10,
+      roundDisplayName: "Finals",
+      isEliminationRound: true,
+      matches: [
+        makeMatch("final", {
+          hasResult: true,
+          winnerExternalPlayerId: 108,
+          gameWins: [1, 2],
+        }),
+      ],
+    });
+    expect(result.gameWins).toEqual([
+      { externalPlayerId: 101, wins: 1 },
+      { externalPlayerId: 108, wins: 2 },
+    ]);
+  });
 });
 
 describe("snapshotCurrentRoundPairings", () => {
@@ -46,6 +67,108 @@ describe("snapshotCurrentRoundPairings", () => {
     expect(inserted).toHaveLength(1);
     expect(inserted[0].status).toBe("COMPLETE");
     expect(inserted[0].winnerPlayerId).toBe("player2");
+    expect(inserted[0].player1GameWins).toBeUndefined();
+  });
+
+  it("stores game wins with the result and fills them in later", async () => {
+    const inserted: Record<string, unknown>[] = [];
+    await snapshotCurrentRoundPairings(makeCtx({ pairings: [], inserted }), {
+      tournamentId: "tournament1" as never,
+      externalTournamentId: 999,
+      snapshot: {
+        externalTournamentId: 999,
+        roundId: 503,
+        roundNumber: 10,
+        roundDisplayName: "Finals",
+        isEliminationRound: true,
+        matches: [
+          makeMatch("final", {
+            hasResult: true,
+            winnerExternalPlayerId: 108,
+            gameWins: [1, 2],
+          }),
+        ],
+      },
+    });
+    expect(inserted[0].player1GameWins).toBe(1);
+    expect(inserted[0].player2GameWins).toBe(2);
+
+    // A pairing completed before game wins were captured picks them up
+    // without touching its winner.
+    const patches: { id: string; value: Record<string, unknown> }[] = [];
+    const ctx = makeCtx({
+      pairings: [
+        makePairing("pairing1", "final", {
+          status: "COMPLETE",
+          winnerPlayerId: "player2",
+        }),
+      ],
+      inserted: [],
+      patches,
+    });
+    await snapshotCurrentRoundPairings(ctx, {
+      tournamentId: "tournament1" as never,
+      externalTournamentId: 999,
+      snapshot: {
+        externalTournamentId: 999,
+        roundId: 503,
+        roundNumber: 10,
+        roundDisplayName: "Finals",
+        isEliminationRound: true,
+        matches: [
+          makeMatch("final", {
+            hasResult: true,
+            winnerExternalPlayerId: 108,
+            gameWins: [1, 2],
+          }),
+        ],
+      },
+    });
+    expect(patches).toEqual([
+      {
+        id: "pairing1",
+        value: { status: "COMPLETE", player1GameWins: 1, player2GameWins: 2 },
+      },
+    ]);
+  });
+
+  it("keys a later snapshot's result by player id, not competitor order", async () => {
+    const patches: { id: string; value: Record<string, unknown> }[] = [];
+    const ctx = makeCtx({
+      pairings: [makePairing("pairing1", "final", { status: "IN_PROGRESS" })],
+      inserted: [],
+      patches,
+    });
+    await snapshotCurrentRoundPairings(ctx, {
+      tournamentId: "tournament1" as never,
+      externalTournamentId: 999,
+      snapshot: {
+        externalTournamentId: 999,
+        roundId: 503,
+        roundNumber: 10,
+        roundDisplayName: "Finals",
+        isEliminationRound: true,
+        matches: [
+          makeMatch("final", {
+            hasResult: true,
+            winnerExternalPlayerId: 108,
+            gameWins: [1, 2],
+            reversed: true,
+          }),
+        ],
+      },
+    });
+    expect(patches).toEqual([
+      {
+        id: "pairing1",
+        value: {
+          status: "COMPLETE",
+          winnerPlayerId: "player2",
+          player1GameWins: 1,
+          player2GameWins: 2,
+        },
+      },
+    ]);
   });
 
   it("records a result reported after the pairing was captured", async () => {
@@ -125,6 +248,100 @@ describe("recordPairingResults", () => {
       { id: "pairing1", value: { status: "COMPLETE", winnerPlayerId: "player2" } },
     ]);
   });
+
+  it("stores game wins keyed to the pairing's players", async () => {
+    const patches: { id: string; value: Record<string, unknown> }[] = [];
+    const ctx = makeCtx({
+      pairings: [makePairing("pairing1", "final", { status: "IN_PROGRESS" })],
+      inserted: [],
+      patches,
+    });
+    await recordPairingResults(ctx, {
+      tournamentId: "tournament1" as never,
+      externalTournamentId: 999,
+      externalRoundId: 503,
+      results: [
+        {
+          externalMatchId: "final",
+          winnerExternalPlayerId: 108,
+          gameWins: [
+            { externalPlayerId: 108, wins: 2 },
+            { externalPlayerId: 101, wins: 0 },
+          ],
+        },
+      ],
+    });
+    expect(patches).toEqual([
+      {
+        id: "pairing1",
+        value: {
+          status: "COMPLETE",
+          winnerPlayerId: "player2",
+          player1GameWins: 0,
+          player2GameWins: 2,
+        },
+      },
+    ]);
+  });
+
+  it("adds game wins to a pairing whose winner is already stored", async () => {
+    const patches: { id: string; value: Record<string, unknown> }[] = [];
+    const ctx = makeCtx({
+      pairings: [
+        makePairing("pairing1", "done", {
+          status: "COMPLETE",
+          winnerPlayerId: "player2",
+        }),
+      ],
+      inserted: [],
+      patches,
+    });
+    const result = {
+      externalMatchId: "done",
+      winnerExternalPlayerId: 101,
+      gameWins: [
+        { externalPlayerId: 101, wins: 0 },
+        { externalPlayerId: 108, wins: 2 },
+      ],
+    };
+    const changed = await recordPairingResults(ctx, {
+      tournamentId: "tournament1" as never,
+      externalTournamentId: 999,
+      externalRoundId: 503,
+      results: [result],
+    });
+    // The winner stays as stored even though this result names the other player.
+    expect(changed).toBe(1);
+    expect(patches).toEqual([
+      { id: "pairing1", value: { player1GameWins: 0, player2GameWins: 2 } },
+    ]);
+
+    // Once stored, the same counts write nothing.
+    const settled = makeCtx({
+      pairings: [
+        {
+          ...makePairing("pairing1", "done", {
+            status: "COMPLETE",
+            winnerPlayerId: "player2",
+          }),
+          player1GameWins: 0,
+          player2GameWins: 2,
+        },
+      ],
+      inserted: [],
+      patches,
+    });
+    patches.length = 0;
+    expect(
+      await recordPairingResults(settled, {
+        tournamentId: "tournament1" as never,
+        externalTournamentId: 999,
+        externalRoundId: 503,
+        results: [result],
+      }),
+    ).toBe(0);
+    expect(patches).toEqual([]);
+  });
 });
 
 const players = [
@@ -134,7 +351,26 @@ const players = [
 
 function makeMatch(
   externalMatchId: string,
-  args: { hasResult: boolean; winnerExternalPlayerId?: number },
+  args: {
+    hasResult: boolean;
+    winnerExternalPlayerId?: number;
+    gameWins?: [number, number];
+    reversed?: boolean;
+  },
+) {
+  const match = makeOrderedMatch(externalMatchId, args);
+  return args.reversed
+    ? { ...match, competitors: [...match.competitors].reverse() }
+    : match;
+}
+
+function makeOrderedMatch(
+  externalMatchId: string,
+  args: {
+    hasResult: boolean;
+    winnerExternalPlayerId?: number;
+    gameWins?: [number, number];
+  },
 ) {
   return {
     externalMatchId,
@@ -148,12 +384,14 @@ function makeMatch(
         name: "Ada",
         tournamentRecord: "#1",
         seed: 1,
+        gameWins: args.gameWins?.[0],
       },
       {
         externalPlayerId: 108,
         name: "Ben",
         tournamentRecord: "#8",
         seed: 8,
+        gameWins: args.gameWins?.[1],
       },
     ],
   };

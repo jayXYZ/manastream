@@ -78,16 +78,16 @@ const MOCK_TOP_8_STANDINGS: Top8BracketStanding[] = [
 // A finished cut for the mock preview: 1-4 and 2-3 semifinals, 2 wins.
 const MOCK_TOP_8_MATCHES: Top8BracketMatches = {
   quarterfinals: [
-    { seeds: [1, 8], winnerSeed: 1 },
-    { seeds: [4, 5], winnerSeed: 4 },
-    { seeds: [2, 7], winnerSeed: 2 },
-    { seeds: [3, 6], winnerSeed: 3 },
+    { seeds: [1, 8], winnerSeed: 1, gameWins: [2, 0] },
+    { seeds: [4, 5], winnerSeed: 4, gameWins: [2, 1] },
+    { seeds: [2, 7], winnerSeed: 2, gameWins: [2, 1] },
+    { seeds: [3, 6], winnerSeed: 3, gameWins: [2, 0] },
   ],
   semifinals: [
-    { seeds: [1, 4], winnerSeed: 1 },
-    { seeds: [2, 3], winnerSeed: 2 },
+    { seeds: [1, 4], winnerSeed: 1, gameWins: [2, 1] },
+    { seeds: [2, 3], winnerSeed: 2, gameWins: [2, 0] },
   ],
-  finals: [{ seeds: [1, 2], winnerSeed: 2 }],
+  finals: [{ seeds: [1, 2], winnerSeed: 2, gameWins: [1, 2] }],
   championSeed: 2,
 };
 

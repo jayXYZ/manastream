@@ -788,6 +788,11 @@ export const recordEliminationResults = internalMutation({
       v.object({
         externalMatchId: v.string(),
         winnerExternalPlayerId: v.number(),
+        gameWins: v.optional(
+          v.array(
+            v.object({ externalPlayerId: v.number(), wins: v.number() }),
+          ),
+        ),
       }),
     ),
   },
