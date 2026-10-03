@@ -258,6 +258,41 @@ export function seedMapFromStandings(
 }
 
 /**
+ * The name fields Melee returns on every player shape. `Name` (match and
+ * standings players) and `PlayerName` (player-list entries) are the
+ * player's real name; `DisplayName` follows the player's profile preference
+ * and may be their username instead.
+ */
+export type MeleePlayerNameFields = {
+  Name?: string | null;
+  PlayerName?: string | null;
+  FirstName?: string | null;
+  LastName?: string | null;
+  DisplayName?: string | null;
+  Username?: string | null;
+};
+
+/**
+ * A player's real name, regardless of whether their Melee profile displays
+ * their real name or their username. Falls back to the display name and then
+ * the username only when Melee sends no real-name fields at all.
+ */
+export function meleeRealName(player: MeleePlayerNameFields): string {
+  const composed = (player.Name ?? player.PlayerName ?? "").trim();
+  if (composed) {
+    return composed;
+  }
+  const fromParts = [player.FirstName, player.LastName]
+    .map((part) => (part ?? "").trim())
+    .filter(Boolean)
+    .join(" ");
+  if (fromParts) {
+    return fromParts;
+  }
+  return (player.DisplayName ?? "").trim() || (player.Username ?? "").trim();
+}
+
+/**
  * Convert Melee standings rows to the internal StandingRow shape stored in
  * roundStandings and rendered by the standings overlay.
  */
@@ -271,7 +306,7 @@ export function toStandingRows(standings: MeleeStanding[]): StandingRow[] {
       {
         rank: standing.Rank,
         externalPlayerId: player.ID,
-        name: player.DisplayName || player.Name || player.Username,
+        name: meleeRealName(player),
         record: parsePlayerRecord(standing),
         matchPoints: standing.Points,
         wins: standing.MatchWins,
@@ -374,7 +409,7 @@ export function buildRoundSnapshot(args: {
       return [
         {
           externalPlayerId: player.ID,
-          name: player.DisplayName || player.Name || player.Username,
+          name: meleeRealName(player),
           externalDecklistId: decklist?.DecklistId,
           decklistName: decklist?.DecklistName,
           tournamentRecord: isElimination && seed ? `#${seed}` : record,

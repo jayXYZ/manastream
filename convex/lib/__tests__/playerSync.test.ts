@@ -12,6 +12,7 @@ import {
   formatPlayerSyncSummary,
   isOlderDecklistVersion,
   planPlayerSync,
+  playerEntryName,
   playerRefreshDecision,
   selectFetchedDecklistUpdates,
   shouldApplyDecklistUpdate,
@@ -46,13 +47,17 @@ const T2 = "2026-06-01T09:00:00Z";
 function makeEntry(args: {
   id: number;
   name: string;
+  displayName?: string;
   decklist?: MeleeDecklistResponse;
   dropped?: boolean;
 }): MeleePlayerListEntry {
+  const [FirstName, ...rest] = args.name.split(" ");
   return {
     ID: args.id,
-    DisplayName: args.name,
+    DisplayName: args.displayName ?? args.name,
     PlayerName: args.name,
+    FirstName,
+    LastName: rest.join(" "),
     Username: args.name.toLowerCase(),
     Decklists: args.decklist ? [args.decklist] : [],
     RoundDroppedId: args.dropped ? 3 : null,
@@ -80,7 +85,55 @@ const READY_RECORDS = [
   record(2, "Pyroblast", 99),
 ];
 
+describe("playerEntryName", () => {
+  it("uses the real name even when the profile displays the username", () => {
+    const entry = makeEntry({
+      id: 1,
+      name: "Ada Lovelace",
+      displayName: "enchantress",
+    });
+    expect(playerEntryName(entry)).toBe("Ada Lovelace");
+  });
+
+  it("composes first and last name when PlayerName is blank", () => {
+    const entry = {
+      ...makeEntry({ id: 1, name: "Ada Lovelace", displayName: "enchantress" }),
+      PlayerName: "",
+    } as MeleePlayerListEntry;
+    expect(playerEntryName(entry)).toBe("Ada Lovelace");
+  });
+
+  it("falls back to the display name and then the username", () => {
+    const base = makeEntry({ id: 1, name: "", displayName: "enchantress" });
+    expect(playerEntryName(base)).toBe("enchantress");
+    expect(
+      playerEntryName({ ...base, DisplayName: "" } as MeleePlayerListEntry),
+    ).toBe("");
+    expect(
+      playerEntryName({
+        ...base,
+        DisplayName: "",
+        Username: "ada123",
+      } as MeleePlayerListEntry),
+    ).toBe("ada123");
+  });
+});
+
 describe("planPlayerSync", () => {
+  it("renames a cached player stored under their display username on a full sync", () => {
+    const plan = planPlayerSync({
+      externalTournamentId: TOURNAMENT_ID,
+      entries: [
+        makeEntry({ id: 1, name: "Ada Lovelace", displayName: "enchantress" }),
+      ],
+      cached: [cachedPlayer({ externalPlayerId: 1, name: "enchantress" })],
+      mode: "full",
+    });
+    expect(plan.nameUpdates).toEqual([
+      { playerId: "player_1", name: "Ada Lovelace" },
+    ]);
+  });
+
   it("creates uncached players, using the embedded decklist when present", () => {
     const plan = planPlayerSync({
       externalTournamentId: TOURNAMENT_ID,
